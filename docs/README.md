@@ -89,10 +89,35 @@ This directory contains all Product Requirements Documents for Gobbler MCP.
 
 ---
 
-### PRD-003: Advanced Crawl4AI Integration
-**Status**: Pending
+### PRD-003: Advanced Crawl4AI Integration ✅
+**Status**: Complete
+**Completed**: 2025-10-03
+**Effort**: 3-4 days
 **Dependencies**: PRD-001 (Testing Infrastructure)
-**Effort**: 5-6 days
+
+**Summary**: Enhanced web scraping with CSS/XPath selectors, session management, and recursive site crawling.
+
+**Deliverables Completed**:
+- ✅ Selector-based extraction (`src/gobbler_mcp/converters/webpage_selector.py` - 153 lines, 90% coverage)
+- ✅ Session management (`src/gobbler_mcp/crawlers/session_manager.py` - 72 lines)
+- ✅ Site crawler with BFS (`src/gobbler_mcp/crawlers/site_crawler.py` - 90 lines)
+- ✅ Link extraction & categorization (internal/external)
+- ✅ Robots.txt respect & polite crawling
+- ✅ 3 new MCP tools (fetch_webpage_with_selector, create_crawl_session, crawl_site)
+- ✅ BeautifulSoup4 dependency added
+- ✅ 11 unit tests passing
+- ✅ README documentation updated
+
+**Features Implemented**:
+- CSS selector extraction (e.g., `css_selector="article.main"`)
+- XPath selector extraction (e.g., `xpath="//article[@class='main']"`)
+- Session persistence to `~/.config/gobbler/sessions/`
+- Cookie and localStorage support
+- Recursive site crawling with depth control (max: 5)
+- URL pattern filtering (include/exclude regex)
+- Link graph generation
+- Concurrent crawling with semaphore control (max: 10)
+- Polite crawling delays (default: 1.0s)
 
 **Blocks**: None
 
