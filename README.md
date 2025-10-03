@@ -385,22 +385,60 @@ Some videos don't have transcripts. Try downloading and transcribing instead:
 
 ## Development
 
+### Setup
+
 ```bash
 # Install dev dependencies
 uv sync --dev
+```
 
-# Run tests
+### Testing
+
+Gobbler has comprehensive test coverage with unit tests, integration tests, and benchmarks.
+
+```bash
+# Run all tests
 uv run pytest
 
+# Run only unit tests (fast, no external services)
+uv run pytest tests/unit/ -v
+
+# Run with coverage report
+uv run pytest --cov=src/gobbler_mcp --cov-report=html
+
+# Run integration tests (requires Docker services)
+make start-docker  # Start Redis, Crawl4AI
+uv run pytest tests/integration/ -v -m integration
+
+# Run benchmarks
+uv run pytest tests/benchmarks/ -v -m benchmark
+```
+
+**Test Coverage:**
+- Unit tests: 72+ tests covering converters and utilities
+- Integration tests: Redis queue, Crawl4AI, MCP tools
+- Current coverage: 38%+ (90%+ on tested modules)
+- Target: 80%+ on core modules
+
+### Code Quality
+
+```bash
 # Type checking
-uv run mypy src/
+uv run mypy src/ --ignore-missing-imports
 
 # Linting
-uv run ruff check src/
+uv run ruff check src/ tests/
 
 # Format code
-uv run ruff format src/
+uv run ruff format src/ tests/
 
+# Run all checks
+uv run pytest && uv run ruff check src/ tests/
+```
+
+### MCP Inspector
+
+```bash
 # Test with MCP Inspector
 make inspector
 ```
