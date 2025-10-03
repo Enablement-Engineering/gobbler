@@ -4,11 +4,12 @@ import pytest
 from unittest.mock import patch
 import fakeredis
 
-from gobbler_mcp.utils.queue import (
-    enqueue_job,
-    get_job_status,
-    list_jobs_in_queue,
-)
+# Queue module functions will be imported once implemented
+# from gobbler_mcp.utils.queue import (
+#     enqueue_job,
+#     get_job_status,
+#     list_jobs_in_queue,
+# )
 
 
 @pytest.fixture
