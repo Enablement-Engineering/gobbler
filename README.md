@@ -9,11 +9,16 @@ Gobbler is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) ser
 ## Features
 
 - **YouTube Transcripts** - Extract official transcripts with video metadata
+- **YouTube Playlist Batch** - Process entire playlists with progress tracking
 - **YouTube Downloads** - Download videos with quality selection
 - **Web Scraping** - Convert any webpage to markdown (JavaScript-rendered content supported)
+- **Batch Web Processing** - Convert multiple URLs to markdown concurrently
 - **Document Conversion** - PDF, DOCX, PPTX, XLSX to markdown with OCR support
+- **Batch Document Processing** - Convert directories of documents
 - **Audio/Video Transcription** - Fast transcription using Whisper with Metal/CoreML acceleration
+- **Batch Audio Processing** - Transcribe entire directories of audio/video files
 - **Background Queue System** - Handle long-running tasks with Redis + RQ
+- **Progress Tracking** - Real-time progress for batch operations
 - **Clean Output** - YAML frontmatter + structured markdown
 - **MCP Compatible** - Works with Claude Code, Claude Desktop, and any MCP client
 
@@ -157,6 +162,76 @@ Convert webpage to markdown using Crawl4AI.
 
 **Requires:** Crawl4AI Docker container (`make start-docker`)
 
+### `fetch_webpage_with_selector`
+
+Extract specific content from webpage using CSS or XPath selectors.
+
+**Parameters:**
+- `url` (required) - Full HTTP/HTTPS URL
+- `css_selector` (optional) - CSS selector (e.g., "article.main", "div#content")
+- `xpath` (optional) - XPath expression (alternative to css_selector)
+- `include_images` (optional) - Include image references (default: true)
+- `extract_links` (optional) - Extract and categorize links (default: false)
+- `session_id` (optional) - Session ID for authenticated crawling
+- `bypass_cache` (optional) - Bypass cache for fresh content (default: false)
+- `timeout` (optional) - Request timeout in seconds (default: 30, max: 120)
+- `output_file` (optional) - Path to save markdown file
+
+**Examples:**
+```
+"Extract the article from https://example.com/post using CSS selector 'article.main'"
+"Get content from https://docs.example.com using selector 'div.content' and extract all links"
+```
+
+**Requires:** Crawl4AI Docker container (`make start-docker`)
+
+### `create_crawl_session`
+
+Create reusable browser session for authenticated crawling.
+
+**Parameters:**
+- `session_id` (required) - Unique identifier for the session
+- `cookies` (optional) - JSON string of cookie objects
+- `local_storage` (optional) - JSON string of localStorage key-value pairs
+- `user_agent` (optional) - Custom user agent string
+
+**Examples:**
+```
+cookies_json = '[{"name": "session_token", "value": "abc123", "domain": "example.com"}]'
+"Create session 'my-site' with cookies: " + cookies_json
+
+storage_json = '{"user_id": "12345", "theme": "dark"}'
+"Create session 'my-app' with localStorage: " + storage_json
+```
+
+**Storage:** Sessions saved to `~/.config/gobbler/sessions/`
+
+### `crawl_site`
+
+Recursively crawl website and extract content with link graph generation.
+
+**Parameters:**
+- `start_url` (required) - URL to start crawling from
+- `max_depth` (optional) - Maximum crawl depth (default: 2, max: 5)
+- `max_pages` (optional) - Maximum pages to crawl (default: 50, max: 500)
+- `url_include_pattern` (optional) - Regex pattern - only crawl matching URLs
+- `url_exclude_pattern` (optional) - Regex pattern - skip matching URLs
+- `css_selector` (optional) - Apply selector to all crawled pages
+- `respect_robots_txt` (optional) - Respect robots.txt (default: true)
+- `crawl_delay` (optional) - Delay between requests in seconds (default: 1.0)
+- `concurrency` (optional) - Max concurrent requests (default: 3, max: 10)
+- `session_id` (optional) - Session ID for authenticated crawling
+- `output_dir` (optional) - Directory to save all pages as markdown files
+
+**Examples:**
+```
+"Crawl https://docs.example.com with max depth 2 and max 20 pages"
+"Crawl https://blog.example.com including only URLs matching '/posts/', excluding '/(tag|category)/', max 100 pages"
+"Crawl https://app.example.com with selector 'article.content', session 'my-session', depth 3"
+```
+
+**Requires:** Crawl4AI Docker container (`make start-docker`)
+
 ### `convert_document`
 
 Convert documents (PDF, DOCX, PPTX, XLSX) to markdown.
@@ -215,6 +290,122 @@ List jobs in a queue.
 ```
 "List jobs in the transcription queue"
 ```
+
+## Batch Processing Tools
+
+Process multiple items efficiently with concurrency control and progress tracking.
+
+### `batch_transcribe_youtube_playlist`
+
+Extract transcripts from all videos in a YouTube playlist.
+
+**Parameters:**
+- `playlist_url` (required) - YouTube playlist URL
+- `output_dir` (required) - Directory to save markdown transcripts
+- `include_timestamps` (optional) - Include timestamp markers (default: false)
+- `language` (optional) - Language code or 'auto' (default: 'auto')
+- `max_videos` (optional) - Maximum videos to process (default: 100, max: 500)
+- `concurrency` (optional) - Concurrent videos (default: 3, max: 10)
+- `skip_existing` (optional) - Skip existing files (default: true)
+- `auto_queue` (optional) - Queue if >10 videos (default: false)
+
+**Example:**
+```
+"Transcribe all videos from this playlist to /Users/me/transcripts/ with auto_queue enabled"
+```
+
+**Returns:** Batch summary with success/failure counts and file list
+
+### `batch_fetch_webpages`
+
+Convert multiple web pages to markdown.
+
+**Parameters:**
+- `urls` (required) - List of URLs (max: 100)
+- `output_dir` (required) - Directory to save markdown files
+- `include_images` (optional) - Include image references (default: true)
+- `timeout` (optional) - Request timeout per page (default: 30, max: 120)
+- `concurrency` (optional) - Concurrent requests (default: 5, max: 10)
+- `skip_existing` (optional) - Skip existing files (default: true)
+- `auto_queue` (optional) - Queue if >10 URLs (default: false)
+
+**Example:**
+```python
+urls = [
+    "https://example.com/page1",
+    "https://example.com/page2",
+    "https://example.com/page3"
+]
+"Convert these URLs to markdown in /Users/me/pages/ with auto_queue enabled"
+```
+
+**Returns:** Batch summary with processing statistics
+
+### `batch_transcribe_directory`
+
+Transcribe all audio/video files in a directory.
+
+**Parameters:**
+- `input_dir` (required) - Directory containing audio/video files
+- `output_dir` (optional) - Directory for transcripts (default: same as input)
+- `model` (optional) - Whisper model size (default: 'small')
+- `language` (optional) - Language code or 'auto' (default: 'auto')
+- `pattern` (optional) - Glob pattern (default: '*' for all supported formats)
+- `recursive` (optional) - Search subdirectories (default: false)
+- `concurrency` (optional) - Concurrent files (default: 2, max: 4)
+- `skip_existing` (optional) - Skip existing transcripts (default: true)
+- `auto_queue` (optional) - Queue if >10 files (default: false)
+
+**Supported formats:** mp3, mp4, wav, m4a, mov, avi, mkv, flac, ogg, webm
+
+**Example:**
+```
+"Transcribe all audio files in /Users/me/podcasts/ recursively with auto_queue enabled"
+```
+
+**Returns:** Batch summary with processing statistics
+
+### `batch_convert_documents`
+
+Convert all documents in a directory to markdown.
+
+**Parameters:**
+- `input_dir` (required) - Directory containing documents
+- `output_dir` (optional) - Directory for markdown (default: same as input)
+- `enable_ocr` (optional) - Enable OCR (default: true)
+- `pattern` (optional) - Glob pattern (default: '*' for all supported formats)
+- `recursive` (optional) - Search subdirectories (default: false)
+- `concurrency` (optional) - Concurrent conversions (default: 3, max: 5)
+- `skip_existing` (optional) - Skip existing markdown (default: true)
+- `auto_queue` (optional) - Queue if >10 documents (default: false)
+
+**Supported formats:** pdf, docx, pptx, xlsx
+
+**Example:**
+```
+"Convert all PDFs in /Users/me/documents/ to markdown with OCR and auto_queue enabled"
+```
+
+**Returns:** Batch summary with processing statistics
+
+### `get_batch_progress`
+
+Get real-time progress for a running batch operation.
+
+**Parameters:**
+- `batch_id` (required) - Batch ID returned when batch was started
+
+**Example:**
+```
+"Check progress of batch abc-123-def-456"
+```
+
+**Returns:** Progress report with:
+- Current status (running/completed/failed)
+- Items processed / total items
+- Success and failure counts
+- Current item being processed
+- Recent errors (if any)
 
 ## Background Queue System
 
