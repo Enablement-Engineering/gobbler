@@ -1,0 +1,127 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run unit tests
+        run: uv run pytest tests/unit/ -v --cov=src/gobbler_mcp --cov-report=xml --cov-report=term-missing
+
+      - name: Run integration tests (without Docker services)
+        run: |
+          # Integration tests that use fakeredis or don't require external services
+          uv run pytest tests/integration/test_redis_queue.py -v -m "not requires_docker" || true
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.11'
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Check code formatting
+        run: uv run ruff format --check src/ tests/
+
+      - name: Run linter
+        run: uv run ruff check src/ tests/
+
+      - name: Type checking with mypy
+        run: uv run mypy src/gobbler_mcp --ignore-missing-imports
+        continue-on-error: true
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      crawl4ai:
+        image: unclecode/crawl4ai:latest
+        ports:
+          - 11235:11235
+        options: >-
+          --health-cmd "curl -f http://localhost:11235/health || exit 1"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for Redis..."
+          timeout 30 bash -c 'until nc -z localhost 6380; do sleep 1; done'
+          echo "Redis is ready"
+
+          echo "Waiting for Crawl4AI..."
+          timeout 60 bash -c 'until curl -f http://localhost:11235/health; do sleep 2; done' || echo "Crawl4AI may not be ready"
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration/ -v -m integration
+        continue-on-error: true
