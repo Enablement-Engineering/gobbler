@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "gobbler": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/YOUR_USERNAME/Projects/gobbler",
+        "run",
+        "gobbler-mcp"
+      ]
+    }
+  }
+}

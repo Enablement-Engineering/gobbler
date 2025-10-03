@@ -1,0 +1,75 @@
+services:
+  # Crawl4AI - Advanced web scraping with JavaScript rendering
+  crawl4ai:
+    image: unclecode/crawl4ai:basic
+    container_name: gobbler-crawl4ai
+    ports:
+      - "11235:11235"
+    environment:
+      - CRAWL4AI_TIMEOUT=30
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-gobbler-local-token}
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '1'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis - Queue backend for long-running tasks
+  redis:
+    image: redis:7-alpine
+    container_name: gobbler-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Docling - Document conversion (PDF, DOCX, PPTX, XLSX)
+  docling:
+    image: quay.io/docling-project/docling-serve:latest
+    container_name: gobbler-docling
+    ports:
+      - "5001:5001"
+    volumes:
+      # Model cache - user can customize this path in config
+      - ${GOBBLER_MODELS_PATH:-~/.gobbler/models}/docling:/app/models
+    environment:
+      - DOCLING_OCR=true
+      - DOCLING_VLM=false
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+          cpus: '2'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  redis-data:
+
+networks:
+  default:
+    name: gobbler-network

@@ -1,0 +1,54 @@
+# Gobbler MCP Server Configuration
+# Copy this file to ~/.config/gobbler/config.yml and customize as needed
+
+# Whisper transcription settings
+whisper:
+  # Model size: tiny, base, small, medium, large
+  # Larger models are more accurate but slower and use more memory
+  model: small
+
+  # Language code (ISO 639-1) or 'auto' for automatic detection
+  # Examples: en, es, fr, de, ja, ko, zh
+  language: auto
+
+# Docling document conversion settings
+docling:
+  # Enable OCR for scanned documents (slower but handles image-based PDFs)
+  ocr: true
+
+  # Enable Visual Language Model (expensive, more accurate for complex layouts)
+  vlm: false
+
+# Crawl4AI web scraping settings
+crawl4ai:
+  # Default request timeout in seconds
+  timeout: 30
+
+  # Maximum timeout allowed (hard limit)
+  max_timeout: 120
+
+# Output formatting settings
+output:
+  # Format: frontmatter (YAML + markdown) or plain (markdown only)
+  default_format: frontmatter
+
+  # Timestamp format: iso8601, unix, or readable
+  timestamp_format: iso8601
+
+# Service endpoints (usually no need to change)
+services:
+  crawl4ai:
+    host: localhost
+    port: 11235
+
+  docling:
+    host: localhost
+    port: 5001
+
+  whisper:
+    host: localhost
+    port: 9000
+
+# Model cache directory (used by docker-compose.yml)
+# Set GOBBLER_MODELS_PATH environment variable to customize
+models_path: ~/.gobbler/models

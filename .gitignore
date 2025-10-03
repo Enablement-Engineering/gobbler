@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+
+# uv
+.uv/
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Worker
+.worker.pid
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model cache (user's local cache)
+models/
+
+# Test fixtures (large files, personal data)
+tests/fixtures/*.mp4
+tests/fixtures/*.wav
+tests/fixtures/*.mp3
+tests/fixtures/*.pdf
+tests/fixtures/*.webloc
+tests/fixtures/*transcript*.md
+tests/fixtures/*queued*.md
+
+# Claude Code directory
+.claude/
