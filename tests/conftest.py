@@ -88,18 +88,16 @@ def mock_ffmpeg(mocker):
 
 @pytest.fixture
 def mock_crawl4ai_response():
-    """Mock Crawl4AI HTTP response."""
+    """Mock Crawl4AI task result response."""
     return {
-        "success": True,
-        "data": {
-            "markdown": "# Test Article\n\nThis is test content.",
-            "metadata": {
-                "title": "Test Article",
-                "description": "Test description",
-                "language": "en",
-            },
-            "media": {"images": []},
+        "markdown": "# Test Article\n\nThis is test content.",
+        "title": "Test Article",
+        "metadata": {
+            "title": "Test Article",
+            "description": "Test description",
+            "language": "en",
         },
+        "html": "<html><body><h1>Test Article</h1><p>This is test content.</p></body></html>",
     }
 
 
