@@ -1,0 +1,239 @@
+{
+  "test_configuration": {
+    "description": "Configuration for E2E testing all Gobbler MCP endpoints",
+    "version": "1.0.0"
+  },
+
+  "endpoints": {
+    "transcribe_youtube": {
+      "test_cases": [
+        {
+          "name": "basic_transcription",
+          "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "include_timestamps": false,
+          "language": "auto"
+        },
+        {
+          "name": "with_timestamps",
+          "url": "https://www.youtube.com/watch?v=GvYYFloV0aA",
+          "include_timestamps": true,
+          "language": "auto"
+        },
+        {
+          "name": "specific_language",
+          "url": "https://www.youtube.com/watch?v=GvYYFloV0aA",
+          "include_timestamps": false,
+          "language": "en"
+        }
+      ]
+    },
+
+    "fetch_webpage": {
+      "test_cases": [
+        {
+          "name": "basic_fetch",
+          "url": "https://ai.pydantic.dev/",
+          "include_images": true,
+          "timeout": 30
+        },
+        {
+          "name": "no_images",
+          "url": "https://ai.pydantic.dev/install/",
+          "include_images": false,
+          "timeout": 30
+        },
+        {
+          "name": "longer_timeout",
+          "url": "https://ai.pydantic.dev/examples/",
+          "include_images": true,
+          "timeout": 60
+        }
+      ]
+    },
+
+    "fetch_webpage_with_selector": {
+      "test_cases": [
+        {
+          "name": "css_selector",
+          "url": "https://ai.pydantic.dev/",
+          "css_selector": "article",
+          "include_images": true,
+          "extract_links": false
+        },
+        {
+          "name": "with_links",
+          "url": "https://ai.pydantic.dev/examples/",
+          "css_selector": "article",
+          "include_images": true,
+          "extract_links": true
+        },
+        {
+          "name": "xpath_selector",
+          "url": "https://ai.pydantic.dev/models/",
+          "xpath": "//article",
+          "include_images": true,
+          "extract_links": false
+        }
+      ]
+    },
+
+    "convert_document": {
+      "test_cases": [
+        {
+          "name": "pdf_with_ocr",
+          "file_path": "tests/fixtures/Dylan_Isaac_Resume_AI.pdf",
+          "enable_ocr": true
+        },
+        {
+          "name": "pdf_without_ocr",
+          "file_path": "tests/fixtures/Dylan_Isaac_Resume_AI.pdf",
+          "enable_ocr": false
+        }
+      ]
+    },
+
+    "transcribe_audio": {
+      "test_cases": [
+        {
+          "name": "audio_small_model",
+          "file_path": "tests/fixtures/test_audio.wav",
+          "model": "small",
+          "language": "auto"
+        },
+        {
+          "name": "audio_tiny_model",
+          "file_path": "tests/fixtures/test_audio.wav",
+          "model": "tiny",
+          "language": "auto"
+        },
+        {
+          "name": "video_transcription",
+          "file_path": "tests/fixtures/How_Games_Do_Destruction.mp4",
+          "model": "small",
+          "language": "en"
+        }
+      ]
+    },
+
+    "download_youtube_video": {
+      "test_cases": [
+        {
+          "name": "best_quality",
+          "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "quality": "best",
+          "format": "mp4"
+        },
+        {
+          "name": "720p",
+          "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "quality": "720p",
+          "format": "mp4"
+        },
+        {
+          "name": "360p_webm",
+          "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "quality": "360p",
+          "format": "webm"
+        }
+      ]
+    },
+
+    "batch_transcribe_youtube_playlist": {
+      "test_cases": [
+        {
+          "name": "limited_videos",
+          "playlist_url": "https://www.youtube.com/playlist?list=PL8dPuuaLjXtO65LeD2p4_Sb5XQ51par_b",
+          "max_videos": 3,
+          "include_timestamps": false,
+          "language": "auto",
+          "concurrency": 2,
+          "skip_existing": true
+        },
+        {
+          "name": "with_timestamps",
+          "playlist_url": "https://www.youtube.com/playlist?list=PL8dPuuaLjXtO65LeD2p4_Sb5XQ51par_b",
+          "max_videos": 2,
+          "include_timestamps": true,
+          "language": "auto",
+          "concurrency": 1,
+          "skip_existing": true
+        }
+      ]
+    },
+
+    "batch_fetch_webpages": {
+      "test_cases": [
+        {
+          "name": "pydantic_docs_subset",
+          "urls": [
+            "https://ai.pydantic.dev/",
+            "https://ai.pydantic.dev/install/",
+            "https://ai.pydantic.dev/models/",
+            "https://ai.pydantic.dev/agents/",
+            "https://ai.pydantic.dev/tools/"
+          ],
+          "include_images": true,
+          "timeout": 30,
+          "concurrency": 3,
+          "skip_existing": true
+        }
+      ]
+    },
+
+    "crawl_site": {
+      "test_cases": [
+        {
+          "name": "shallow_crawl",
+          "start_url": "https://ai.pydantic.dev/",
+          "max_depth": 1,
+          "max_pages": 10,
+          "respect_robots_txt": true,
+          "crawl_delay": 1.0,
+          "concurrency": 2
+        },
+        {
+          "name": "with_selector",
+          "start_url": "https://ai.pydantic.dev/",
+          "max_depth": 2,
+          "max_pages": 15,
+          "css_selector": "article",
+          "respect_robots_txt": true,
+          "crawl_delay": 1.0,
+          "concurrency": 2
+        },
+        {
+          "name": "url_pattern_filter",
+          "start_url": "https://ai.pydantic.dev/",
+          "max_depth": 2,
+          "max_pages": 20,
+          "url_include_pattern": "/examples/",
+          "respect_robots_txt": true,
+          "crawl_delay": 1.0,
+          "concurrency": 2
+        }
+      ]
+    }
+  },
+
+  "batch_directories": {
+    "audio": "tests/fixtures/batch_audio",
+    "documents": "tests/fixtures/batch_documents",
+    "videos": "tests/fixtures/batch_videos"
+  },
+
+  "output_directories": {
+    "base": "/tmp/gobbler_e2e_tests",
+    "youtube": "/tmp/gobbler_e2e_tests/youtube",
+    "webpages": "/tmp/gobbler_e2e_tests/webpages",
+    "documents": "/tmp/gobbler_e2e_tests/documents",
+    "audio": "/tmp/gobbler_e2e_tests/audio",
+    "batch": "/tmp/gobbler_e2e_tests/batch"
+  },
+
+  "test_settings": {
+    "cleanup_after_tests": false,
+    "verbose_output": true,
+    "parallel_execution": false,
+    "save_metrics": true
+  }
+}

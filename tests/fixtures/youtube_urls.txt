@@ -1,0 +1,35 @@
+# CrashCourse YouTube Videos for Batch Testing
+# CrashCourse AI Series
+
+# AI #1: Introduction
+https://www.youtube.com/watch?v=GvYYFloV0aA
+
+# AI #2: Supervised Learning
+https://www.youtube.com/watch?v=4qVRBYAdLAo
+
+# AI #3: Neural Networks
+https://www.youtube.com/watch?v=oV3ZY6tJiA0
+
+# AI #4: Training Neural Networks
+https://www.youtube.com/watch?v=iyn2zdALii8
+
+# AI #5: How to Make an AI Read Your Handwriting
+https://www.youtube.com/watch?v=q0JLkdZJ4oM
+
+# AI #6: Natural Language Processing
+https://www.youtube.com/watch?v=oi0JXuL19TA
+
+# AI #7: Computer Vision
+https://www.youtube.com/watch?v=-4E2-0sxVUM
+
+# AI #8: Reinforcement Learning
+https://www.youtube.com/watch?v=nIgIv4IfJ6s
+
+# AI #9: Symbolic AI
+https://www.youtube.com/watch?v=1M7C0H1DVXg
+
+# AI #10: AI Playing Games
+https://www.youtube.com/watch?v=_lXkW5HYcZc
+
+# Shorter videos for quick tests
+https://www.youtube.com/watch?v=dQw4w9WgXcQ

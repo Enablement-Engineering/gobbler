@@ -1,0 +1,32 @@
+# Pydantic AI Documentation URLs for Batch Testing
+
+# Main pages
+https://ai.pydantic.dev/
+https://ai.pydantic.dev/install/
+https://ai.pydantic.dev/examples/
+https://ai.pydantic.dev/agents/
+
+# Core concepts
+https://ai.pydantic.dev/models/
+https://ai.pydantic.dev/dependencies/
+https://ai.pydantic.dev/results/
+https://ai.pydantic.dev/tools/
+https://ai.pydantic.dev/function-tools/
+https://ai.pydantic.dev/message-history/
+
+# Examples
+https://ai.pydantic.dev/examples/pydantic-model/
+https://ai.pydantic.dev/examples/weather-agent/
+https://ai.pydantic.dev/examples/bank-support/
+https://ai.pydantic.dev/examples/sql-gen/
+https://ai.pydantic.dev/examples/chat-app/
+
+# API Reference
+https://ai.pydantic.dev/api/agent/
+https://ai.pydantic.dev/api/models/
+https://ai.pydantic.dev/api/tools/
+https://ai.pydantic.dev/api/result/
+
+# Additional useful pages
+https://ai.pydantic.dev/testing-evals/
+https://ai.pydantic.dev/logfire/
