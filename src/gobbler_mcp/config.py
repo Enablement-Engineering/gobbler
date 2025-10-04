@@ -1,6 +1,7 @@
 """Configuration management for Gobbler MCP server."""
 
 import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -55,6 +56,15 @@ class Config:
             "default_queue": "default",
         },
         "models_path": "~/.gobbler/models",
+        "monitoring": {
+            "metrics_enabled": False,  # Enable Prometheus metrics collection
+            "metrics_port": 9090,  # Port for metrics HTTP endpoint
+            "metrics_host": "0.0.0.0",  # Host to bind metrics server
+            "log_format": "text",  # 'text' or 'json' (use text for MCP stdio)
+            "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+            "health_check_interval": 60,  # Seconds between service health checks
+            "config_hot_reload": True,  # Enable config file hot-reload
+        },
     }
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
@@ -65,6 +75,8 @@ class Config:
             config_path: Path to config file. If None, uses default location.
         """
         self.config_path = config_path or self._default_config_path()
+        self._lock = threading.RLock()  # Reentrant lock for thread-safety
+        self._watcher: Optional[Any] = None  # ConfigWatcher instance
         self.data = self._load_config()
 
     @staticmethod
@@ -121,7 +133,7 @@ class Config:
 
     def get(self, key: str, default: Any = None) -> Any:
         """
-        Get configuration value using dot notation.
+        Get configuration value using dot notation (thread-safe).
 
         Args:
             key: Configuration key (e.g., "whisper.model")
@@ -130,14 +142,15 @@ class Config:
         Returns:
             Configuration value
         """
-        keys = key.split(".")
-        value = self.data
-        for k in keys:
-            if isinstance(value, dict) and k in value:
-                value = value[k]
-            else:
-                return default
-        return value
+        with self._lock:
+            keys = key.split(".")
+            value = self.data
+            for k in keys:
+                if isinstance(value, dict) and k in value:
+                    value = value[k]
+                else:
+                    return default
+            return value
 
     def get_service_url(self, service: str) -> str:
         """
@@ -152,6 +165,114 @@ class Config:
         host = self.get(f"services.{service}.host", "localhost")
         port = self.get(f"services.{service}.port")
         return f"http://{host}:{port}"
+
+    def reload(self) -> None:
+        """
+        Reload configuration from file (thread-safe).
+
+        Validates new config before applying. If validation fails,
+        keeps current config and logs errors.
+        """
+        with self._lock:
+            # Load new config
+            try:
+                new_config = self._load_config()
+            except Exception as e:
+                logger.error(f"Failed to load config during reload: {e}")
+                return
+
+            # Validate new config
+            from .config_watcher import ConfigWatcher
+
+            validation_errors = ConfigWatcher.validate_config(new_config)
+            if validation_errors:
+                logger.error(
+                    f"Config validation failed. Keeping current config. Errors:\n"
+                    + "\n".join(f"  - {err}" for err in validation_errors)
+                )
+                return
+
+            # Detect changes
+            changes = self._detect_changes(self.data, new_config)
+
+            # Apply new config atomically
+            old_config = self.data
+            self.data = new_config
+
+            # Log reload success
+            if changes:
+                logger.info(
+                    f"Configuration reloaded successfully. Changes:\n"
+                    + "\n".join(f"  - {change}" for change in changes)
+                )
+            else:
+                logger.info("Configuration reloaded (no changes detected)")
+
+    def _detect_changes(
+        self, old: Dict[str, Any], new: Dict[str, Any], prefix: str = ""
+    ) -> list[str]:
+        """
+        Detect changes between old and new config.
+
+        Args:
+            old: Old configuration
+            new: New configuration
+            prefix: Key prefix for nested dicts
+
+        Returns:
+            List of change descriptions
+        """
+        changes = []
+
+        # Check all keys in old config
+        for key, old_value in old.items():
+            full_key = f"{prefix}.{key}" if prefix else key
+
+            if key not in new:
+                changes.append(f"{full_key} removed")
+            elif isinstance(old_value, dict) and isinstance(new[key], dict):
+                # Recursively check nested dicts
+                changes.extend(self._detect_changes(old_value, new[key], full_key))
+            elif old_value != new[key]:
+                changes.append(f"{full_key}: {old_value} → {new[key]}")
+
+        # Check for new keys
+        for key in new.keys():
+            if key not in old:
+                full_key = f"{prefix}.{key}" if prefix else key
+                changes.append(f"{full_key} added: {new[key]}")
+
+        return changes
+
+    def enable_hot_reload(self, debounce_seconds: float = 1.0) -> None:
+        """
+        Enable configuration hot-reload.
+
+        Starts watching config file for changes and automatically
+        reloads when modifications are detected.
+
+        Args:
+            debounce_seconds: Minimum time between reload triggers
+        """
+        if self._watcher and self._watcher.is_running():
+            logger.warning("Config hot-reload already enabled")
+            return
+
+        from .config_watcher import ConfigWatcher
+
+        self._watcher = ConfigWatcher(
+            config_path=self.config_path,
+            reload_callback=self.reload,
+            debounce_seconds=debounce_seconds,
+        )
+
+        self._watcher.start()
+
+    def disable_hot_reload(self) -> None:
+        """Disable configuration hot-reload."""
+        if self._watcher:
+            self._watcher.stop()
+            self._watcher = None
 
 
 # Global config instance
