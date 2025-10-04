@@ -100,7 +100,7 @@ status:
 	@echo -n "   Docling:  "
 	@curl -sf http://localhost:5001/health > /dev/null && echo "✅ Healthy" || echo "❌ Unavailable"
 	@echo -n "   Redis:    "
-	@redis-cli -p 6380 ping > /dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unavailable"
+	@docker exec gobbler-redis redis-cli ping > /dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unavailable"
 
 # Worker management
 worker:
