@@ -89,11 +89,11 @@ async def lifespan(app: FastMCP):  # type: ignore
             logger.warning("Continuing without hot-reload...")
 
     # Check service health at startup (don't fail if unavailable)
+    # Note: Whisper runs locally via faster-whisper library, not as a service
     async with ServiceHealth() as health:
         service_urls = {
             "Crawl4AI": config.get_service_url("crawl4ai"),
             "Docling": config.get_service_url("docling"),
-            "Whisper": config.get_service_url("whisper"),
         }
         health_status = await health.check_all_services(service_urls)
 
