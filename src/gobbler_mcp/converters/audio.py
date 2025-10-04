@@ -263,41 +263,41 @@ async def convert_audio_to_markdown(
         conversion_time_ms=conversion_time_ms,
     )
 
-        # Build markdown content
-        markdown = frontmatter + "# Audio Transcript\n\n" + transcript_text
+    # Build markdown content
+    markdown = frontmatter + "# Audio Transcript\n\n" + transcript_text
 
-        # Track conversion size
-        conversion_size.labels(converter_type="audio").observe(len(markdown))
+    # Track conversion size
+    conversion_size.labels(converter_type="audio").observe(len(markdown))
 
-        # Build metadata
-        metadata = {
-            "file_path": file_path,
-            "duration": duration,
-            "language": detected_language,
-            "model": model,
-            "word_count": word_count,
-            "conversion_time_ms": conversion_time_ms,
-        }
+    # Build metadata
+    metadata = {
+        "file_path": file_path,
+        "duration": duration,
+        "language": detected_language,
+        "model": model,
+        "word_count": word_count,
+        "conversion_time_ms": conversion_time_ms,
+    }
 
-        logger.info(
-            "Audio transcription completed",
-            extra={
-                "extra_fields": {
-                    "word_count": word_count,
-                    "duration": duration,
-                    "language": detected_language,
-                    "model": model,
-                    "conversion_time_ms": conversion_time_ms,
-                }
-            },
-        )
+    logger.info(
+        "Audio transcription completed",
+        extra={
+            "extra_fields": {
+                "word_count": word_count,
+                "duration": duration,
+                "language": detected_language,
+                "model": model,
+                "conversion_time_ms": conversion_time_ms,
+            }
+        },
+    )
 
-        # Clean up temporary file if created
-        if temp_file and os.path.exists(temp_file):
-            try:
-                os.unlink(temp_file)
-                logger.debug(f"Cleaned up temporary file: {temp_file}")
-            except Exception as e:
-                logger.warning(f"Failed to delete temporary file {temp_file}: {e}")
+    # Clean up temporary file if created
+    if temp_file and os.path.exists(temp_file):
+        try:
+            os.unlink(temp_file)
+            logger.debug(f"Cleaned up temporary file: {temp_file}")
+        except Exception as e:
+            logger.warning(f"Failed to delete temporary file {temp_file}: {e}")
 
-        return markdown, metadata
+    return markdown, metadata

@@ -3,7 +3,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from ..converters.webpage import convert_webpage_to_markdown
 from ..utils import save_markdown_file
