@@ -36,7 +36,11 @@ from .utils.queue import (
     should_queue_task,
 )
 
-# Configure logging to stderr only (required for stdio transport)
+# Configure logging using structured logging setup
+from .logging_config import setup_logging
+from .metrics_server import get_metrics_server
+
+# Setup logging (will be reconfigured in lifespan based on config)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -56,6 +60,33 @@ async def lifespan(app: FastMCP):  # type: ignore
     logger.info("Starting Gobbler MCP server...")
     config = get_config()
     logger.info(f"Configuration loaded from {config.config_path}")
+
+    # Setup structured logging based on config
+    log_format = config.get("monitoring.log_format", "text")
+    log_level = config.get("monitoring.log_level", "INFO")
+    setup_logging(level=log_level, format=log_format)
+    logger.info(f"Logging configured: format={log_format}, level={log_level}")
+
+    # Start metrics server if enabled
+    metrics_enabled = config.get("monitoring.metrics_enabled", False)
+    metrics_server = None
+    if metrics_enabled:
+        try:
+            metrics_server = get_metrics_server()
+            metrics_server.start()
+            logger.info("Metrics collection enabled")
+        except Exception as e:
+            logger.warning(f"Failed to start metrics server: {e}")
+            logger.warning("Continuing without metrics...")
+
+    # Enable config hot-reload if configured
+    hot_reload_enabled = config.get("monitoring.config_hot_reload", True)
+    if hot_reload_enabled:
+        try:
+            config.enable_hot_reload()
+        except Exception as e:
+            logger.warning(f"Failed to enable config hot-reload: {e}")
+            logger.warning("Continuing without hot-reload...")
 
     # Check service health at startup (don't fail if unavailable)
     async with ServiceHealth() as health:
@@ -83,6 +114,13 @@ async def lifespan(app: FastMCP):  # type: ignore
 
     # Shutdown
     logger.info("Shutting down Gobbler MCP server...")
+
+    # Disable config hot-reload
+    config.disable_hot_reload()
+
+    # Stop metrics server if running
+    if metrics_server and metrics_server.is_running():
+        await metrics_server.stop()
 
 
 # Initialize FastMCP server
