@@ -12,6 +12,7 @@ from youtube_transcript_api import (
     YouTubeTranscriptApi,
 )
 
+from ..metrics import conversion_size, track_conversion
 from ..utils.frontmatter import count_words, create_youtube_frontmatter
 
 logger = logging.getLogger(__name__)
@@ -114,76 +115,102 @@ async def convert_youtube_to_markdown(
         TranscriptsDisabled: No transcript available
         NoTranscriptFound: Language not available
     """
-    # Extract video ID
-    video_id = extract_video_id(video_url)
-    logger.info(f"Extracting transcript for video {video_id}")
+    with track_conversion("youtube"):
+        # Extract video ID
+        video_id = extract_video_id(video_url)
 
-    # Get video metadata
-    video_metadata = get_video_metadata(video_url)
+        logger.info(
+            "Starting YouTube conversion",
+            extra={
+                "extra_fields": {
+                    "video_url": video_url,
+                    "video_id": video_id,
+                    "language": language,
+                    "include_timestamps": include_timestamps,
+                }
+            },
+        )
 
-    # Fetch transcript
-    api = YouTubeTranscriptApi()
-    if language == "auto":
-        transcript_list = api.list(video_id)
-        try:
-            transcript = transcript_list.find_generated_transcript(["en"])
-        except:
-            transcript = transcript_list.find_transcript(
-                ["en", "es", "de", "fr", "pt", "ja", "ko", "zh"]
-            )
-        transcript_data = transcript.fetch()
-        detected_language = transcript.language_code
-    else:
-        transcript_list = api.list(video_id)
-        transcript = transcript_list.find_transcript([language])
-        transcript_data = transcript.fetch()
-        detected_language = language
+        # Get video metadata
+        video_metadata = get_video_metadata(video_url)
 
-    # Calculate duration
-    total_duration = (
-        transcript_data[-1].start + transcript_data[-1].duration
-        if transcript_data
-        else 0
-    )
-
-    # Build transcript text
-    lines = []
-    for entry in transcript_data:
-        text = entry.text.strip()
-        if include_timestamps:
-            timestamp = format_timestamp(entry.start)
-            lines.append(f"[{timestamp}] {text}")
+        # Fetch transcript
+        api = YouTubeTranscriptApi()
+        if language == "auto":
+            transcript_list = api.list(video_id)
+            try:
+                transcript = transcript_list.find_generated_transcript(["en"])
+            except:
+                transcript = transcript_list.find_transcript(
+                    ["en", "es", "de", "fr", "pt", "ja", "ko", "zh"]
+                )
+            transcript_data = transcript.fetch()
+            detected_language = transcript.language_code
         else:
-            lines.append(text)
+            transcript_list = api.list(video_id)
+            transcript = transcript_list.find_transcript([language])
+            transcript_data = transcript.fetch()
+            detected_language = language
 
-    transcript_text = "\n\n".join(lines)
-    word_count = count_words(transcript_text)
+        # Calculate duration
+        total_duration = (
+            transcript_data[-1].start + transcript_data[-1].duration
+            if transcript_data
+            else 0
+        )
 
-    # Create frontmatter
-    frontmatter = create_youtube_frontmatter(
-        video_url=video_url,
-        video_id=video_id,
-        duration=int(total_duration),
-        language=detected_language,
-        word_count=word_count,
-        title=video_metadata.get("title"),
-        channel=video_metadata.get("channel"),
-        thumbnail=video_metadata.get("thumbnail"),
-        description=video_metadata.get("description"),
-    )
+        # Build transcript text
+        lines = []
+        for entry in transcript_data:
+            text = entry.text.strip()
+            if include_timestamps:
+                timestamp = format_timestamp(entry.start)
+                lines.append(f"[{timestamp}] {text}")
+            else:
+                lines.append(text)
 
-    # Combine into markdown
-    markdown = frontmatter + "# Video Transcript\n\n" + transcript_text
+        transcript_text = "\n\n".join(lines)
+        word_count = count_words(transcript_text)
 
-    # Metadata for response
-    metadata = {
-        "video_id": video_id,
-        "title": video_metadata.get("title"),
-        "channel": video_metadata.get("channel"),
-        "duration": int(total_duration),
-        "language": detected_language,
-        "word_count": word_count,
-    }
+        # Create frontmatter
+        frontmatter = create_youtube_frontmatter(
+            video_url=video_url,
+            video_id=video_id,
+            duration=int(total_duration),
+            language=detected_language,
+            word_count=word_count,
+            title=video_metadata.get("title"),
+            channel=video_metadata.get("channel"),
+            thumbnail=video_metadata.get("thumbnail"),
+            description=video_metadata.get("description"),
+        )
 
-    logger.info(f"Successfully converted video {video_id} ({word_count} words)")
-    return markdown, metadata
+        # Combine into markdown
+        markdown = frontmatter + "# Video Transcript\n\n" + transcript_text
+
+        # Track conversion size
+        conversion_size.labels(converter_type="youtube").observe(len(markdown))
+
+        # Metadata for response
+        metadata = {
+            "video_id": video_id,
+            "title": video_metadata.get("title"),
+            "channel": video_metadata.get("channel"),
+            "duration": int(total_duration),
+            "language": detected_language,
+            "word_count": word_count,
+        }
+
+        logger.info(
+            "YouTube conversion completed",
+            extra={
+                "extra_fields": {
+                    "video_id": video_id,
+                    "word_count": word_count,
+                    "language": detected_language,
+                    "duration": int(total_duration),
+                }
+            },
+        )
+
+        return markdown, metadata

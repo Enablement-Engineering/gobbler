@@ -10,6 +10,7 @@ from typing import Dict, Tuple
 
 from faster_whisper import WhisperModel
 
+from ..metrics import conversion_size, track_conversion
 from ..utils.file_handler import get_file_extension, validate_input_path
 from ..utils.frontmatter import count_words, create_audio_frontmatter
 
@@ -164,10 +165,19 @@ async def convert_audio_to_markdown(
 
     file_format = get_file_extension(file_path)
 
-    logger.info(
-        f"Transcribing audio: {file_path} (format: {file_format}, model: {model})"
-    )
-    start_time = time.time()
+    with track_conversion("audio"):
+        logger.info(
+            "Starting audio transcription",
+            extra={
+                "extra_fields": {
+                    "file_path": file_path,
+                    "file_format": file_format,
+                    "model": model,
+                    "language": language,
+                }
+            },
+        )
+        start_time = time.time()
 
     # Check file size and extract audio if needed
     file_size = os.path.getsize(file_path)
@@ -253,30 +263,41 @@ async def convert_audio_to_markdown(
         conversion_time_ms=conversion_time_ms,
     )
 
-    # Build markdown content
-    markdown = frontmatter + "# Audio Transcript\n\n" + transcript_text
+        # Build markdown content
+        markdown = frontmatter + "# Audio Transcript\n\n" + transcript_text
 
-    # Build metadata
-    metadata = {
-        "file_path": file_path,
-        "duration": duration,
-        "language": detected_language,
-        "model": model,
-        "word_count": word_count,
-        "conversion_time_ms": conversion_time_ms,
-    }
+        # Track conversion size
+        conversion_size.labels(converter_type="audio").observe(len(markdown))
 
-    logger.info(
-        f"Transcription complete: {word_count} words, "
-        f"{duration}s duration, language: {detected_language}"
-    )
+        # Build metadata
+        metadata = {
+            "file_path": file_path,
+            "duration": duration,
+            "language": detected_language,
+            "model": model,
+            "word_count": word_count,
+            "conversion_time_ms": conversion_time_ms,
+        }
 
-    # Clean up temporary file if created
-    if temp_file and os.path.exists(temp_file):
-        try:
-            os.unlink(temp_file)
-            logger.debug(f"Cleaned up temporary file: {temp_file}")
-        except Exception as e:
-            logger.warning(f"Failed to delete temporary file {temp_file}: {e}")
+        logger.info(
+            "Audio transcription completed",
+            extra={
+                "extra_fields": {
+                    "word_count": word_count,
+                    "duration": duration,
+                    "language": detected_language,
+                    "model": model,
+                    "conversion_time_ms": conversion_time_ms,
+                }
+            },
+        )
 
-    return markdown, metadata
+        # Clean up temporary file if created
+        if temp_file and os.path.exists(temp_file):
+            try:
+                os.unlink(temp_file)
+                logger.debug(f"Cleaned up temporary file: {temp_file}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temporary file {temp_file}: {e}")
+
+        return markdown, metadata
