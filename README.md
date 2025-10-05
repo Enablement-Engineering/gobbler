@@ -8,6 +8,7 @@ Gobbler is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) ser
 
 ## Features
 
+- **Browser Extension** - 🆕 Bidirectional communication with Chrome/Edge for live page extraction and automation
 - **YouTube Transcripts** - Extract official transcripts with video metadata
 - **YouTube Playlist Batch** - Process entire playlists with progress tracking
 - **YouTube Downloads** - Download videos with quality selection
@@ -111,6 +112,24 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```
 
 Restart Claude Desktop after editing.
+
+### Browser Extension Setup
+
+The browser extension enables bidirectional communication - extract pages from Claude AND control the browser from Claude.
+
+**Install Extension:**
+
+1. **Chrome/Edge**:
+   - Open `chrome://extensions/` or `edge://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select `/path/to/gobbler/browser-extension/`
+
+2. **Verify Connection**:
+   - Open the extension popup
+   - Check for "🟢 Connected to Gobbler MCP"
+
+See [browser-extension/CLAUDE.md](browser-extension/CLAUDE.md) for detailed documentation and examples.
 
 ## Available Tools
 
@@ -407,6 +426,85 @@ Get real-time progress for a running batch operation.
 - Current item being processed
 - Recent errors (if any)
 
+### Browser Extension Tools
+
+**Note:** Browser extension must be installed and connected. See [Browser Extension Setup](#browser-extension-setup).
+
+#### `browser_check_connection`
+
+Check if browser extension is connected.
+
+**Example:**
+```
+"Is my browser extension connected?"
+```
+
+**Returns:** Connection status message
+
+#### `browser_extract_current_page`
+
+Extract content from the current browser page.
+
+**Parameters:**
+- `selector` (optional) - CSS selector to extract specific content
+- `timeout` (optional) - Timeout in seconds (default: 30)
+
+**Example:**
+```
+"Extract the current page from my browser"
+"Extract just the article from the current page using selector 'article.main'"
+```
+
+**Returns:** Markdown with YAML frontmatter
+
+#### `browser_navigate_to_url`
+
+Navigate the browser to a URL.
+
+**Parameters:**
+- `url` (required) - URL to navigate to
+- `wait_for_load` (optional) - Wait for page load (default: true)
+- `timeout` (optional) - Timeout in seconds (default: 30)
+
+**Example:**
+```
+"Navigate my browser to https://docs.python.org"
+```
+
+**Returns:** Success or error message
+
+#### `browser_execute_script`
+
+Execute JavaScript in the current browser page.
+
+**Parameters:**
+- `script` (required) - JavaScript code to execute
+- `timeout` (optional) - Timeout in seconds (default: 30)
+
+**Example:**
+```
+"Get all links from the current page using JavaScript"
+"Execute: Array.from(document.querySelectorAll('a')).map(a => a.href)"
+```
+
+**Returns:** Script result (formatted as JSON if object/array)
+
+#### `browser_get_page_info`
+
+Get metadata about the current browser page.
+
+**Parameters:**
+- `timeout` (optional) - Timeout in seconds (default: 30)
+
+**Example:**
+```
+"What page am I currently on in my browser?"
+```
+
+**Returns:** JSON with url, title, hostname, link counts, etc.
+
+**See:** [browser-extension/CLAUDE.md](browser-extension/CLAUDE.md) for detailed documentation and examples.
+
 ## Background Queue System
 
 Long-running tasks can be queued for background processing:
@@ -656,6 +754,19 @@ gobbler/
 ├── Makefile              # Convenience commands
 └── pyproject.toml        # Python dependencies
 ```
+
+## Custom Slash Commands
+
+Gobbler includes specialized slash commands for advanced workflows. These are stored in `~/.claude/scripts/gobbler/`:
+
+- `/extract-playlist` - Extract complete YouTube playlist metadata with intelligent scrolling
+- `/e2e-quick` - Quick end-to-end validation test
+- `/e2e-full` - Comprehensive end-to-end testing
+- `/e2e-validate` - Validate all MCP endpoints
+- `/prd` - Product requirements document generator
+- `/semantic-commit` - Generate semantic commit messages
+
+To use these commands in Claude Code, they should be referenced in your prompt or custom instructions.
 
 ## Contributing
 
