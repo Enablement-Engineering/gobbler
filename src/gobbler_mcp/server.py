@@ -108,12 +108,29 @@ async def lifespan(app: FastMCP):  # type: ignore
                 "Some tools will not work until services are started."
             )
 
+    # Start HTTP server for browser extension
+    http_server = None
+    http_enabled = config.get("http_server.enabled", True)
+    if http_enabled:
+        try:
+            from .http_server import start_http_server
+            http_host = config.get("http_server.host", "127.0.0.1")
+            http_port = config.get("http_server.port", 8080)
+            http_server = await start_http_server(http_host, http_port)
+        except Exception as e:
+            logger.warning(f"Failed to start HTTP server: {e}")
+            logger.warning("Browser extension will not work without HTTP server...")
+
     logger.info("Gobbler MCP server started successfully")
 
     yield
 
     # Shutdown
     logger.info("Shutting down Gobbler MCP server...")
+
+    # Stop HTTP server if running
+    if http_server:
+        await http_server.cleanup()
 
     # Disable config hot-reload
     config.disable_hot_reload()
