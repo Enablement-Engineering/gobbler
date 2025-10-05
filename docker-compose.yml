@@ -8,12 +8,14 @@ services:
     environment:
       - CRAWL4AI_TIMEOUT=30
       - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN:-gobbler-local-token}
+      - DISPLAY=:99
     deploy:
       resources:
         limits:
           memory: 2g
           cpus: '1'
     restart: unless-stopped
+    shm_size: '2gb'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
       interval: 30s
