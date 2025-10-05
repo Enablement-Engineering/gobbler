@@ -36,6 +36,7 @@ class SiteCrawler:
         crawl_delay: float = 1.0,
         concurrency: int = 3,
         session_id: Optional[str] = None,
+        use_stealth: bool = False,
     ) -> Tuple[List[Dict], Dict]:
         """
         Crawl site recursively and return pages + link graph.
@@ -51,6 +52,7 @@ class SiteCrawler:
             crawl_delay: Delay between requests in seconds (default: 1.0)
             concurrency: Max concurrent requests (default: 3, max: 10)
             session_id: Session ID for authenticated crawling
+            use_stealth: Enable stealth mode to evade bot detection (default: False)
 
         Returns:
             Tuple of (pages_list, crawl_summary)
@@ -126,6 +128,7 @@ class SiteCrawler:
                         css_selector=css_selector,
                         extract_links=True,
                         session_id=session_id,
+                        use_stealth=use_stealth,
                     )
 
                     # Extract links for next depth

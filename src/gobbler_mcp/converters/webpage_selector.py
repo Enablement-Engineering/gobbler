@@ -26,6 +26,7 @@ async def convert_webpage_with_selector(
     session_id: Optional[str] = None,
     bypass_cache: bool = False,
     timeout: int = 30,
+    use_stealth: bool = False,
 ) -> Tuple[str, Dict]:
     """
     Convert web page to markdown with CSS/XPath selector extraction.
@@ -43,6 +44,7 @@ async def convert_webpage_with_selector(
         session_id: Session ID for authenticated crawling (loads cookies/localStorage)
         bypass_cache: Bypass Crawl4AI cache for fresh content
         timeout: Request timeout in seconds
+        use_stealth: Enable stealth mode to evade bot detection (default: False)
 
     Returns:
         Tuple of (markdown_content, metadata)
@@ -64,12 +66,32 @@ async def convert_webpage_with_selector(
     logger.info(f"Converting web page with selector: {url}")
     start_time = time.time()
 
+    # Prepare browser config with optional stealth mode
+    browser_params = {"headless": True}
+
+    if use_stealth:
+        # Enable stealth mode for anti-detection
+        # Use headed mode (headless=False) even though browser won't be visible in Docker
+        # This changes browser fingerprint and removes headless-specific detection markers
+        browser_params.update({
+            "headless": False,
+            "enable_stealth": True,
+            "user_agent_mode": "random",
+            "extra_args": [
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+            ]
+        })
+        logger.info("Stealth mode enabled with headed browser for enhanced bot detection evasion")
+
     # Prepare Crawl4AI request with selector
     crawl_request = {
         "urls": [url],
         "browser_config": {
             "type": "BrowserConfig",
-            "params": {"headless": True}
+            "params": browser_params
         },
         "crawler_config": {
             "type": "CrawlerRunConfig",
