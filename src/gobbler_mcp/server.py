@@ -964,10 +964,8 @@ async def transcribe_audio(
         # File validation errors
         return str(e)
     except RuntimeError as e:
-        # Service unavailable or not implemented
-        if "not yet implemented" in str(e):
-            return str(e)
-        return f"Whisper service unavailable. The service may not be running. Start with: docker-compose up -d whisper"
+        # Transcription errors
+        return str(e)
     except Exception as e:
         logger.error(f"Unexpected error in transcribe_audio: {e}", exc_info=True)
         return f"Failed to transcribe audio: {str(e)}"
@@ -1087,13 +1085,16 @@ def _batch_transcribe_youtube_playlist_task(
     include_timestamps: bool = False,
     language: str = "auto",
     max_videos: int = 100,
-    concurrency: int = 3,
+    concurrency: int = 2,
     skip_existing: bool = True,
+    delay_between_requests: float = 1.5,
+    jitter_range: float = 1.0,
+    max_retries: int = 3,
 ) -> str:
-    """Internal task for batch YouTube playlist processing."""
+    """Internal task for batch YouTube playlist processing with rate limiting."""
     import asyncio
 
-    # Run async batch processing
+    # Run async batch processing with rate limiting
     summary = asyncio.run(
         process_youtube_batch(
             playlist_url=playlist_url,
@@ -1103,6 +1104,9 @@ def _batch_transcribe_youtube_playlist_task(
             max_videos=max_videos,
             concurrency=concurrency,
             skip_existing=skip_existing,
+            delay_between_requests=delay_between_requests,
+            jitter_range=jitter_range,
+            max_retries=max_retries,
         )
     )
 
@@ -1116,16 +1120,19 @@ async def batch_transcribe_youtube_playlist(
     include_timestamps: bool = False,
     language: str = "auto",
     max_videos: int = 100,
-    concurrency: int = 3,
+    concurrency: int = 2,
     skip_existing: bool = True,
     auto_queue: bool = False,
+    delay_between_requests: float = 1.5,
+    jitter_range: float = 1.0,
+    max_retries: int = 3,
 ) -> str:
     """
-    Extract transcripts from all videos in a YouTube playlist.
+    Extract transcripts from all videos in a YouTube playlist with rate limiting.
 
-    Processes videos with controlled concurrency to avoid rate limiting.
-    Automatically sanitizes filenames and creates output directory structure.
-    All results are saved to the output directory.
+    Processes videos with controlled concurrency and respectful rate limiting to avoid
+    triggering YouTube's anti-bot measures. Uses delays, jitter, and exponential backoff
+    for a more human-like request pattern.
 
     Args:
         playlist_url: YouTube playlist URL (youtube.com/playlist?list=...)
@@ -1133,12 +1140,21 @@ async def batch_transcribe_youtube_playlist(
         include_timestamps: Include timestamp markers in transcripts (default: False)
         language: Transcript language code or 'auto' (default: 'auto')
         max_videos: Maximum number of videos to process (default: 100, max: 500)
-        concurrency: Number of videos to process concurrently (default: 3, max: 10)
+        concurrency: Number of videos to process concurrently (default: 2, max: 10) - lower is safer
         skip_existing: Skip videos that already have output files (default: True)
         auto_queue: Queue batch if >10 videos (default: False)
+        delay_between_requests: Fixed delay in seconds between requests (default: 1.5)
+        jitter_range: Random 0-N second jitter added to delay for variation (default: 1.0)
+        max_retries: Maximum retry attempts with exponential backoff (default: 3)
 
     Returns:
         Batch summary report with statistics and file list
+
+    Rate Limiting Strategy:
+        - Each request waits delay_between_requests + random(0, jitter_range) seconds
+        - Example: 1.5s + random(0-1s) = 1.5-2.5s between requests
+        - Failed requests retry with exponential backoff (1s, 2s, 4s, ...)
+        - Lower concurrency (1-2) is safer than higher values
     """
     try:
         from pathlib import Path
@@ -1169,21 +1185,34 @@ async def batch_transcribe_youtube_playlist(
                 max_videos=max_videos,
                 concurrency=concurrency,
                 skip_existing=skip_existing,
+                delay_between_requests=delay_between_requests,
+                jitter_range=jitter_range,
+                max_retries=max_retries,
                 job_timeout="2h",
             )
 
-            estimated_minutes = video_count * 2  # Rough estimate: 2 min per video
+            # Calculate estimated time based on rate limiting
+            # Average delay per video = delay + (jitter/2)
+            avg_delay_per_video = delay_between_requests + (jitter_range / 2.0)
+            # Add transcript fetch time (~5-10s per video, use 7s average)
+            time_per_video = avg_delay_per_video + 7.0
+            # Account for concurrency
+            total_seconds = (video_count * time_per_video) / concurrency
+            estimated_minutes = int(total_seconds / 60)
+
             return (
                 f"Batch queued successfully!\n\n"
                 f"Playlist: {video_count} videos found\n"
                 f"Job ID: {job.id}\n"
                 f"Queue: {job.origin}\n"
-                f"Estimated completion: ~{estimated_minutes} minutes\n\n"
+                f"Rate limiting: {delay_between_requests}s + {jitter_range}s jitter, concurrency={concurrency}\n"
+                f"Estimated completion: ~{estimated_minutes} minutes ({int(total_seconds / 60 / 60)}h {estimated_minutes % 60}m)\n\n"
                 f"Check status with: get_job_status(job_id=\"{job.id}\")\n"
-                f"Or list all jobs with: list_jobs()"
+                f"Or list all jobs with: list_jobs()\n\n"
+                f"💡 Tip: You can continue working while this runs in the background!"
             )
 
-        # Execute synchronously
+        # Execute synchronously with rate limiting
         summary = await process_youtube_batch(
             playlist_url=playlist_url,
             output_dir=output_dir,
@@ -1192,6 +1221,9 @@ async def batch_transcribe_youtube_playlist(
             max_videos=max_videos,
             concurrency=concurrency,
             skip_existing=skip_existing,
+            delay_between_requests=delay_between_requests,
+            jitter_range=jitter_range,
+            max_retries=max_retries,
         )
 
         return summary.format_report()
@@ -1359,7 +1391,7 @@ async def batch_transcribe_directory(
     recursive: bool = False,
     concurrency: int = 2,
     skip_existing: bool = True,
-    auto_queue: bool = False,
+    auto_queue: bool = True,
 ) -> str:
     """
     Transcribe all audio/video files in a directory.
@@ -1377,7 +1409,7 @@ async def batch_transcribe_directory(
         recursive: Search subdirectories (default: False)
         concurrency: Number of files to process concurrently (default: 2, max: 4)
         skip_existing: Skip files with existing transcript files (default: True)
-        auto_queue: Queue batch if >10 files (default: False)
+        auto_queue: Queue batch if >10 files or >500MB total (default: True)
 
     Returns:
         Batch summary report with statistics and file list
@@ -1409,8 +1441,11 @@ async def batch_transcribe_directory(
         except ValueError as e:
             return str(e)
 
-        # Check if should queue
-        if auto_queue and file_count > 10:
+        # Check if should queue (auto-queue for >3 files or files >500MB total)
+        total_size_mb = sum(f.stat().st_size for f in files) / 1024 / 1024
+        should_queue = auto_queue and (file_count > 10 or total_size_mb > 500)
+
+        if should_queue:
             queue = get_queue("transcription")
             job = queue.enqueue(
                 _batch_transcribe_directory_task,
@@ -1422,7 +1457,7 @@ async def batch_transcribe_directory(
                 recursive=recursive,
                 concurrency=concurrency,
                 skip_existing=skip_existing,
-                job_timeout="4h",
+                job_timeout="24h",  # 24 hours for very large files
             )
 
             estimated_minutes = file_count * 5  # Rough estimate: 5 min per file
@@ -1585,6 +1620,177 @@ async def batch_convert_documents(
     except Exception as e:
         logger.error(f"Unexpected error in batch_convert_documents: {e}", exc_info=True)
         return f"Failed to convert documents: {str(e)}"
+
+
+@mcp.tool()
+async def browser_check_connection() -> str:
+    """
+    Check if browser extension is connected and ready.
+
+    Verifies that the Gobbler browser extension is installed, running, and
+    connected to the MCP server via WebSocket.
+
+    Returns:
+        Connection status message
+    """
+    try:
+        from .http_server import websocket_connections
+
+        if websocket_connections:
+            return "Browser extension is connected and ready."
+        else:
+            return (
+                "Browser extension is not connected.\n\n"
+                "To connect:\n"
+                "1. Install the Gobbler browser extension in Chrome\n"
+                "2. Navigate to any webpage\n"
+                "3. The extension will auto-connect to the MCP server"
+            )
+    except Exception as e:
+        logger.error(f"Error checking browser connection: {e}", exc_info=True)
+        return f"Failed to check browser connection: {str(e)}"
+
+
+@mcp.tool()
+async def browser_navigate_to_url(url: str, wait_for_load: bool = True) -> str:
+    """
+    Navigate browser extension's active tab to a URL.
+
+    Sends a navigation command to the browser extension to load the specified URL
+    in the currently active tab.
+
+    Args:
+        url: Full URL to navigate to (must include http:// or https://)
+        wait_for_load: Wait for page to fully load before returning (default: True)
+
+    Returns:
+        Success message with the URL navigated to
+    """
+    try:
+        from .http_server import send_command_to_extension
+
+        # Validate URL
+        if not url.startswith(('http://', 'https://')):
+            return "Error: URL must start with http:// or https://"
+
+        # Send navigation command
+        result = await send_command_to_extension(
+            command="navigate",
+            params={"url": url, "waitForLoad": wait_for_load},
+            timeout=60.0  # Long timeout for page loads
+        )
+
+        if result.get("success"):
+            return f"Successfully navigated to: {url}"
+        else:
+            error = result.get("error", "Unknown error")
+            return f"Failed to navigate: {error}"
+
+    except RuntimeError as e:
+        return str(e)
+    except Exception as e:
+        logger.error(f"Error navigating browser: {e}", exc_info=True)
+        return f"Failed to navigate browser: {str(e)}"
+
+
+@mcp.tool()
+async def browser_execute_script(script: str, timeout: int = 30) -> str:
+    """
+    Execute JavaScript in the browser extension's active tab.
+
+    Runs arbitrary JavaScript code in the context of the currently active tab
+    and returns the result. The script can access the DOM, interact with the page,
+    and return data back to Claude.
+
+    Args:
+        script: JavaScript code to execute (must be a complete expression or IIFE)
+        timeout: Maximum time to wait for script execution in seconds (default: 30, max: 150)
+
+    Returns:
+        JSON-serialized result of the script execution, or error message
+
+    Examples:
+        Get page title:
+        browser_execute_script("document.title")
+
+        Scroll and wait:
+        browser_execute_script("(async () => { window.scrollTo(0, document.body.scrollHeight); await new Promise(r => setTimeout(r, 1000)); return {scrolled: true}; })()")
+
+        Extract data:
+        browser_execute_script("Array.from(document.querySelectorAll('h1')).map(h => h.textContent)")
+    """
+    try:
+        from .http_server import send_command_to_extension
+
+        # Validate timeout
+        if timeout < 1 or timeout > 150:
+            return "Error: timeout must be between 1 and 150 seconds"
+
+        # Send script execution command
+        result = await send_command_to_extension(
+            command="execute_script",
+            params={"script": script},
+            timeout=float(timeout)
+        )
+
+        if result.get("success"):
+            # Return the result as JSON
+            script_result = result.get("result")
+            if script_result is None:
+                return "null"
+            return json.dumps(script_result) if not isinstance(script_result, str) else script_result
+        else:
+            error = result.get("error", "Unknown error")
+            return f"Script execution failed: {error}"
+
+    except RuntimeError as e:
+        return str(e)
+    except Exception as e:
+        logger.error(f"Error executing script: {e}", exc_info=True)
+        return f"Failed to execute script: {str(e)}"
+
+
+@mcp.tool()
+async def browser_extract_current_page(selector: Optional[str] = None) -> str:
+    """
+    Extract the current page's content as markdown.
+
+    Extracts HTML content from the browser extension's active tab and converts
+    it to clean markdown format. Optionally uses a CSS selector to extract only
+    a specific part of the page.
+
+    Args:
+        selector: Optional CSS selector to extract specific content (e.g., "article.main", ".content")
+
+    Returns:
+        Markdown text with YAML frontmatter containing page metadata
+    """
+    try:
+        from .http_server import send_command_to_extension
+
+        # Send extraction command
+        params = {}
+        if selector:
+            params["selector"] = selector
+
+        result = await send_command_to_extension(
+            command="extract_page",
+            params=params,
+            timeout=30.0
+        )
+
+        if result.get("success"):
+            markdown = result.get("markdown", "")
+            return markdown
+        else:
+            error = result.get("error", "Unknown error")
+            return f"Failed to extract page: {error}"
+
+    except RuntimeError as e:
+        return str(e)
+    except Exception as e:
+        logger.error(f"Error extracting page: {e}", exc_info=True)
+        return f"Failed to extract page: {str(e)}"
 
 
 @mcp.tool()
