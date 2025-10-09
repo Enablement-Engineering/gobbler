@@ -940,11 +940,11 @@ async def transcribe_audio(
         if not Path(file_path).exists():
             return f"Error: File not found: {file_path}"
 
-        # Get file size for queue estimation
+        # Get file size for fallback estimation
         file_size_mb = os.path.getsize(file_path) / 1024 / 1024
 
-        # Check if should queue
-        if should_queue_task("transcribe_audio", auto_queue, file_size_mb=file_size_mb):
+        # Check if should queue (now uses duration-based estimation)
+        if should_queue_task("transcribe_audio", auto_queue, file_path=file_path, model=model, file_size_mb=file_size_mb):
             # Queue the task
             queue = get_queue("transcription")
             job = queue.enqueue(
@@ -955,7 +955,7 @@ async def transcribe_audio(
                 output_file=output_file,
                 job_timeout="30m",
             )
-            return format_job_response(job, "transcribe_audio", file_size_mb=file_size_mb)
+            return format_job_response(job, "transcribe_audio", file_path=file_path, model=model, file_size_mb=file_size_mb)
 
         # Execute synchronously
         return await _transcribe_audio_task(file_path, model, language, output_file)

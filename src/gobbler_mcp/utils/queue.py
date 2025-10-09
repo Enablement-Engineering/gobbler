@@ -1,6 +1,7 @@
 """Queue management utilities using Redis and RQ."""
 
 import logging
+import subprocess
 from typing import Any, Dict, Optional
 
 import redis
@@ -56,6 +57,56 @@ def get_queue(name: str = "default") -> Queue:
     return Queue(name, connection=conn)
 
 
+def get_media_duration(file_path: str) -> float:
+    """
+    Get duration of audio/video file in seconds using ffprobe.
+
+    Args:
+        file_path: Path to media file
+
+    Returns:
+        Duration in seconds, or 0 if unable to determine
+
+    Raises:
+        RuntimeError: If ffprobe fails or is not available
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v", "quiet",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                file_path
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            logger.warning(f"ffprobe failed for {file_path}: {result.stderr}")
+            return 0
+
+        duration_str = result.stdout.strip()
+        if not duration_str:
+            return 0
+
+        return float(duration_str)
+
+    except subprocess.TimeoutExpired:
+        logger.warning(f"ffprobe timed out for {file_path}")
+        return 0
+    except FileNotFoundError:
+        raise RuntimeError("ffprobe not found. Please install ffmpeg to enable duration-based estimation.")
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Failed to parse duration for {file_path}: {e}")
+        return 0
+    except Exception as e:
+        logger.warning(f"Unexpected error getting duration for {file_path}: {e}")
+        return 0
+
+
 def estimate_task_duration(task_type: str, **kwargs: Any) -> int:
     """
     Estimate task duration in seconds based on task type and parameters.
@@ -68,10 +119,50 @@ def estimate_task_duration(task_type: str, **kwargs: Any) -> int:
         Estimated duration in seconds
     """
     if task_type == "transcribe_audio":
-        # Estimate based on file size
-        # Rough estimate: 1MB = ~6 seconds with faster-whisper on M-series
+        # Estimate based on audio/video duration, not file size
+        # Real-time factors based on model size (measured on M-series Mac with CoreML):
+        # - tiny: ~0.15x (6.7x faster than real-time)
+        # - base: ~0.20x (5x faster than real-time)
+        # - small: ~0.33x (3x faster than real-time) [confirmed from actual data]
+        # - medium: ~0.50x (2x faster than real-time)
+        # - large: ~0.80x (1.25x faster than real-time)
+
+        model_speed_factors = {
+            "tiny": 0.15,
+            "base": 0.20,
+            "small": 0.33,
+            "medium": 0.50,
+            "large": 0.80,
+        }
+
+        # Get audio duration from file path
+        file_path = kwargs.get("file_path")
+        model = kwargs.get("model", "small")
+
+        if file_path:
+            try:
+                audio_duration = get_media_duration(file_path)
+                if audio_duration > 0:
+                    # Calculate processing time based on model speed factor
+                    speed_factor = model_speed_factors.get(model, 0.33)
+                    # Add 30 seconds overhead for model loading and initialization
+                    estimated_time = int(audio_duration * speed_factor) + 30
+                    logger.info(
+                        f"Transcription estimate: {audio_duration:.0f}s audio × {speed_factor} "
+                        f"({model} model) + 30s overhead = {estimated_time}s"
+                    )
+                    return estimated_time
+            except Exception as e:
+                logger.warning(f"Failed to get media duration, falling back to file size: {e}")
+
+        # Fallback to old file size-based estimation if duration unavailable
         file_size_mb = kwargs.get("file_size_mb", 0)
-        return int(file_size_mb * 6)
+        if file_size_mb > 0:
+            logger.info(f"Using fallback file size estimation: {file_size_mb}MB")
+            return int(file_size_mb * 6)
+
+        # Default if no info available
+        return 120
 
     elif task_type == "download_youtube":
         # Estimate based on quality
