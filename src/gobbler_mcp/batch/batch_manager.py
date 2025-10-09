@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 import time
 import uuid
 from pathlib import Path
@@ -25,6 +26,10 @@ class BatchProcessor:
         output_dir: Optional[str] = None,
         skip_existing: bool = True,
         operation_type: str = "batch",
+        delay_between_requests: float = 0.0,
+        jitter_range: float = 0.0,
+        max_retries: int = 0,
+        retry_delay: float = 1.0,
     ):
         """
         Initialize batch processor.
@@ -37,6 +42,10 @@ class BatchProcessor:
             output_dir: Directory for output files
             skip_existing: Skip items with existing output files
             operation_type: Type of operation for tracking
+            delay_between_requests: Fixed delay in seconds between requests (default: 0)
+            jitter_range: Random jitter added to delay, 0-jitter_range seconds (default: 0)
+            max_retries: Maximum retry attempts for failed items (default: 0)
+            retry_delay: Initial delay for exponential backoff retries in seconds (default: 1.0)
         """
         self.batch_id = batch_id or str(uuid.uuid4())
         self.items = items or []
@@ -45,10 +54,66 @@ class BatchProcessor:
         self.output_dir = Path(output_dir) if output_dir else None
         self.skip_existing = skip_existing
         self.operation_type = operation_type
+        self.delay_between_requests = delay_between_requests
+        self.jitter_range = jitter_range
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
         self.progress = ProgressTracker(self.batch_id)
         self.results: List[BatchResult] = []
         self.start_time: float = 0
         self.end_time: float = 0
+        self._request_lock = asyncio.Lock()  # For rate limiting coordination
+
+    async def _process_with_retry(self, item: BatchItem) -> BatchResult:
+        """
+        Process item with exponential backoff retry logic.
+
+        Args:
+            item: Item to process
+
+        Returns:
+            BatchResult from processing
+        """
+        last_error = None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                result = await self.process_fn(item)
+
+                # If successful or skipped, return immediately
+                if result.success or result.error == "skipped":
+                    if attempt > 0:
+                        logger.info(f"Succeeded on attempt {attempt + 1} for {item.source}")
+                    return result
+
+                # If failed but out of retries, return the result
+                if attempt >= self.max_retries:
+                    return result
+
+                # Otherwise retry
+                last_error = result.error
+
+            except Exception as e:
+                last_error = str(e)
+
+                # If out of retries, raise the exception
+                if attempt >= self.max_retries:
+                    raise
+
+            # Exponential backoff: retry_delay * 2^attempt
+            backoff_delay = self.retry_delay * (2 ** attempt)
+            logger.warning(
+                f"Attempt {attempt + 1} failed for {item.source}: {last_error}. "
+                f"Retrying in {backoff_delay:.1f}s..."
+            )
+            await asyncio.sleep(backoff_delay)
+
+        # Should not reach here, but return failure if we do
+        return BatchResult(
+            item_id=item.id,
+            success=False,
+            error=last_error or "Unknown error after retries"
+        )
 
     def _get_unique_output_path(self, base_path: Path) -> Path:
         """
@@ -98,8 +163,18 @@ class BatchProcessor:
             semaphore = asyncio.Semaphore(self.concurrency)
 
             async def process_with_tracking(item: BatchItem) -> BatchResult:
-                """Process single item with progress tracking."""
+                """Process single item with progress tracking and rate limiting."""
                 async with semaphore:
+                    # Rate limiting: add delay with jitter before processing
+                    if self.delay_between_requests > 0 or self.jitter_range > 0:
+                        async with self._request_lock:
+                            delay = self.delay_between_requests
+                            if self.jitter_range > 0:
+                                delay += random.uniform(0, self.jitter_range)
+                            if delay > 0:
+                                logger.debug(f"Rate limit delay: {delay:.2f}s for {item.source}")
+                                await asyncio.sleep(delay)
+
                     try:
                         # Update progress
                         await self.progress.update_current_item(item.source)
@@ -118,8 +193,8 @@ class BatchProcessor:
                                     metadata={"reason": "File already exists"},
                                 )
 
-                        # Process item
-                        result = await self.process_fn(item)
+                        # Process item with retries
+                        result = await self._process_with_retry(item)
 
                         # Track success
                         if result.success:

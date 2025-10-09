@@ -66,7 +66,7 @@ async def _extract_audio(video_path: str) -> str:
             ],
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout for extraction
+            timeout=3600  # 60 minute timeout for extraction (handles very large files)
         )
 
         if result.returncode != 0:
@@ -82,7 +82,7 @@ async def _extract_audio(video_path: str) -> str:
     except subprocess.TimeoutExpired:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
-        raise RuntimeError("Audio extraction timed out after 5 minutes")
+        raise RuntimeError("Audio extraction timed out after 60 minutes")
     except FileNotFoundError:
         if os.path.exists(temp_path):
             os.unlink(temp_path)

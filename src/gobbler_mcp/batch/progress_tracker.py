@@ -29,7 +29,7 @@ class ProgressTracker:
     @property
     def redis(self) -> redis.Redis:
         """
-        Get or create Redis connection.
+        Get or create Redis connection with retry logic.
 
         Returns:
             Redis connection instance
@@ -46,6 +46,10 @@ class ProgressTracker:
                 port=port,
                 db=db,
                 decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True,
+                health_check_interval=30,
             )
         return self._redis
 

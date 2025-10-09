@@ -76,9 +76,12 @@ async def process_youtube_batch(
     concurrency: int = 3,
     skip_existing: bool = True,
     batch_id: Optional[str] = None,
+    delay_between_requests: float = 1.0,
+    jitter_range: float = 0.5,
+    max_retries: int = 2,
 ) -> BatchSummary:
     """
-    Process YouTube playlist videos in batch.
+    Process YouTube playlist videos in batch with rate limiting.
 
     Args:
         playlist_url: YouTube playlist URL
@@ -89,6 +92,9 @@ async def process_youtube_batch(
         concurrency: Number of concurrent downloads
         skip_existing: Skip videos with existing files
         batch_id: Optional batch ID (auto-generated if None)
+        delay_between_requests: Delay in seconds between requests (default: 1.0)
+        jitter_range: Random jitter 0-N seconds added to delay (default: 0.5)
+        max_retries: Maximum retry attempts for failed videos (default: 2)
 
     Returns:
         BatchSummary with processing results
@@ -182,7 +188,7 @@ async def process_youtube_batch(
                 error=str(e),
             )
 
-    # Create batch processor
+    # Create batch processor with rate limiting
     processor = BatchProcessor(
         batch_id=batch_id,
         items=items,
@@ -191,6 +197,10 @@ async def process_youtube_batch(
         output_dir=str(output_path),
         skip_existing=skip_existing,
         operation_type="youtube_playlist",
+        delay_between_requests=delay_between_requests,
+        jitter_range=jitter_range,
+        max_retries=max_retries,
+        retry_delay=1.0,
     )
 
     # Run batch
