@@ -35,7 +35,8 @@ output:
   # Timestamp format: iso8601, unix, or readable
   timestamp_format: iso8601
 
-# Service endpoints (usually no need to change)
+# Service endpoints for Docker containers (usually no need to change)
+# Note: Audio transcription runs locally and doesn't use a service endpoint
 services:
   crawl4ai:
     host: localhost
@@ -44,10 +45,6 @@ services:
   docling:
     host: localhost
     port: 5001
-
-  whisper:
-    host: localhost
-    port: 9000
 
 # Model cache directory (used by docker-compose.yml)
 # Set GOBBLER_MODELS_PATH environment variable to customize

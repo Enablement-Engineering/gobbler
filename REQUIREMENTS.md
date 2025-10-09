@@ -118,24 +118,24 @@ Content from PDF with preserved structure...
 ### FR4: Audio/Video Transcription
 **Priority**: P1 (Should Have)
 
-**Description**: Transcribe audio and video files using Whisper
+**Description**: Transcribe audio and video files using faster-whisper locally
 
 **Acceptance Criteria**:
 - Accept absolute file paths
 - Support formats: MP3, WAV, FLAC, MP4, MOV, etc.
 - Configurable model size (tiny, base, small, medium, large)
 - Language detection or user-specified
-- GPU acceleration when available, CPU fallback
-- Handle long files (chunk processing)
+- CoreML/Metal acceleration on M-series Macs, CPU fallback
+- Handle long files (automatic audio extraction for video)
 - Return transcript or save to file with frontmatter
-- Gracefully fail if Whisper container unavailable
+- No container dependencies (runs locally on host)
 
 **Error Handling**:
-- Container not running → Instructions to start service
+- Model loading failure → Instructions to check internet and disk space
 - File not found → Clear path validation error
 - Unsupported format → List supported formats with ffmpeg
 - Transcription failure → Explain issue (audio quality, language)
-- Out of memory → Suggest smaller model or chunking
+- Out of memory → Suggest smaller model
 
 **Example Output**:
 ```markdown
@@ -162,7 +162,7 @@ Transcribed content from video...
 - YouTube transcripts: < 5 seconds
 - Web page conversion: < 30 seconds (default timeout)
 - Document conversion: < 10 seconds per MB
-- Audio transcription: Real-time factor < 0.5 (1hr audio in 30min)
+- Audio transcription: ~6 seconds per MB with Metal/CoreML on M-series Macs
 - Support concurrent conversions (5+ simultaneous)
 
 ### NFR2: Reliability
@@ -205,10 +205,11 @@ Transcribed content from video...
 
 ### TC2: Docker Requirements
 - Docker Compose v2+
-- Pre-built images from official sources
-- Volume mounts for model caching
+- Pre-built images from official sources (Crawl4AI, Docling, Redis)
+- Volume mounts for model caching (Docling)
 - Resource limits configured
 - Health checks for service availability
+- **Note**: Audio transcription runs locally and does not require Docker
 
 ### TC3: Python Requirements
 - Python 3.10 or higher
@@ -249,10 +250,10 @@ output:
 ```
 
 ### CR2: Model Cache Locations
-**Whisper**: `~/.gobbler/models/whisper`
-**Docling**: `~/.gobbler/models/docling`
+**faster-whisper**: `~/.cache/huggingface` (automatic, local)
+**Docling**: `~/.gobbler/models/docling` (volume-mounted to container)
 
-User-controlled locations, volume-mounted to containers
+Whisper models are downloaded automatically by faster-whisper on first use. Docling models are volume-mounted to containers for persistence.
 
 ### CR3: Service Configuration
 **Docker Compose**: `~/.gobbler/docker-compose.yml`

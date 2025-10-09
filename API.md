@@ -252,7 +252,7 @@ If `output_file` provided:
 
 ## Tool: `transcribe_audio`
 
-**Description**: Transcribe audio and video files to text using OpenAI Whisper. Supports multiple audio/video formats with automatic format detection via ffmpeg. Configurable model size for speed/accuracy tradeoff. GPU acceleration when available. Requires Whisper Docker container.
+**Description**: Transcribe audio and video files to text using faster-whisper with CoreML/Metal acceleration. Supports multiple audio/video formats with automatic format detection via ffmpeg. Configurable model size for speed/accuracy tradeoff. Runs locally on host (no Docker container required).
 
 ### Input Schema
 
@@ -313,7 +313,7 @@ If `output_file` provided:
   "isError": true,
   "content": [{
     "type": "text",
-    "text": "Whisper service unavailable. The service may not be running. Start with: docker-compose up -d whisper"
+    "text": "Transcription failed: Unable to detect speech in audio. The file may be corrupted, silent, or in an unsupported language."
   }]
 }
 ```
@@ -322,12 +322,12 @@ If `output_file` provided:
 
 | Error | Message |
 |-------|---------|
-| Service unavailable | `Whisper service unavailable. The service may not be running. Start with: docker-compose up -d whisper` |
 | File not found | `File not found: /path/to/audio.mp3. Verify the path is correct and the file exists.` |
 | Unsupported format | `Unsupported audio format: .ogg. Supported formats: MP3, WAV, FLAC, M4A, MP4, MOV, AVI, MKV (via ffmpeg).` |
 | Transcription failure | `Transcription failed: Unable to detect speech in audio. The file may be corrupted, silent, or in an unsupported language.` |
 | Out of memory | `Transcription failed: Out of memory. Try using a smaller model: 'tiny' or 'base'.` |
 | Invalid audio | `Failed to process audio: File appears corrupted or uses unsupported codec.` |
+| Model loading failure | `Failed to load Whisper model: Unable to download or initialize model. Check your internet connection and disk space.` |
 
 ---
 
@@ -391,10 +391,11 @@ The MCP server performs health checks before calling containerized services:
 ```http
 GET http://localhost:11235/health  # Crawl4AI
 GET http://localhost:5001/health   # Docling
-GET http://localhost:9000/health   # Whisper
 ```
 
-If service is unavailable, tool returns error immediately without attempting conversion.
+If a containerized service is unavailable, the tool returns an error immediately without attempting conversion.
+
+**Note**: Audio transcription (`transcribe_audio`) runs locally and does not require health checks.
 
 ---
 
@@ -402,7 +403,8 @@ If service is unavailable, tool returns error immediately without attempting con
 
 **YouTube transcripts**: No rate limiting (uses official API)
 **Web scraping**: Respects robots.txt and standard crawl delays
-**Document/Audio**: No rate limiting (local processing)
+**Document conversion**: No rate limiting (containerized processing)
+**Audio transcription**: No rate limiting (local processing)
 
 ---
 

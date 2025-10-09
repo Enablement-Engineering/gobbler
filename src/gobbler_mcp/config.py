@@ -41,10 +41,6 @@ class Config:
                 "host": "localhost",
                 "port": 5001,
             },
-            "whisper": {
-                "host": "localhost",
-                "port": 9000,
-            },
         },
         "redis": {
             "host": "localhost",

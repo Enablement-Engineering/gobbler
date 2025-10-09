@@ -11,13 +11,14 @@ Host Machine
 ├── Gobbler MCP Server (Python + uv)
 │   ├── Native filesystem access (no volume mount issues)
 │   ├── Built-in: YouTube transcripts (youtube-transcript-api)
-│   ├── Calls HTTP APIs of Docker services
+│   ├── Built-in: Audio transcription (faster-whisper with CoreML/Metal)
+│   ├── Calls HTTP APIs of Docker services for web/docs
 │   └── Saves files with frontmatter metadata
 │
 └── Docker Compose Services
     ├── Crawl4AI Container (port 11235) - Advanced web scraping
     ├── Docling Container (port 5001) - Document conversion
-    └── Whisper Container (port 9000) - Audio/video transcription
+    └── Redis Container (port 6380) - Queue backend for long tasks
 ```
 
 ## Key Architectural Decisions
@@ -49,9 +50,9 @@ Host Machine
 - User controls which services to run
 
 **Service Images**:
-- **Crawl4AI**: `unclecode/crawl4ai:basic` (experimental, official)
+- **Crawl4AI**: `unclecode/crawl4ai:basic` (official)
 - **Docling**: `quay.io/docling-project/docling-serve` (official)
-- **Whisper**: `onerahmet/openai-whisper-asr-webservice` (2.6k stars, production-ready)
+- **Redis**: `redis:7-alpine` (official)
 
 ### 3. Graceful Degradation
 
@@ -59,17 +60,20 @@ Host Machine
 
 **Behavior**:
 - YouTube transcripts ALWAYS work (no containers needed)
-- Web/doc/audio conversions fail with clear error if service unavailable
+- Audio transcription ALWAYS works (no containers needed, uses faster-whisper locally)
+- Web/doc conversions fail with clear error if service unavailable
 - Error messages explain how to start services
 - No silent failures or half-working tools
 
 ### 4. Configuration Management
 
-**Model Caching**: Host directory mounts (user controls location)
+**Model Caching**: Host directory mounts for containers, local cache for faster-whisper
 ```yaml
+# Docker service volumes
 volumes:
   - ~/.gobbler/models/docling:/app/models
-  - ~/.gobbler/models/whisper:/root/.cache/whisper
+
+# Local model cache (faster-whisper automatically uses ~/.cache/huggingface)
 ```
 
 **User Config**: `~/.config/gobbler/config.yml`
@@ -138,9 +142,10 @@ Following MCP best practices from deep-research.md:
    - OCR support for scanned documents
 
 4. **`transcribe_audio`**
-   - Requires Whisper container
+   - Built-in (no container required)
+   - Uses `faster-whisper` with CoreML/Metal acceleration
    - Supports audio and video files
-   - GPU acceleration optional
+   - Automatic audio extraction from video with ffmpeg
 
 ### Error Handling
 
@@ -206,12 +211,15 @@ uv tool install gobbler-mcp
 - **Language**: Python 3.10+
 - **Framework**: FastMCP (official MCP Python SDK)
 - **Package Manager**: uv
-- **Built-in Libraries**: youtube-transcript-api
+- **Built-in Libraries**:
+  - youtube-transcript-api (YouTube transcripts)
+  - faster-whisper (audio transcription with CoreML/Metal)
+  - yt-dlp (YouTube downloads)
 
 ### Services (Docker)
 - **Crawl4AI**: Web scraping with browser automation
 - **Docling**: Document understanding (PyTorch-based ML)
-- **Whisper**: Speech recognition (faster-whisper engine)
+- **Redis**: Queue backend for long-running tasks
 
 ## Performance Considerations
 
@@ -254,12 +262,9 @@ POST http://localhost:5001/convert
 Content-Type: multipart/form-data
 file: [binary content]
 
-# Audio transcription
-POST http://localhost:9000/asr
-Content-Type: multipart/form-data
-audio_file: [binary content]
-model: small
-language: auto
+# Audio transcription (local, no HTTP call)
+# Uses faster-whisper Python library directly
+whisper.transcribe(file_path, model="small", language="auto")
 ```
 
 ### Services → MCP Server

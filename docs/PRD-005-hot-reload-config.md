@@ -148,8 +148,8 @@ class ConfigWatcher:
             if max_timeout and (max_timeout < timeout or max_timeout > 300):
                 errors.append(f"crawl4ai.max_timeout must be >= timeout and <= 300")
 
-        # Validate ports
-        for service in ['crawl4ai', 'docling', 'whisper']:
+        # Validate ports (for containerized services only)
+        for service in ['crawl4ai', 'docling']:
             if 'services' in config_data and service in config_data['services']:
                 port = config_data['services'][service].get('port')
                 if port and (port < 1 or port > 65535):
@@ -357,9 +357,6 @@ services:
   docling:
     host: localhost
     port: 5001
-  whisper:
-    host: localhost
-    port: 9000
 
 # Redis queue backend
 redis:
