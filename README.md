@@ -283,7 +283,12 @@ Transcribe audio/video files using Whisper with Metal acceleration.
 "Transcribe /Users/me/Videos/meeting.mp4 with auto-queue enabled"
 ```
 
-**Performance:** ~6 seconds per MB with Metal/CoreML on M-series Macs
+**Performance:** Real-time transcription speed varies by model on M-series Macs with Metal/CoreML:
+- `tiny`: ~6.7x faster than real-time
+- `base`: ~5x faster than real-time
+- `small`: ~3x faster than real-time (default)
+- `medium`: ~2x faster than real-time
+- `large`: ~1.25x faster than real-time
 
 ### `get_job_status`
 
@@ -629,7 +634,7 @@ Never gonna give you up, never gonna let you down...
 - **YouTube transcripts:** < 1 second (no Docker required)
 - **Web scraping:** 2-10 seconds depending on page complexity
 - **Document conversion:** 5-30 seconds depending on size and OCR
-- **Audio transcription:** ~6 seconds per MB with Metal/CoreML
+- **Audio transcription:** Model-dependent speeds on M-series Macs (small model: ~3x faster than real-time)
 - **Video transcription:** Auto-extracts audio first, then transcribes
 
 ## Troubleshooting
