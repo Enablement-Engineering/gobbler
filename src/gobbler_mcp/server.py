@@ -1794,6 +1794,108 @@ async def browser_extract_current_page(selector: Optional[str] = None) -> str:
 
 
 @mcp.tool()
+async def browser_list_tabs(filter: Optional[str] = None) -> str:
+    """
+    List all tabs in the Gobbler tab group with their IDs, titles, and URLs.
+
+    Returns a list of tabs that Claude can interact with. Only tabs in the
+    Gobbler group are accessible for security.
+
+    Args:
+        filter: Optional filter - use 'notebooklm' to only show NotebookLM tabs
+
+    Returns:
+        JSON list of tabs with tabId, title, url, and isActive fields
+    """
+    try:
+        from .http_server import send_command_to_extension
+
+        params = {}
+        if filter:
+            params["filter"] = filter
+
+        result = await send_command_to_extension(
+            command="list_gobbler_tabs",
+            params=params,
+            timeout=10.0
+        )
+
+        if result.get("success"):
+            tabs = result.get("tabs", [])
+            if not tabs:
+                return "No tabs in Gobbler group. Add tabs via extension popup or right-click menu."
+
+            # Format as readable output
+            lines = [f"Found {len(tabs)} tab(s) in Gobbler group:\n"]
+            for tab in tabs:
+                active_marker = " (active)" if tab.get("isActive") else ""
+                lines.append(f"  [{tab['tabId']}] {tab['title']}{active_marker}")
+                lines.append(f"       {tab['url']}")
+            return "\n".join(lines)
+        else:
+            error = result.get("error", "Unknown error")
+            return f"Failed to list tabs: {error}"
+
+    except RuntimeError as e:
+        return str(e)
+    except Exception as e:
+        logger.error(f"Error listing tabs: {e}", exc_info=True)
+        return f"Failed to list tabs: {str(e)}"
+
+
+@mcp.tool()
+async def browser_execute_script_in_tab(tab_id: int, script: str, timeout: int = 30) -> str:
+    """
+    Execute JavaScript in a specific browser tab (must be in Gobbler group).
+
+    Use browser_list_tabs() first to get available tab IDs. This allows targeting
+    specific tabs instead of just the active tab - useful for multi-instance
+    scenarios like having multiple NotebookLM notebooks open.
+
+    Args:
+        tab_id: The tab ID to execute the script in (from browser_list_tabs)
+        script: JavaScript code to execute (must be a complete expression or IIFE)
+        timeout: Maximum time to wait for script execution in seconds (default: 30, max: 150)
+
+    Returns:
+        JSON-serialized result of the script execution, or error message
+    """
+    try:
+        from .http_server import send_command_to_extension
+
+        # Validate timeout
+        timeout = min(max(timeout, 1), 150)
+
+        result = await send_command_to_extension(
+            command="execute_script_in_tab",
+            params={"tabId": tab_id, "script": script},
+            timeout=float(timeout)
+        )
+
+        if result.get("success"):
+            script_result = result.get("result")
+            executed_tab_id = result.get("tabId")
+
+            # Return result as JSON if it's complex, otherwise as string
+            if script_result is None:
+                return f"Script executed successfully in tab {executed_tab_id} (no return value)"
+            elif isinstance(script_result, (dict, list)):
+                import json
+                return json.dumps(script_result, indent=2)
+            else:
+                return str(script_result)
+        else:
+            error = result.get("error", "Unknown error")
+            return f"Script execution failed: {error}"
+
+    except RuntimeError as e:
+        return str(e)
+    except Exception as e:
+        logger.error(f"Error executing script in tab: {e}", exc_info=True)
+        return f"Failed to execute script in tab: {str(e)}"
+
+
+@mcp.tool()
 async def get_batch_progress(batch_id: str) -> str:
     """
     Get real-time progress for a running batch operation.
