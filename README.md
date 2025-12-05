@@ -435,6 +435,12 @@ Get real-time progress for a running batch operation.
 
 **Note:** Browser extension must be installed and connected. See [Browser Extension Setup](#browser-extension-setup).
 
+**Security:** The browser extension uses a **tab group security model**. Only tabs in the "Gobbler" tab group can be accessed by Claude. This prevents accidental access to sensitive tabs.
+
+- First use creates an orange "Gobbler" tab group with the current tab
+- Add/remove tabs via extension popup or right-click context menu
+- All browser commands enforce tab group membership
+
 #### `browser_check_connection`
 
 Check if browser extension is connected.
@@ -445,6 +451,39 @@ Check if browser extension is connected.
 ```
 
 **Returns:** Connection status message
+
+#### `browser_list_tabs`
+
+List all tabs in the Gobbler tab group.
+
+**Parameters:**
+- `filter` (optional) - Filter tabs by type (e.g., 'notebooklm' for NotebookLM tabs only)
+
+**Example:**
+```
+"List all tabs in my Gobbler group"
+"Show me my NotebookLM tabs"
+```
+
+**Returns:** List of tabs with tabId, title, url, and isActive status
+
+#### `browser_execute_script_in_tab`
+
+Execute JavaScript in a specific tab by ID (must be in Gobbler group).
+
+**Parameters:**
+- `tab_id` (required) - Tab ID from browser_list_tabs
+- `script` (required) - JavaScript code to execute
+- `timeout` (optional) - Timeout in seconds (default: 30, max: 150)
+
+**Example:**
+```
+"Execute this script in tab 123: document.title"
+```
+
+**Returns:** Script result (formatted as JSON if object/array)
+
+**Use Case:** Multi-instance scenarios like multiple NotebookLM notebooks open simultaneously.
 
 #### `browser_extract_current_page`
 
