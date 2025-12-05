@@ -9,8 +9,14 @@ const extractWithSelectorBtn = document.getElementById('extractWithSelector');
 const copyBtn = document.getElementById('copyBtn');
 const sendToClaudeBtn = document.getElementById('sendToClaudeBtn');
 const serverUrlInput = document.getElementById('serverUrl');
+const groupStatusText = document.getElementById('groupStatusText');
+const groupBtn = document.getElementById('groupBtn');
+const tabCountEl = document.getElementById('tabCount');
+const tabListEl = document.getElementById('tabList');
+const notInGroupWarning = document.getElementById('notInGroupWarning');
 
 let currentMarkdown = '';
+let isInGroup = false;
 
 // Load saved server URL
 chrome.storage.sync.get(['serverUrl'], (result) => {
@@ -37,9 +43,76 @@ function updateConnectionStatus() {
   });
 }
 
-// Update status on load and every 5 seconds
+// Update group status
+function updateGroupStatus() {
+  chrome.runtime.sendMessage({ action: 'getGroupStatus' }, (response) => {
+    if (response && response.hasTab) {
+      isInGroup = response.isInGobblerGroup;
+
+      if (response.isInGobblerGroup) {
+        groupStatusText.textContent = '🦃 Tab in Gobbler group';
+        groupStatusText.className = 'group-status-text in-group';
+        groupBtn.textContent = 'Remove';
+        groupBtn.className = 'group-btn remove';
+        notInGroupWarning.classList.remove('visible');
+        extractBtn.disabled = false;
+        extractWithSelectorBtn.disabled = false;
+      } else {
+        groupStatusText.textContent = '⚪ Tab not in group';
+        groupStatusText.className = 'group-status-text not-in-group';
+        groupBtn.textContent = 'Add Tab';
+        groupBtn.className = 'group-btn add';
+        notInGroupWarning.classList.add('visible');
+        extractBtn.disabled = true;
+        extractWithSelectorBtn.disabled = true;
+      }
+
+      // Show tab count and list
+      if (response.groupTabCount > 0) {
+        tabCountEl.textContent = `${response.groupTabCount} tab${response.groupTabCount > 1 ? 's' : ''} in group`;
+        tabListEl.innerHTML = response.groupTabs
+          .map(t => `<div class="tab-list-item${t.active ? ' active' : ''}" title="${t.url}">${t.title || 'Untitled'}</div>`)
+          .join('');
+      } else {
+        tabCountEl.textContent = 'No tabs in group yet';
+        tabListEl.innerHTML = '';
+      }
+    } else {
+      groupStatusText.textContent = 'No tab detected';
+      tabCountEl.textContent = '';
+      tabListEl.innerHTML = '';
+    }
+  });
+}
+
+// Handle group button click
+groupBtn.addEventListener('click', async () => {
+  groupBtn.disabled = true;
+
+  if (isInGroup) {
+    // Remove from group
+    chrome.runtime.sendMessage({ action: 'removeFromGroup' }, (response) => {
+      if (response && response.success) {
+        updateGroupStatus();
+      }
+      groupBtn.disabled = false;
+    });
+  } else {
+    // Add to group
+    chrome.runtime.sendMessage({ action: 'addToGroup' }, (response) => {
+      if (response && response.success) {
+        updateGroupStatus();
+      }
+      groupBtn.disabled = false;
+    });
+  }
+});
+
+// Update status on load and every 2 seconds
 updateConnectionStatus();
+updateGroupStatus();
 setInterval(updateConnectionStatus, 5000);
+setInterval(updateGroupStatus, 2000);
 
 function showStatus(message, type = 'info') {
   statusEl.textContent = message;

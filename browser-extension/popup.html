@@ -133,12 +133,121 @@
       background: #f8d7da;
       color: #721c24;
     }
+
+    .group-section {
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: 6px;
+      background: #fff8f0;
+      border: 1px solid #f0a050;
+    }
+
+    .group-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .group-status-text {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .group-status-text.in-group {
+      color: #155724;
+    }
+
+    .group-status-text.not-in-group {
+      color: #856404;
+    }
+
+    .group-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .group-btn.add {
+      background: #28a745;
+      color: white;
+    }
+
+    .group-btn.add:hover {
+      background: #218838;
+    }
+
+    .group-btn.remove {
+      background: #dc3545;
+      color: white;
+    }
+
+    .group-btn.remove:hover {
+      background: #c82333;
+    }
+
+    .tab-count {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .tab-list {
+      font-size: 11px;
+      color: #555;
+      margin-top: 8px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+
+    .tab-list-item {
+      padding: 3px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tab-list-item.active {
+      font-weight: 600;
+      color: #0066cc;
+    }
+
+    .not-in-group-warning {
+      background: #fff3cd;
+      color: #856404;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .not-in-group-warning.visible {
+      display: block;
+    }
   </style>
 </head>
 <body>
-  <h1>🍔 Gobbler</h1>
+  <h1>🦃 Gobbler</h1>
 
   <div id="wsStatus" class="ws-status">Checking connection...</div>
+
+  <div class="group-section">
+    <div class="group-status">
+      <span id="groupStatusText" class="group-status-text">Checking...</span>
+      <button id="groupBtn" class="group-btn add">Add Tab</button>
+    </div>
+    <div id="tabCount" class="tab-count"></div>
+    <div id="tabList" class="tab-list"></div>
+  </div>
+
+  <div id="notInGroupWarning" class="not-in-group-warning">
+    ⚠️ Current tab is not in Gobbler group. Add it to enable extraction.
+  </div>
+
   <div id="status" class="status"></div>
 
   <button id="extractBtn">Extract Current Page</button>
