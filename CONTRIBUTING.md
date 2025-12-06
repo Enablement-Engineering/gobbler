@@ -17,7 +17,13 @@ Thank you for your interest in contributing to Gobbler! This guide will help you
    # or: uv sync --dev
    ```
 
-4. **Start services**:
+4. **Set up pre-commit hooks** (recommended):
+   ```bash
+   uv run pre-commit install
+   ```
+   This will automatically run code quality checks before each commit.
+
+5. **Start services**:
    ```bash
    make start
    ```
@@ -35,6 +41,11 @@ Thank you for your interest in contributing to Gobbler! This guide will help you
 
 3. **Test your changes**:
    ```bash
+   # Run all quality checks at once
+   uv run pre-commit run --all-files
+
+   # Or run individual checks:
+
    # Run tests
    uv run pytest
 
@@ -42,10 +53,16 @@ Thank you for your interest in contributing to Gobbler! This guide will help you
    uv run mypy src/
 
    # Linting
-   uv run ruff check src/
+   uv run ruff check src/ --fix
 
    # Format code
    uv run ruff format src/
+
+   # Security checks
+   uv run bandit -c pyproject.toml -r src/
+
+   # Docstring coverage
+   uv run interrogate src/
    ```
 
 4. **Test with MCP Inspector**:
@@ -74,15 +91,82 @@ Thank you for your interest in contributing to Gobbler! This guide will help you
 
 7. **Create a Pull Request** on GitHub
 
+## Code Quality Tools
+
+### Pre-commit Hooks
+
+Pre-commit hooks automatically run quality checks before each commit. After installing with `uv run pre-commit install`, these checks run automatically:
+
+- **Ruff** - Code formatting and linting
+- **MyPy** - Static type checking
+- **Bandit** - Security vulnerability scanning
+- **Interrogate** - Docstring coverage checking
+- **File checks** - Trailing whitespace, YAML/TOML syntax, etc.
+
+To run manually:
+```bash
+# Run on all files
+uv run pre-commit run --all-files
+
+# Run on staged files only
+uv run pre-commit run
+
+# Skip hooks for a specific commit (not recommended)
+git commit --no-verify -m "message"
+```
+
+### Custom Exceptions
+
+Use the custom exception hierarchy from `gobbler_mcp.exceptions`:
+
+```python
+from gobbler_mcp.exceptions import (
+    ServiceUnavailableError,
+    ConversionError,
+    ConfigurationError,
+    QueueError,
+    ValidationError,
+    TimeoutError,
+)
+
+# Example usage
+if not service_available:
+    raise ServiceUnavailableError("Docker container is not running")
+
+if invalid_url:
+    raise ValidationError(f"Invalid URL format: {url}")
+```
+
+### Type Safety
+
+Use TypedDicts from `gobbler_mcp.types` for structured data:
+
+```python
+from gobbler_mcp.types import (
+    ConversionMetadata,
+    BatchResult,
+    JobStatus,
+    ServiceHealth,
+)
+
+# Example usage
+metadata: ConversionMetadata = {
+    "title": "Document Title",
+    "source_url": "https://example.com",
+    "conversion_date": datetime.now().isoformat(),
+}
+```
+
 ## Code Style Guidelines
 
 ### Python
 
 - **Follow PEP 8** - enforced by `ruff`
 - **Type hints** - use type annotations for all functions
-- **Docstrings** - all public functions should have docstrings
+- **Docstrings** - all public functions should have Google-style docstrings
 - **Line length** - max 100 characters
 - **Imports** - organized with `isort` (handled by `ruff`)
+- **Complexity** - max cyclomatic complexity of 12
 
 ### Example Function
 
@@ -127,20 +211,30 @@ logger.error(f"Failed to process: {error}", exc_info=True)
 
 ### Error Handling
 
+- **Use custom exceptions** - from `gobbler_mcp.exceptions`
 - **Validate inputs early** - fail fast with clear error messages
 - **Handle service errors gracefully** - provide actionable feedback
 - **Log exceptions** - use `exc_info=True` for tracebacks
 
 ```python
+from gobbler_mcp.exceptions import ServiceUnavailableError, ValidationError
+
+# Validate inputs
+if not file_path or not Path(file_path).exists():
+    raise ValidationError(f"File does not exist: {file_path}")
+
+# Handle service errors
 try:
     result = await service.convert(file_path)
-except httpx.ConnectError:
-    return "Service unavailable. Start with: docker-compose up -d service"
+except httpx.ConnectError as e:
+    raise ServiceUnavailableError(
+        "Service unavailable. Start with: docker-compose up -d service"
+    ) from e
 except ValueError as e:
-    return f"Invalid input: {str(e)}"
+    raise ValidationError(f"Invalid input: {str(e)}") from e
 except Exception as e:
     logger.error(f"Unexpected error: {e}", exc_info=True)
-    return f"Conversion failed: {str(e)}"
+    raise ConversionError(f"Conversion failed: {str(e)}") from e
 ```
 
 ## Project Structure
@@ -271,10 +365,13 @@ When adding features, update:
 
 ### Before Submitting
 
+- [ ] Pre-commit hooks pass (`uv run pre-commit run --all-files`)
 - [ ] Tests pass (`uv run pytest`)
 - [ ] Code is formatted (`uv run ruff format src/`)
 - [ ] No linting errors (`uv run ruff check src/`)
 - [ ] Type checking passes (`uv run mypy src/`)
+- [ ] Security checks pass (`uv run bandit -c pyproject.toml -r src/`)
+- [ ] Coverage threshold met (70%+) (`uv run pytest --cov`)
 - [ ] Documentation updated
 - [ ] MCP Inspector testing completed
 

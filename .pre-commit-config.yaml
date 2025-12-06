@@ -1,0 +1,93 @@
+# Pre-commit hooks for Gobbler MCP server
+# See https://pre-commit.com for more information
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      # Ensure files end with a newline
+      - id: end-of-file-fixer
+      # Check YAML syntax
+      - id: check-yaml
+        args: [--safe]
+      # Check TOML syntax
+      - id: check-toml
+      # Check for merge conflict markers
+      - id: check-merge-conflict
+      # Check for debugger imports
+      - id: debug-statements
+      # Check for large files
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      # Check JSON syntax
+      - id: check-json
+      # Prevent committing to main/master
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+      # Check for case conflicts
+      - id: check-case-conflict
+      # Check executables have shebangs
+      - id: check-executables-have-shebangs
+      # Check shebangs point to executables
+      - id: check-shebang-scripts-are-executable
+      # Fix mixed line endings
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Run the formatter
+      - id: ruff-format
+
+  # MyPy - Static type checker
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-PyYAML
+          - types-aiofiles
+          - types-redis
+          - types-requests
+          - types-beautifulsoup4
+        args: [--strict, --ignore-missing-imports]
+        exclude: ^(tests/|docs/)
+
+  # Check docstring coverage (optional but recommended)
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: [--verbose, --fail-under=50, --ignore-init-method, --ignore-init-module]
+        exclude: ^(tests/|docs/)
+
+  # Security checks with bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^tests/
+
+# Global settings
+default_language_version:
+  python: python3.11
+
+# Run hooks on all files during manual runs
+default_stages: [commit]
+
+# Fail fast on first error
+fail_fast: false
+
+# Minimum supported version
+minimum_pre_commit_version: "3.0.0"

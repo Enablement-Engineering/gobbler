@@ -66,6 +66,13 @@ dev = [
     "fakeredis>=2.21.0",
     "mypy>=1.10.0",
     "ruff>=0.4.0",
+    "pre-commit>=3.0.0",
+    "bandit>=1.7.0",
+    "interrogate>=1.7.0",
+    "types-PyYAML>=6.0.0",
+    "types-aiofiles>=24.0.0",
+    "types-redis>=4.6.0",
+    "types-beautifulsoup4>=4.12.0",
 ]
 
 [project.scripts]
@@ -109,30 +116,140 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
-ignore = []
+# Enable comprehensive linting rules
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+    "C",   # mccabe complexity
+    "C90", # mccabe complexity checks
+    "D",   # pydocstyle (docstring checks)
+    "S",   # flake8-bandit (security checks)
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "COM", # flake8-commas
+    "DTZ", # flake8-datetimez
+    "EM",  # flake8-errmsg
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "G",   # flake8-logging-format
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "PT",  # flake8-pytest-style
+    "Q",   # flake8-quotes
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "PD",  # pandas-vet
+    "PGH", # pygrep-hooks
+    "PL",  # pylint
+    "TRY", # tryceratops
+    "NPY", # NumPy-specific rules
+    "RUF", # Ruff-specific rules
+]
+
+ignore = [
+    "D100",  # Missing docstring in public module (handled by interrogate)
+    "D104",  # Missing docstring in public package
+    "D107",  # Missing docstring in __init__
+    "D203",  # 1 blank line required before class docstring (conflicts with D211)
+    "D213",  # Multi-line docstring summary should start at the second line (conflicts with D212)
+    "COM812", # Missing trailing comma (handled by formatter)
+    "ISC001", # Implicitly concatenated string literals (handled by formatter)
+    "S101",  # Use of assert detected (needed for pytest)
+    "PLR0913", # Too many arguments to function call
+    "TRY003", # Avoid specifying long messages outside the exception class
+]
+
+# Complexity settings
+mccabe.max-complexity = 12
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
+"__init__.py" = ["F401", "D104"]
+"tests/**/*.py" = ["S101", "D", "PLR2004", "ARG001"]
+"**/migrations/*.py" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["gobbler_mcp"]
+combine-as-imports = true
 
 [tool.coverage.run]
 source = ["src/gobbler_mcp"]
+branch = true
+parallel = true
 omit = [
     "*/tests/*",
     "*/fixtures/*",
     "*/__pycache__/*",
     "*/.venv/*",
+    "*/site-packages/*",
+    "*/__init__.py",
 ]
 
 [tool.coverage.report]
+# Minimum coverage threshold
+fail_under = 70
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
+    "def __str__",
     "raise AssertionError",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
 ]
 precision = 2
 skip_covered = false
 skip_empty = true
+show_missing = true
+sort = "Cover"
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.coverage.paths]
+source = [
+    "src/gobbler_mcp",
+    "*/gobbler-mcp/src/gobbler_mcp",
+]
+
+[tool.bandit]
+# Bandit security linter configuration
+exclude_dirs = [
+    "tests",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]
+skips = [
+    "B101",  # assert_used (needed for pytest)
+]
+severity = "medium"
+
+[tool.interrogate]
+# Docstring coverage configuration
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = true
+ignore-nested-functions = true
+fail-under = 50
+exclude = ["tests", "docs", "build", "dist"]
+verbose = 1
+color = true
