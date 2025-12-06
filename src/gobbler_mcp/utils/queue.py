@@ -22,6 +22,9 @@ def get_redis_connection() -> redis.Redis:
 
     Returns:
         Redis connection instance
+
+    Raises:
+        ConnectionError: If Redis is not reachable
     """
     global _redis_conn
 
@@ -33,12 +36,35 @@ def get_redis_connection() -> redis.Redis:
         db = redis_config.get("db", 0)
 
         logger.info(f"Connecting to Redis at {host}:{port}")
-        _redis_conn = redis.Redis(
-            host=host,
-            port=port,
-            db=db,
-            decode_responses=False,  # RQ needs bytes
-        )
+        try:
+            _redis_conn = redis.Redis(
+                host=host,
+                port=port,
+                db=db,
+                decode_responses=False,  # RQ needs bytes
+                socket_connect_timeout=5,
+                socket_timeout=5,
+            )
+            # Test connection
+            _redis_conn.ping()
+        except (redis.ConnectionError, redis.TimeoutError) as e:
+            error_msg = (
+                f"❌ Redis connection failed.\n\n"
+                f"What went wrong:\n"
+                f"   Cannot connect to Redis at {host}:{port}\n\n"
+                f"Why this happened:\n"
+                f"   • Redis service is not running\n"
+                f"   • Docker services not started\n"
+                f"   • Port {port} is blocked or in use\n\n"
+                f"How to fix:\n"
+                f"   1. Start services: `make start-docker`\n"
+                f"   2. Check Redis: `docker ps | grep redis`\n"
+                f"   3. View logs: `docker logs gobbler-redis`\n\n"
+                f"Note: Background tasks require Redis to be running.\n"
+                f"Original error: {str(e)}"
+            )
+            logger.error(error_msg)
+            raise ConnectionError(error_msg) from e
 
     return _redis_conn
 

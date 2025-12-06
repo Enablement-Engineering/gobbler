@@ -1,12 +1,14 @@
-.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall
+.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall verify diagnose
 
-# Default target
+# Default target - Show available commands and their descriptions
+# Use this to get started or find the right command for your task
 help:
 	@echo "Gobbler MCP Server - Available Commands"
 	@echo "========================================"
 	@echo ""
 	@echo "🚀 Quick Start:"
 	@echo "  make start          - Start everything (Docker services + RQ worker)"
+	@echo "  make verify         - Verify installation and check system health"
 	@echo ""
 	@echo "🐳 Docker Services:"
 	@echo "  make start-docker   - Start Docker services only (Crawl4AI, Docling, Redis)"
@@ -28,23 +30,37 @@ help:
 	@echo "  make claude-uninstall - Remove Gobbler from Claude Code"
 	@echo "  make claude-config  - Show Claude Code configuration snippet"
 	@echo ""
-	@echo "🧪 Testing:"
+	@echo "🧪 Testing & Diagnostics:"
 	@echo "  make test           - Run tests"
 	@echo "  make inspector      - Launch MCP inspector for testing"
+	@echo "  make diagnose       - Run diagnostics and suggest fixes for common issues"
 	@echo ""
 	@echo "🧹 Cleanup:"
 	@echo "  make clean          - Remove build artifacts and cache"
 
-# Installation
+# ============================================================================
+# Installation Targets
+# ============================================================================
+
+# Install Gobbler MCP with core dependencies only
+# Use this for production or if you don't need testing tools
 install:
 	@echo "📦 Installing Gobbler MCP..."
 	uv pip install -e .
 
+# Install Gobbler MCP with development dependencies (pytest, mypy, ruff, etc.)
+# Use this if you're developing or contributing to Gobbler
 dev:
 	@echo "📦 Installing Gobbler MCP with dev dependencies..."
 	uv pip install -e ".[dev]"
 
-# Docker service management
+# ============================================================================
+# Service Management Targets
+# ============================================================================
+
+# Start all services: Docker containers + background RQ worker
+# This is your one-stop command to get Gobbler fully operational
+# Runs: Crawl4AI, Docling, Redis, and RQ worker in background
 start:
 	@echo "🚀 Starting Gobbler (Docker services + RQ worker)..."
 	@echo ""
@@ -62,6 +78,9 @@ start:
 	@echo ""
 	@echo "🎉 Gobbler is ready! Use 'make worker-stop' to stop the worker."
 
+# Start only Docker services (Crawl4AI, Docling, Redis)
+# Use this if you want to manage the RQ worker separately
+# The services will run in background (detached mode)
 start-docker:
 	@echo "🐳 Starting Docker services..."
 	docker-compose up -d
@@ -75,20 +94,31 @@ start-docker:
 	@sleep 5
 	@make status
 
+# Stop all Docker services
+# This will gracefully shut down Crawl4AI, Docling, and Redis containers
+# Data in Redis will be lost unless persisted
 stop:
 	@echo "🛑 Stopping Docker services..."
 	docker-compose down
 
+# Restart all Docker services
+# Useful when services are unresponsive or after configuration changes
 restart:
 	@echo "🔄 Restarting Docker services..."
 	docker-compose restart
 	@sleep 5
 	@make status
 
+# View live logs from all Docker services
+# Press Ctrl+C to exit log viewing
+# Useful for debugging service issues
 logs:
 	@echo "📋 Viewing service logs (Ctrl+C to exit)..."
 	docker-compose logs -f
 
+# Check health status of all services
+# Shows container status and performs health checks on each service
+# Use this to verify services are running correctly
 status:
 	@echo "📊 Service Status:"
 	@echo ""
@@ -102,7 +132,14 @@ status:
 	@echo -n "   Redis:    "
 	@docker exec gobbler-redis redis-cli ping > /dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unavailable"
 
-# Worker management
+# ============================================================================
+# Worker Management Targets
+# ============================================================================
+
+# Start RQ worker in foreground
+# Processes background tasks from queues: default, transcription, download
+# Keep this running in a terminal while using Gobbler for long tasks
+# Press Ctrl+C to stop
 worker:
 	@echo "🔧 Starting RQ worker..."
 	@echo "   Processing queues: default, transcription, download"
@@ -110,6 +147,9 @@ worker:
 	@echo ""
 	uv run python -m gobbler_mcp.worker
 
+# Stop any running RQ workers
+# Attempts to kill both background workers (started by 'make start')
+# and any workers started manually
 worker-stop:
 	@echo "🛑 Stopping RQ workers..."
 	@if [ -f .worker.pid ]; then \
@@ -119,7 +159,13 @@ worker-stop:
 		pkill -f "gobbler_mcp.worker" && echo "✅ Workers stopped" || echo "⚠️  No workers running"; \
 	fi
 
-# Claude Code integration
+# ============================================================================
+# Claude Code Integration Targets
+# ============================================================================
+
+# Install Gobbler MCP into Claude Code
+# Shows the command you need to run to add Gobbler to Claude Code
+# After running, restart Claude Code to use Gobbler tools
 claude-install:
 	@echo "🤖 Installing Gobbler MCP to Claude Code..."
 	@echo ""
@@ -130,6 +176,8 @@ claude-install:
 	@echo "Or manually add to your .mcp.json:"
 	@make claude-config
 
+# Remove Gobbler MCP from Claude Code
+# Shows the command to uninstall Gobbler from Claude Code
 claude-uninstall:
 	@echo "🗑️  Removing Gobbler MCP from Claude Code..."
 	@echo ""
@@ -137,6 +185,8 @@ claude-uninstall:
 	@echo ""
 	@echo "claude mcp remove gobbler-mcp"
 
+# Show the manual configuration snippet for Claude Code
+# Use this if you prefer to manually edit your .mcp.json file
 claude-config:
 	@echo ""
 	@echo "📝 Add this to your .mcp.json file:"
@@ -157,17 +207,31 @@ claude-config:
 	@echo '}'
 	@echo ""
 
-# Testing
+# ============================================================================
+# Testing & Diagnostics Targets
+# ============================================================================
+
+# Run the test suite
+# Requires dev dependencies: make dev
+# Runs pytest with coverage reporting
 test:
 	@echo "🧪 Running tests..."
 	uv run pytest
 
+# Launch the MCP Inspector for interactive testing
+# Opens a web interface at http://localhost:5173 to test MCP tools
+# Useful for debugging tool behavior without using Claude
 inspector:
 	@echo "🔍 Launching MCP Inspector..."
 	@echo "   Opening http://localhost:5173 in browser..."
 	npx @modelcontextprotocol/inspector uv --directory $(PWD) run gobbler-mcp
 
-# Cleanup
+# ============================================================================
+# Cleanup Targets
+# ============================================================================
+
+# Remove all build artifacts, caches, and temporary files
+# Safe to run - doesn't affect configuration or data
 clean:
 	@echo "🧹 Cleaning build artifacts..."
 	rm -rf build/
@@ -179,3 +243,221 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	@echo "✅ Cleanup complete"
+
+# ============================================================================
+# Verification & Diagnostics Targets
+# ============================================================================
+
+# Verify installation and system health
+# Checks all prerequisites and validates that Gobbler is ready to use
+# Run this after installation or if you encounter issues
+verify:
+	@echo "🔍 Verifying Gobbler Installation..."
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "📋 Prerequisites Check"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo -n "✓ Python version: "
+	@python3 --version 2>/dev/null || (echo "❌ Python 3.11+ required" && echo "   Install: https://www.python.org/downloads/" && false)
+	@python3 -c 'import sys; exit(0 if sys.version_info >= (3, 11) else 1)' && echo "   ✅ Python 3.11+ detected" || (echo "   ❌ Python 3.11+ required (found: $$(python3 --version))" && echo "   Install: https://www.python.org/downloads/" && false)
+	@echo ""
+	@echo -n "✓ uv package manager: "
+	@which uv > /dev/null 2>&1 && echo "✅ Installed ($$(uv --version))" || (echo "❌ Not installed" && echo "   Install: curl -LsSf https://astral.sh/uv/install.sh | sh" && false)
+	@echo ""
+	@echo -n "✓ Docker: "
+	@docker --version > /dev/null 2>&1 && echo "✅ Installed ($$(docker --version | cut -d' ' -f3 | tr -d ','))" || echo "⚠️  Not installed (optional, needed for web/document conversion)"
+	@echo ""
+	@echo -n "✓ Docker Compose: "
+	@docker-compose --version > /dev/null 2>&1 && echo "✅ Installed" || echo "⚠️  Not installed (optional, needed for web/document conversion)"
+	@echo ""
+	@echo -n "✓ ffmpeg: "
+	@which ffmpeg > /dev/null 2>&1 && echo "✅ Installed ($$(ffmpeg -version 2>&1 | head -n1 | cut -d' ' -f3))" || echo "⚠️  Not installed (needed for audio extraction from video files)"
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🐍 Python Environment Check"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo -n "✓ Gobbler MCP installed: "
+	@uv pip show gobbler-mcp > /dev/null 2>&1 && echo "✅ Yes" || (echo "❌ No" && echo "   Fix: Run 'make install'" && false)
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "📁 Configuration Check"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo -n "✓ Config file: "
+	@if [ -f "$$HOME/.config/gobbler/config.yml" ]; then \
+		echo "✅ Found ($$HOME/.config/gobbler/config.yml)"; \
+	else \
+		echo "⚠️  Not found (will use defaults)"; \
+		echo "   Optional: Create custom config at $$HOME/.config/gobbler/config.yml"; \
+	fi
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🐳 Docker Services Health"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@if docker --version > /dev/null 2>&1; then \
+		if docker ps > /dev/null 2>&1; then \
+			echo "✓ Docker daemon: ✅ Running"; \
+			echo ""; \
+			echo -n "✓ Crawl4AI service: "; \
+			curl -sf http://localhost:11235/health > /dev/null 2>&1 && echo "✅ Healthy (http://localhost:11235)" || echo "❌ Unavailable (start with: make start-docker)"; \
+			echo -n "✓ Docling service: "; \
+			curl -sf http://localhost:5001/health > /dev/null 2>&1 && echo "✅ Healthy (http://localhost:5001)" || echo "❌ Unavailable (start with: make start-docker)"; \
+			echo -n "✓ Redis service: "; \
+			docker exec gobbler-redis redis-cli ping > /dev/null 2>&1 && echo "✅ Healthy (localhost:6380)" || echo "❌ Unavailable (start with: make start-docker)"; \
+		else \
+			echo "✓ Docker daemon: ❌ Not running"; \
+			echo "   Fix: Start Docker Desktop or docker service"; \
+		fi; \
+	else \
+		echo "✓ Docker: ⚠️  Not installed (services unavailable)"; \
+	fi
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🎉 Verification Complete!"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  • Start services: make start"
+	@echo "  • Run diagnostics: make diagnose"
+	@echo "  • Install to Claude: make claude-install"
+	@echo ""
+
+# Run comprehensive diagnostics and suggest fixes
+# Use this when troubleshooting issues or getting started
+# Provides actionable recommendations for common problems
+diagnose:
+	@echo "🔬 Running Gobbler Diagnostics..."
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🔍 System Diagnostics"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@ISSUES=0; \
+	if ! python3 -c 'import sys; exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then \
+		echo "❌ ISSUE: Python 3.11+ not found"; \
+		echo "   Solution: Install Python 3.11 or higher from https://www.python.org/downloads/"; \
+		echo "   Current: $$(python3 --version 2>/dev/null || echo 'Not installed')"; \
+		echo ""; \
+		ISSUES=$$((ISSUES+1)); \
+	fi; \
+	if ! which uv > /dev/null 2>&1; then \
+		echo "❌ ISSUE: uv package manager not installed"; \
+		echo "   Solution: Run this command:"; \
+		echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+		echo ""; \
+		ISSUES=$$((ISSUES+1)); \
+	fi; \
+	if ! uv pip show gobbler-mcp > /dev/null 2>&1; then \
+		echo "❌ ISSUE: Gobbler MCP not installed"; \
+		echo "   Solution: Run 'make install' to install dependencies"; \
+		echo ""; \
+		ISSUES=$$((ISSUES+1)); \
+	fi; \
+	if docker --version > /dev/null 2>&1; then \
+		if ! docker ps > /dev/null 2>&1; then \
+			echo "⚠️  WARNING: Docker daemon not running"; \
+			echo "   Impact: Web scraping and document conversion unavailable"; \
+			echo "   Solution: Start Docker Desktop or run 'sudo systemctl start docker'"; \
+			echo ""; \
+			ISSUES=$$((ISSUES+1)); \
+		else \
+			if ! curl -sf http://localhost:11235/health > /dev/null 2>&1; then \
+				echo "⚠️  WARNING: Crawl4AI service unavailable"; \
+				echo "   Impact: Web scraping tools will not work"; \
+				echo "   Solution: Run 'make start-docker' to start services"; \
+				echo ""; \
+			fi; \
+			if ! curl -sf http://localhost:5001/health > /dev/null 2>&1; then \
+				echo "⚠️  WARNING: Docling service unavailable"; \
+				echo "   Impact: Document conversion tools will not work"; \
+				echo "   Solution: Run 'make start-docker' to start services"; \
+				echo ""; \
+			fi; \
+			if ! docker exec gobbler-redis redis-cli ping > /dev/null 2>&1; then \
+				echo "⚠️  WARNING: Redis service unavailable"; \
+				echo "   Impact: Background job queue will not work"; \
+				echo "   Solution: Run 'make start-docker' to start services"; \
+				echo ""; \
+			fi; \
+		fi; \
+	else \
+		echo "ℹ️  INFO: Docker not installed"; \
+		echo "   Impact: Web scraping and document conversion unavailable"; \
+		echo "   Note: YouTube and audio transcription still work!"; \
+		echo "   Optional: Install Docker from https://docs.docker.com/get-docker/"; \
+		echo ""; \
+	fi; \
+	if ! which ffmpeg > /dev/null 2>&1; then \
+		echo "⚠️  WARNING: ffmpeg not installed"; \
+		echo "   Impact: Cannot extract audio from video files"; \
+		echo "   Solution: Install ffmpeg:"; \
+		echo "     macOS:  brew install ffmpeg"; \
+		echo "     Ubuntu: sudo apt-get install ffmpeg"; \
+		echo "     Windows: Download from https://ffmpeg.org/download.html"; \
+		echo ""; \
+	fi; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	echo "🔌 Network Connectivity Tests"; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	echo ""; \
+	if docker ps > /dev/null 2>&1; then \
+		echo -n "Testing Crawl4AI (localhost:11235)... "; \
+		if timeout 5 curl -sf http://localhost:11235/health > /dev/null 2>&1; then \
+			echo "✅ OK"; \
+		else \
+			echo "❌ FAILED"; \
+			echo "   Troubleshooting:"; \
+			echo "   1. Check if container is running: docker ps | grep crawl4ai"; \
+			echo "   2. Check container logs: docker logs gobbler-crawl4ai"; \
+			echo "   3. Try restarting: make restart"; \
+		fi; \
+		echo ""; \
+		echo -n "Testing Docling (localhost:5001)... "; \
+		if timeout 5 curl -sf http://localhost:5001/health > /dev/null 2>&1; then \
+			echo "✅ OK"; \
+		else \
+			echo "❌ FAILED"; \
+			echo "   Troubleshooting:"; \
+			echo "   1. Check if container is running: docker ps | grep docling"; \
+			echo "   2. Check container logs: docker logs gobbler-docling"; \
+			echo "   3. Try restarting: make restart"; \
+		fi; \
+		echo ""; \
+		echo -n "Testing Redis (localhost:6380)... "; \
+		if docker exec gobbler-redis redis-cli ping > /dev/null 2>&1; then \
+			echo "✅ OK"; \
+		else \
+			echo "❌ FAILED"; \
+			echo "   Troubleshooting:"; \
+			echo "   1. Check if container is running: docker ps | grep redis"; \
+			echo "   2. Check container logs: docker logs gobbler-redis"; \
+			echo "   3. Try restarting: make restart"; \
+		fi; \
+		echo ""; \
+	fi; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	echo "📊 Diagnosis Summary"; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	echo ""; \
+	if [ $$ISSUES -eq 0 ]; then \
+		echo "✅ All critical checks passed!"; \
+		echo ""; \
+		echo "Gobbler is ready to use. Try:"; \
+		echo "  • make start          # Start all services"; \
+		echo "  • make claude-install # Install to Claude Code"; \
+		echo ""; \
+	else \
+		echo "⚠️  Found $$ISSUES issue(s) requiring attention."; \
+		echo ""; \
+		echo "Please address the issues above before using Gobbler."; \
+		echo ""; \
+	fi; \
+	echo "Common issues and solutions:"; \
+	echo "  • Services won't start → Run 'make start-docker'"; \
+	echo "  • Permission denied → Run 'chmod +x' on script files"; \
+	echo "  • Port already in use → Check for conflicts with docker ps -a"; \
+	echo "  • Still having issues? → Check logs with 'make logs'"; \
+	echo ""

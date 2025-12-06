@@ -286,14 +286,32 @@ async def fetch_webpage(
 
     except httpx.ConnectError:
         return (
-            "Crawl4AI service unavailable. The service may not be running. "
-            "Start with: docker-compose up -d crawl4ai"
+            "❌ Crawl4AI service unavailable.\n\n"
+            "What went wrong:\n"
+            "   The Crawl4AI Docker container is not running or not reachable.\n\n"
+            "Why this happened:\n"
+            "   • Docker services may not be started\n"
+            "   • Container crashed or failed to start\n"
+            "   • Port 11235 is blocked or in use\n\n"
+            "How to fix:\n"
+            "   1. Start services: `make start-docker`\n"
+            "   2. Check status: `make status`\n"
+            "   3. View logs: `make logs`\n\n"
+            "Note: YouTube transcription still works without Docker!"
         )
     except httpx.TimeoutException:
         return (
-            f"Failed to fetch URL: Connection timeout after {timeout} seconds. "
-            "The target server may be slow or the URL may be inaccessible. "
-            "To increase timeout, use the timeout parameter (maximum 120 seconds)."
+            f"⏱️  Connection timeout after {timeout} seconds.\n\n"
+            "What went wrong:\n"
+            f"   Failed to fetch {url} within {timeout} seconds.\n\n"
+            "Why this happened:\n"
+            "   • Target server is slow or unresponsive\n"
+            "   • Network connectivity issues\n"
+            "   • URL may be inaccessible\n\n"
+            "How to fix:\n"
+            "   • Increase timeout: Use timeout parameter (max 120 seconds)\n"
+            "   • Check URL is accessible in browser\n"
+            "   • Try again later if server is overloaded"
         )
     except httpx.HTTPStatusError as e:
         status_code = e.response.status_code
@@ -422,8 +440,18 @@ async def fetch_webpage_with_selector(
         return str(e)
     except httpx.ConnectError:
         return (
-            "Crawl4AI service unavailable. The service may not be running. "
-            "Start with: docker-compose up -d crawl4ai"
+            "❌ Crawl4AI service unavailable.\n\n"
+            "What went wrong:\n"
+            "   The Crawl4AI Docker container is not running or not reachable.\n\n"
+            "Why this happened:\n"
+            "   • Docker services may not be started\n"
+            "   • Container crashed or failed to start\n"
+            "   • Port 11235 is blocked or in use\n\n"
+            "How to fix:\n"
+            "   1. Start services: `make start-docker`\n"
+            "   2. Check status: `make status`\n"
+            "   3. View logs: `make logs`\n\n"
+            "Note: YouTube transcription still works without Docker!"
         )
     except httpx.TimeoutException:
         return (
@@ -758,7 +786,20 @@ async def convert_document(
         # Service unavailable or not implemented
         if "not yet implemented" in str(e):
             return str(e)
-        return f"Docling service unavailable. The service may not be running. Start with: docker-compose up -d docling"
+        return (
+            "❌ Docling service unavailable.\n\n"
+            "What went wrong:\n"
+            "   The Docling Docker container is not running or not reachable.\n\n"
+            "Why this happened:\n"
+            "   • Docker services may not be started\n"
+            "   • Container crashed or failed to start\n"
+            "   • Port 5001 is blocked or in use\n\n"
+            "How to fix:\n"
+            "   1. Start services: `make start-docker`\n"
+            "   2. Check status: `make status`\n"
+            "   3. View logs: `docker logs gobbler-docling`\n\n"
+            "Note: This only affects document conversion (PDF, DOCX, etc.)"
+        )
     except Exception as e:
         logger.error(f"Unexpected error in convert_document: {e}", exc_info=True)
         return f"Failed to convert document: {str(e)}"
