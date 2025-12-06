@@ -5,6 +5,20 @@
 Gobbler is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that converts various content types—YouTube videos, web pages, documents, and audio/video files—into clean, structured markdown with rich metadata.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/Enablement-Engineering/gobbler/actions/workflows/test.yml/badge.svg)](https://github.com/Enablement-Engineering/gobbler/actions/workflows/test.yml)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
+## What's New
+
+### Browser Extension with Multi-Tab Support
+Control your browser from Claude with bidirectional communication. Extract pages, execute JavaScript, and automate workflows with a secure tab group model that protects sensitive tabs.
+
+### Batch Processing with Real-Time Progress
+Process entire YouTube playlists, directories of documents, or multiple web pages with controlled concurrency. Track progress in real-time with the new progress tracking system.
+
+### Enhanced Security Model
+Tab group-based security ensures Claude can only access tabs you explicitly add to the "Gobbler" group, preventing accidental access to sensitive information.
 
 ## Features
 
@@ -35,10 +49,13 @@ make install
 # 2. Start all services (Docker + worker)
 make start
 
-# 3. Install to Claude Code
+# 3. Verify installation
+make status  # Check all services are healthy
+
+# 4. Install to Claude Code
 make claude-install  # Shows command to run
 
-# 4. Use in Claude Code
+# 5. Use in Claude Code
 # "Transcribe this YouTube video: https://youtube.com/watch?v=..."
 ```
 
@@ -46,11 +63,55 @@ make claude-install  # Shows command to run
 
 Gobbler uses a **hybrid architecture** optimized for performance:
 
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        CC[Claude Code/Desktop]
+        BE[Browser Extension]
+    end
+
+    subgraph "Host-Based Components"
+        MCP[MCP Server<br/>Python + uv]
+        YT[YouTube Tools<br/>Official API]
+        FW[faster-whisper<br/>Metal/CoreML]
+        RQ[RQ Worker<br/>Background Tasks]
+    end
+
+    subgraph "Docker Services"
+        C4[Crawl4AI<br/>:11235]
+        DL[Docling<br/>:5001]
+        RD[Redis<br/>:6380]
+    end
+
+    subgraph "External Services"
+        YTA[YouTube API]
+        WEB[Web Pages]
+    end
+
+    CC -->|MCP Protocol| MCP
+    BE <-->|WebSocket| MCP
+    MCP --> YT
+    MCP --> FW
+    MCP -->|HTTP| C4
+    MCP -->|HTTP| DL
+    MCP --> RQ
+    RQ --> RD
+    YT --> YTA
+    C4 --> WEB
+
+    style MCP fill:#4a9eff
+    style BE fill:#ff9a4a
+    style RD fill:#dc382d
+    style C4 fill:#2ecc71
+    style DL fill:#9b59b6
+```
+
 ### Host-Based Components
 - **MCP Server** (Python + uv) - Direct filesystem access, coordinates services
 - **YouTube Tools** - No Docker required, uses official API
 - **faster-whisper** - Local transcription with Metal/CoreML acceleration on M-series Macs
 - **RQ Worker** - Background task processing
+- **Browser Extension** - Bidirectional communication with Chrome/Edge
 
 ### Docker Services (Optional)
 - **Crawl4AI** (port 11235) - Advanced web scraping with JavaScript rendering
