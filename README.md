@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="docs/assets/Gobby Feasting (small).png" alt="Gobby the Turkey mascot consuming PDF, HTML, DOCX, and VIDEO files, outputting clean MD blocks" width="500">
+</p>
+
 # Gobbler MCP Server
 
-> 🦃 Convert any content to clean markdown with YAML frontmatter
+> *Connecting Your Information to Your Agents*
 
 Gobbler is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that converts various content types—YouTube videos, web pages, documents, and audio/video files—into clean, structured markdown with rich metadata.
 
@@ -12,12 +16,15 @@ Gobbler is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) ser
 ## What's New
 
 ### Browser Extension with Multi-Tab Support
+
 Control your browser from Claude with bidirectional communication. Extract pages, execute JavaScript, and automate workflows with a secure tab group model that protects sensitive tabs.
 
 ### Batch Processing with Real-Time Progress
+
 Process entire YouTube playlists, directories of documents, or multiple web pages with controlled concurrency. Track progress in real-time with the new progress tracking system.
 
 ### Enhanced Security Model
+
 Tab group-based security ensures Claude can only access tabs you explicitly add to the "Gobbler" group, preventing accidental access to sensitive information.
 
 ## Features
@@ -99,14 +106,15 @@ graph TB
     YT --> YTA
     C4 --> WEB
 
-    style MCP fill:#4a9eff
-    style BE fill:#ff9a4a
-    style RD fill:#dc382d
-    style C4 fill:#2ecc71
-    style DL fill:#9b59b6
+    style MCP fill:#E8955C
+    style BE fill:#7FBCD2
+    style RD fill:#E74C3C
+    style C4 fill:#27AE60
+    style DL fill:#6B7DB3
 ```
 
 ### Host-Based Components
+
 - **MCP Server** (Python + uv) - Direct filesystem access, coordinates services
 - **YouTube Tools** - No Docker required, uses official API
 - **faster-whisper** - Local transcription with Metal/CoreML acceleration on M-series Macs
@@ -114,6 +122,7 @@ graph TB
 - **Browser Extension** - Bidirectional communication with Chrome/Edge
 
 ### Docker Services (Optional)
+
 - **Crawl4AI** (port 11235) - Advanced web scraping with JavaScript rendering
 - **Docling** (port 5001) - Document conversion with OCR
 - **Redis** (port 6380) - Queue backend for long-running tasks
@@ -199,12 +208,14 @@ See [browser-extension/CLAUDE.md](browser-extension/CLAUDE.md) for detailed docu
 Extract YouTube video transcript with metadata.
 
 **Parameters:**
+
 - `video_url` (required) - YouTube URL
 - `include_timestamps` (optional) - Include timestamp markers (default: false)
 - `language` (optional) - Language code or 'auto' (default: 'auto')
 - `output_file` (optional) - Path to save markdown file (auto-generates filename from title)
 
 **Example:**
+
 ```
 "Transcribe https://youtube.com/watch?v=dQw4w9WgXcQ to /Users/me/transcripts/"
 ```
@@ -214,6 +225,7 @@ Extract YouTube video transcript with metadata.
 Download YouTube video with quality selection.
 
 **Parameters:**
+
 - `video_url` (required) - YouTube URL
 - `output_dir` (required) - Directory to save video
 - `quality` (optional) - 'best', '1080p', '720p', '480p', '360p' (default: 'best')
@@ -221,6 +233,7 @@ Download YouTube video with quality selection.
 - `auto_queue` (optional) - Auto-queue if estimated > 1:45 (default: false)
 
 **Example:**
+
 ```
 "Download this YouTube video in 720p to /Users/me/Videos/"
 ```
@@ -230,12 +243,14 @@ Download YouTube video with quality selection.
 Convert webpage to markdown using Crawl4AI.
 
 **Parameters:**
+
 - `url` (required) - Full HTTP/HTTPS URL
 - `include_images` (optional) - Include image references (default: true)
 - `timeout` (optional) - Request timeout in seconds (default: 30, max: 120)
 - `output_file` (optional) - Path to save markdown file
 
 **Example:**
+
 ```
 "Convert https://example.com/article to markdown"
 ```
@@ -247,6 +262,7 @@ Convert webpage to markdown using Crawl4AI.
 Extract specific content from webpage using CSS or XPath selectors.
 
 **Parameters:**
+
 - `url` (required) - Full HTTP/HTTPS URL
 - `css_selector` (optional) - CSS selector (e.g., "article.main", "div#content")
 - `xpath` (optional) - XPath expression (alternative to css_selector)
@@ -258,6 +274,7 @@ Extract specific content from webpage using CSS or XPath selectors.
 - `output_file` (optional) - Path to save markdown file
 
 **Examples:**
+
 ```
 "Extract the article from https://example.com/post using CSS selector 'article.main'"
 "Get content from https://docs.example.com using selector 'div.content' and extract all links"
@@ -270,12 +287,14 @@ Extract specific content from webpage using CSS or XPath selectors.
 Create reusable browser session for authenticated crawling.
 
 **Parameters:**
+
 - `session_id` (required) - Unique identifier for the session
 - `cookies` (optional) - JSON string of cookie objects
 - `local_storage` (optional) - JSON string of localStorage key-value pairs
 - `user_agent` (optional) - Custom user agent string
 
 **Examples:**
+
 ```
 cookies_json = '[{"name": "session_token", "value": "abc123", "domain": "example.com"}]'
 "Create session 'my-site' with cookies: " + cookies_json
@@ -291,6 +310,7 @@ storage_json = '{"user_id": "12345", "theme": "dark"}'
 Recursively crawl website and extract content with link graph generation.
 
 **Parameters:**
+
 - `start_url` (required) - URL to start crawling from
 - `max_depth` (optional) - Maximum crawl depth (default: 2, max: 5)
 - `max_pages` (optional) - Maximum pages to crawl (default: 50, max: 500)
@@ -304,6 +324,7 @@ Recursively crawl website and extract content with link graph generation.
 - `output_dir` (optional) - Directory to save all pages as markdown files
 
 **Examples:**
+
 ```
 "Crawl https://docs.example.com with max depth 2 and max 20 pages"
 "Crawl https://blog.example.com including only URLs matching '/posts/', excluding '/(tag|category)/', max 100 pages"
@@ -317,11 +338,13 @@ Recursively crawl website and extract content with link graph generation.
 Convert documents (PDF, DOCX, PPTX, XLSX) to markdown.
 
 **Parameters:**
+
 - `file_path` (required) - Absolute path to document
 - `enable_ocr` (optional) - Enable OCR for scanned documents (default: true)
 - `output_file` (optional) - Path to save markdown file
 
 **Example:**
+
 ```
 "Convert /Users/me/Documents/report.pdf to markdown with OCR"
 ```
@@ -333,6 +356,7 @@ Convert documents (PDF, DOCX, PPTX, XLSX) to markdown.
 Transcribe audio/video files using Whisper with Metal acceleration.
 
 **Parameters:**
+
 - `file_path` (required) - Absolute path to audio/video file
 - `model` (optional) - 'tiny', 'base', 'small', 'medium', 'large' (default: 'small')
 - `language` (optional) - Language code or 'auto' (default: 'auto')
@@ -340,11 +364,13 @@ Transcribe audio/video files using Whisper with Metal acceleration.
 - `auto_queue` (optional) - Auto-queue if estimated > 1:45 (default: false)
 
 **Example:**
+
 ```
 "Transcribe /Users/me/Videos/meeting.mp4 with auto-queue enabled"
 ```
 
 **Performance:** Real-time transcription speed varies by model on M-series Macs with Metal/CoreML:
+
 - `tiny`: ~6.7x faster than real-time
 - `base`: ~5x faster than real-time
 - `small`: ~3x faster than real-time (default)
@@ -356,9 +382,11 @@ Transcribe audio/video files using Whisper with Metal acceleration.
 Check status of queued background jobs.
 
 **Parameters:**
+
 - `job_id` (required) - Job ID returned when task was queued
 
 **Example:**
+
 ```
 "Check status of job abc123"
 ```
@@ -368,10 +396,12 @@ Check status of queued background jobs.
 List jobs in a queue.
 
 **Parameters:**
+
 - `queue_name` (optional) - 'default', 'transcription', 'download' (default: 'default')
 - `limit` (optional) - Max results (default: 20, max: 100)
 
 **Example:**
+
 ```
 "List jobs in the transcription queue"
 ```
@@ -385,6 +415,7 @@ Process multiple items efficiently with concurrency control and progress trackin
 Extract transcripts from all videos in a YouTube playlist.
 
 **Parameters:**
+
 - `playlist_url` (required) - YouTube playlist URL
 - `output_dir` (required) - Directory to save markdown transcripts
 - `include_timestamps` (optional) - Include timestamp markers (default: false)
@@ -395,6 +426,7 @@ Extract transcripts from all videos in a YouTube playlist.
 - `auto_queue` (optional) - Queue if >10 videos (default: false)
 
 **Example:**
+
 ```
 "Transcribe all videos from this playlist to /Users/me/transcripts/ with auto_queue enabled"
 ```
@@ -406,6 +438,7 @@ Extract transcripts from all videos in a YouTube playlist.
 Convert multiple web pages to markdown.
 
 **Parameters:**
+
 - `urls` (required) - List of URLs (max: 100)
 - `output_dir` (required) - Directory to save markdown files
 - `include_images` (optional) - Include image references (default: true)
@@ -415,6 +448,7 @@ Convert multiple web pages to markdown.
 - `auto_queue` (optional) - Queue if >10 URLs (default: false)
 
 **Example:**
+
 ```python
 urls = [
     "https://example.com/page1",
@@ -431,6 +465,7 @@ urls = [
 Transcribe all audio/video files in a directory.
 
 **Parameters:**
+
 - `input_dir` (required) - Directory containing audio/video files
 - `output_dir` (optional) - Directory for transcripts (default: same as input)
 - `model` (optional) - Whisper model size (default: 'small')
@@ -444,6 +479,7 @@ Transcribe all audio/video files in a directory.
 **Supported formats:** mp3, mp4, wav, m4a, mov, avi, mkv, flac, ogg, webm
 
 **Example:**
+
 ```
 "Transcribe all audio files in /Users/me/podcasts/ recursively with auto_queue enabled"
 ```
@@ -455,6 +491,7 @@ Transcribe all audio/video files in a directory.
 Convert all documents in a directory to markdown.
 
 **Parameters:**
+
 - `input_dir` (required) - Directory containing documents
 - `output_dir` (optional) - Directory for markdown (default: same as input)
 - `enable_ocr` (optional) - Enable OCR (default: true)
@@ -467,6 +504,7 @@ Convert all documents in a directory to markdown.
 **Supported formats:** pdf, docx, pptx, xlsx
 
 **Example:**
+
 ```
 "Convert all PDFs in /Users/me/documents/ to markdown with OCR and auto_queue enabled"
 ```
@@ -478,14 +516,17 @@ Convert all documents in a directory to markdown.
 Get real-time progress for a running batch operation.
 
 **Parameters:**
+
 - `batch_id` (required) - Batch ID returned when batch was started
 
 **Example:**
+
 ```
 "Check progress of batch abc-123-def-456"
 ```
 
 **Returns:** Progress report with:
+
 - Current status (running/completed/failed)
 - Items processed / total items
 - Success and failure counts
@@ -507,6 +548,7 @@ Get real-time progress for a running batch operation.
 Check if browser extension is connected.
 
 **Example:**
+
 ```
 "Is my browser extension connected?"
 ```
@@ -518,9 +560,11 @@ Check if browser extension is connected.
 List all tabs in the Gobbler tab group.
 
 **Parameters:**
+
 - `filter` (optional) - Filter tabs by type (e.g., 'notebooklm' for NotebookLM tabs only)
 
 **Example:**
+
 ```
 "List all tabs in my Gobbler group"
 "Show me my NotebookLM tabs"
@@ -533,11 +577,13 @@ List all tabs in the Gobbler tab group.
 Execute JavaScript in a specific tab by ID (must be in Gobbler group).
 
 **Parameters:**
+
 - `tab_id` (required) - Tab ID from browser_list_tabs
 - `script` (required) - JavaScript code to execute
 - `timeout` (optional) - Timeout in seconds (default: 30, max: 150)
 
 **Example:**
+
 ```
 "Execute this script in tab 123: document.title"
 ```
@@ -551,10 +597,12 @@ Execute JavaScript in a specific tab by ID (must be in Gobbler group).
 Extract content from the current browser page.
 
 **Parameters:**
+
 - `selector` (optional) - CSS selector to extract specific content
 - `timeout` (optional) - Timeout in seconds (default: 30)
 
 **Example:**
+
 ```
 "Extract the current page from my browser"
 "Extract just the article from the current page using selector 'article.main'"
@@ -567,11 +615,13 @@ Extract content from the current browser page.
 Navigate the browser to a URL.
 
 **Parameters:**
+
 - `url` (required) - URL to navigate to
 - `wait_for_load` (optional) - Wait for page load (default: true)
 - `timeout` (optional) - Timeout in seconds (default: 30)
 
 **Example:**
+
 ```
 "Navigate my browser to https://docs.python.org"
 ```
@@ -583,10 +633,12 @@ Navigate the browser to a URL.
 Execute JavaScript in the current browser page.
 
 **Parameters:**
+
 - `script` (required) - JavaScript code to execute
 - `timeout` (optional) - Timeout in seconds (default: 30)
 
 **Example:**
+
 ```
 "Get all links from the current page using JavaScript"
 "Execute: Array.from(document.querySelectorAll('a')).map(a => a.href)"
@@ -599,9 +651,11 @@ Execute JavaScript in the current browser page.
 Get metadata about the current browser page.
 
 **Parameters:**
+
 - `timeout` (optional) - Timeout in seconds (default: 30)
 
 **Example:**
+
 ```
 "What page am I currently on in my browser?"
 ```
@@ -626,12 +680,14 @@ make worker-stop
 ```
 
 **Auto-queue Feature:**
+
 - Set `auto_queue: true` on supported tools
 - Tasks estimated > 1:45 automatically queue
 - Returns job_id and ETA
 - Check progress with `get_job_status(job_id)`
 
 **Queues:**
+
 - `default` - General tasks
 - `transcription` - Audio/video transcription
 - `download` - YouTube downloads
@@ -809,6 +865,7 @@ uv run pytest tests/benchmarks/ -v -m benchmark
 ```
 
 **Test Coverage:**
+
 - Unit tests: 72+ tests covering converters and utilities
 - Integration tests: Redis queue, Crawl4AI, MCP tools
 - Current coverage: 38%+ (90%+ on tested modules)
@@ -900,6 +957,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- **Issues:** https://github.com/Enablement-Engineering/gobbler/issues
-- **Discussions:** https://github.com/Enablement-Engineering/gobbler/discussions
-- **MCP Docs:** https://modelcontextprotocol.io
+- **Issues:** <https://github.com/Enablement-Engineering/gobbler/issues>
+- **Discussions:** <https://github.com/Enablement-Engineering/gobbler/discussions>
+- **MCP Docs:** <https://modelcontextprotocol.io>

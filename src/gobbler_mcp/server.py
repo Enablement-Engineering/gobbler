@@ -115,7 +115,7 @@ async def lifespan(app: FastMCP):  # type: ignore
         try:
             from .http_server import start_http_server
             http_host = config.get("http_server.host", "127.0.0.1")
-            http_port = config.get("http_server.port", 8080)
+            http_port = config.get("http_server.port", 4625)
             http_server = await start_http_server(http_host, http_port)
         except Exception as e:
             logger.warning(f"Failed to start HTTP server: {e}")

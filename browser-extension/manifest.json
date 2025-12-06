@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gobbler",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Extract page content and send to Gobbler MCP for markdown conversion",
   "permissions": [
     "activeTab",
@@ -13,7 +13,11 @@
   ],
   "host_permissions": [
     "http://localhost/*",
-    "<all_urls>"
+    "ws://localhost/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -26,13 +30,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

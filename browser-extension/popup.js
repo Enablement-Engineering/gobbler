@@ -49,19 +49,41 @@ function updateGroupStatus() {
     if (response && response.hasTab) {
       isInGroup = response.isInGobblerGroup;
 
-      if (response.isInGobblerGroup) {
+      // Handle restricted URLs (chrome://, edge://, etc.)
+      if (response.isRestricted) {
+        groupStatusText.textContent = '🚫 Browser page (restricted)';
+        groupStatusText.className = 'group-status-text not-in-group';
+        groupBtn.textContent = 'N/A';
+        groupBtn.className = 'group-btn add';
+        groupBtn.disabled = true;
+        notInGroupWarning.textContent = '⚠️ Cannot access browser internal pages (chrome://, edge://, about:)';
+        notInGroupWarning.classList.add('visible');
+        extractBtn.disabled = true;
+        extractWithSelectorBtn.disabled = true;
+      } else if (response.isInGobblerGroup) {
         groupStatusText.textContent = '🦃 Tab in Gobbler group';
         groupStatusText.className = 'group-status-text in-group';
         groupBtn.textContent = 'Remove';
         groupBtn.className = 'group-btn remove';
+        groupBtn.disabled = false;
         notInGroupWarning.classList.remove('visible');
         extractBtn.disabled = false;
         extractWithSelectorBtn.disabled = false;
       } else {
-        groupStatusText.textContent = '⚪ Tab not in group';
+        // Not in group - show permission status
+        const origin = response.origin ? new URL(response.origin.replace('/*', '')).host : 'this site';
+        if (response.hasPermission) {
+          groupStatusText.textContent = '⚪ Tab not in group';
+        } else {
+          groupStatusText.textContent = '🔒 Permission needed';
+        }
         groupStatusText.className = 'group-status-text not-in-group';
-        groupBtn.textContent = 'Add Tab';
+        groupBtn.textContent = response.hasPermission ? 'Add Tab' : '🔓 Allow & Add';
         groupBtn.className = 'group-btn add';
+        groupBtn.disabled = false;
+        notInGroupWarning.textContent = response.hasPermission
+          ? '⚠️ Current tab is not in Gobbler group. Add it to enable extraction.'
+          : `🔒 Click "Allow & Add" to grant access to ${origin}`;
         notInGroupWarning.classList.add('visible');
         extractBtn.disabled = true;
         extractWithSelectorBtn.disabled = true;
@@ -79,6 +101,7 @@ function updateGroupStatus() {
       }
     } else {
       groupStatusText.textContent = 'No tab detected';
+      groupBtn.disabled = true;
       tabCountEl.textContent = '';
       tabListEl.innerHTML = '';
     }
@@ -98,10 +121,17 @@ groupBtn.addEventListener('click', async () => {
       groupBtn.disabled = false;
     });
   } else {
-    // Add to group
+    // Add to group (will request permission if needed)
     chrome.runtime.sendMessage({ action: 'addToGroup' }, (response) => {
       if (response && response.success) {
+        showStatus(`✓ Added to Gobbler group`, 'success');
         updateGroupStatus();
+      } else if (response && response.error) {
+        if (response.permissionDenied) {
+          showStatus('Permission denied. Click "Allow" when prompted.', 'error');
+        } else {
+          showStatus(`Error: ${response.error}`, 'error');
+        }
       }
       groupBtn.disabled = false;
     });

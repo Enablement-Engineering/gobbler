@@ -43,7 +43,7 @@ The Gobbler browser extension now supports **bidirectional communication** with 
 │  ┌──────────────────────▼────────┐  ┌─────▼──────────────────────┐ │
 │  │    Converters & Utils         │  │   HTTP Server (aiohttp)    │ │
 │  │                               │  │                             │ │
-│  │  • YouTube API                │  │  Port: 8080                │ │
+│  │  • YouTube API                │  │  Port: 4625                │ │
 │  │  • Crawl4AI Client            │  │                             │ │
 │  │  • Docling Client             │  │  Endpoints:                │ │
 │  │  • faster-whisper             │  │  • POST /extract           │ │
@@ -58,7 +58,7 @@ The Gobbler browser extension now supports **bidirectional communication** with 
 └────────────────────────────────────────────────────┼─────────────────┘
                                                      │
                                                      │ WebSocket
-                                         ws://localhost:8080/ws
+                                         ws://localhost:4625/ws
                                                      │
 ┌────────────────────────────────────────────────────┼─────────────────┐
 │                    BROWSER EXTENSION                │                 │
@@ -112,7 +112,7 @@ The Gobbler browser extension now supports **bidirectional communication** with 
 
 ### WebSocket Protocol
 
-**Connection**: `ws://localhost:8080/ws`
+**Connection**: `ws://localhost:4625/ws`
 
 **Message Types**:
 
@@ -358,17 +358,17 @@ Edit `~/.config/gobbler/config.yaml`:
 http_server:
   enabled: true
   host: "127.0.0.1"
-  port: 8080
+  port: 4625
 ```
 
 ### Extension Configuration
 
-The extension connects to `ws://localhost:8080/ws` by default. To change:
+The extension connects to `ws://localhost:4625/ws` by default. To change:
 
 Edit `/Users/dylanisaac/Projects/gobbler/browser-extension/background.js`:
 
 ```javascript
-const WS_URL = 'ws://localhost:8080/ws';  // Change this
+const WS_URL = 'ws://localhost:4625/ws';  // Change this
 ```
 
 ## Usage Examples
@@ -502,7 +502,7 @@ result = await browser_execute_script("invalid.javascript.code()")
 
 2. **Check MCP server is running**
    ```bash
-   curl http://localhost:8080/health
+   curl http://localhost:4625/health
    # Should return: {"status": "ok", "websocket_connections": 1}
    ```
 

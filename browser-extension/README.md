@@ -41,7 +41,7 @@ cd /Users/dylanisaac/Projects/gobbler
 uv run gobbler-mcp
 ```
 
-The HTTP server will start on `http://localhost:8080` by default.
+The HTTP server will start on `http://localhost:4625` by default.
 
 ## Usage
 
@@ -80,7 +80,7 @@ Your Browser (with real sessions)
         ↓
 Gobbler Extension (extracts HTML)
         ↓
-HTTP POST to localhost:8080/extract
+HTTP POST to localhost:4625/extract
         ↓
 Gobbler HTTP Server (converts to markdown)
         ↓
@@ -114,7 +114,7 @@ The extension consists of:
 
 **"Failed to fetch" error:**
 - Make sure Gobbler MCP server is running
-- Check server URL in extension popup (default: http://localhost:8080)
+- Check server URL in extension popup (default: http://localhost:4625)
 - Check browser console for CORS errors
 
 **No content extracted:**

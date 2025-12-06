@@ -223,10 +223,15 @@
       font-size: 12px;
       margin-bottom: 12px;
       display: none;
+      line-height: 1.4;
     }
 
     .not-in-group-warning.visible {
       display: block;
+    }
+
+    .group-btn.add {
+      min-width: 90px;
     }
   </style>
 </head>
@@ -255,7 +260,7 @@
 
   <div class="config">
     <label for="serverUrl">Gobbler Server URL</label>
-    <input type="text" id="serverUrl" value="http://localhost:8080" placeholder="http://localhost:8080">
+    <input type="text" id="serverUrl" value="http://localhost:4625" placeholder="http://localhost:4625">
   </div>
 
   <div id="output" class="output"></div>

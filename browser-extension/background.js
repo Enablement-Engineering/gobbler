@@ -2,11 +2,90 @@
 
 let ws = null;
 let reconnectInterval = null;
-const WS_URL = 'ws://localhost:8080/ws';
+const WS_URL = 'ws://localhost:4625/ws';
 
 // Tab group management
 const GOBBLER_GROUP_COLOR = 'orange';
 const GOBBLER_GROUP_TITLE = 'Gobbler';
+
+// Permission management - track granted origins
+const grantedOrigins = new Set();
+
+// Extract origin pattern from a URL for permission requests
+function getOriginPattern(url) {
+  try {
+    const urlObj = new URL(url);
+    // Chrome requires patterns like "https://example.com/*"
+    return `${urlObj.protocol}//${urlObj.host}/*`;
+  } catch (e) {
+    console.error('Invalid URL for origin extraction:', url);
+    return null;
+  }
+}
+
+// Check if we have permission for a specific origin
+async function hasPermissionForOrigin(originPattern) {
+  if (!originPattern) return false;
+
+  // Check cache first
+  if (grantedOrigins.has(originPattern)) {
+    return true;
+  }
+
+  // Check with Chrome
+  try {
+    const result = await chrome.permissions.contains({
+      origins: [originPattern]
+    });
+    if (result) {
+      grantedOrigins.add(originPattern);
+    }
+    return result;
+  } catch (e) {
+    console.error('Error checking permission:', e);
+    return false;
+  }
+}
+
+// Request permission for a specific origin
+async function requestPermissionForOrigin(originPattern) {
+  if (!originPattern) {
+    return { granted: false, error: 'Invalid URL' };
+  }
+
+  // Already have permission?
+  if (await hasPermissionForOrigin(originPattern)) {
+    return { granted: true, alreadyHad: true };
+  }
+
+  try {
+    const granted = await chrome.permissions.request({
+      origins: [originPattern]
+    });
+
+    if (granted) {
+      grantedOrigins.add(originPattern);
+      console.log(`Permission granted for ${originPattern}`);
+    } else {
+      console.log(`Permission denied for ${originPattern}`);
+    }
+
+    return { granted, alreadyHad: false };
+  } catch (e) {
+    console.error('Error requesting permission:', e);
+    return { granted: false, error: e.message };
+  }
+}
+
+// Check if a URL is a special browser page that can't be accessed
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  return url.startsWith('chrome://') ||
+         url.startsWith('chrome-extension://') ||
+         url.startsWith('edge://') ||
+         url.startsWith('about:') ||
+         url.startsWith('file://');
+}
 
 // Get or create the Gobbler tab group
 async function getOrCreateGobblerGroup() {
@@ -77,18 +156,48 @@ async function getActiveGobblerTab() {
   return tab;
 }
 
-// Add current tab to Gobbler group
+// Add current tab to Gobbler group (with permission request)
 async function addCurrentTabToGroup() {
-  const groupId = await getOrCreateGobblerGroup();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+  if (!tab) {
+    return { success: false, error: 'No active tab found' };
+  }
+
+  // Check for restricted URLs that can't be accessed
+  if (isRestrictedUrl(tab.url)) {
+    return {
+      success: false,
+      error: 'Cannot access browser internal pages (chrome://, edge://, about:, etc.)'
+    };
+  }
+
+  // Get the origin pattern for permission request
+  const originPattern = getOriginPattern(tab.url);
+  if (!originPattern) {
+    return { success: false, error: 'Could not determine site origin' };
+  }
+
+  // Request permission for this origin
+  const permResult = await requestPermissionForOrigin(originPattern);
+  if (!permResult.granted) {
+    return {
+      success: false,
+      error: permResult.error || 'Permission denied for this site',
+      permissionDenied: true
+    };
+  }
+
+  // Now add to group
+  const groupId = await getOrCreateGobblerGroup();
+
   if (tab.groupId === groupId) {
-    return { success: true, alreadyInGroup: true, tabId: tab.id };
+    return { success: true, alreadyInGroup: true, tabId: tab.id, origin: originPattern };
   }
 
   await chrome.tabs.group({ tabIds: [tab.id], groupId });
-  console.log(`Added tab ${tab.id} to Gobbler group`);
-  return { success: true, alreadyInGroup: false, tabId: tab.id };
+  console.log(`Added tab ${tab.id} to Gobbler group (origin: ${originPattern})`);
+  return { success: true, alreadyInGroup: false, tabId: tab.id, origin: originPattern };
 }
 
 // Remove current tab from Gobbler group
@@ -228,14 +337,29 @@ async function getCurrentTabGroupStatus() {
   const isInGroup = stored.gobblerGroupId && tab.groupId === stored.gobblerGroupId;
   const groupTabs = await getGobblerGroupTabs();
 
+  // Check if this is a restricted URL
+  const isRestricted = isRestrictedUrl(tab.url);
+
+  // Check if we have permission for this origin
+  let hasPermission = false;
+  let originPattern = null;
+  if (!isRestricted) {
+    originPattern = getOriginPattern(tab.url);
+    hasPermission = await hasPermissionForOrigin(originPattern);
+  }
+
   return {
     hasTab: true,
     tabId: tab.id,
     tabTitle: tab.title,
+    tabUrl: tab.url,
     isInGobblerGroup: isInGroup,
     groupExists: !!stored.gobblerGroupId,
     groupTabCount: groupTabs.length,
-    groupTabs: groupTabs
+    groupTabs: groupTabs,
+    isRestricted: isRestricted,
+    hasPermission: hasPermission,
+    origin: originPattern
   };
 }
 
@@ -393,7 +517,7 @@ async function extractPage(params) {
     const pageData = result.result;
 
     // Send to Gobbler server for conversion
-    const response = await fetch('http://localhost:8080/extract', {
+    const response = await fetch('http://localhost:4625/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pageData)

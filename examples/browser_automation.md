@@ -347,7 +347,7 @@ status = await browser_check_connection()
 
 **Extension not connected**:
 - Check extension is installed and enabled
-- Verify MCP server is running on localhost:8080
+- Verify MCP server is running on localhost:4625
 - Open extension popup to see connection status
 
 **Commands timing out**:

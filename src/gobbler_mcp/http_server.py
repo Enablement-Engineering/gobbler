@@ -298,7 +298,7 @@ def create_app() -> web.Application:
     return app
 
 
-async def start_http_server(host: str = "127.0.0.1", port: int = 8080):
+async def start_http_server(host: str = "127.0.0.1", port: int = 4625):
     """Start the HTTP server for browser extension."""
     app = create_app()
     runner = web.AppRunner(app)
