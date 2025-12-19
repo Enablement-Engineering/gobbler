@@ -3,11 +3,16 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from gobbler_mcp.converters.youtube import (
+from gobbler_core.converters.youtube import (
     extract_video_id,
     format_timestamp,
     get_video_metadata,
     convert_youtube_to_markdown,
+)
+from gobbler_core.providers.youtube import (
+    TranscriptProvider,
+    TranscriptResult,
+    TranscriptSegment,
 )
 from youtube_transcript_api import (
     NoTranscriptFound,
@@ -78,7 +83,7 @@ class TestTimestampFormatting:
 class TestVideoMetadata:
     """Test video metadata extraction using yt-dlp."""
 
-    @patch("gobbler_mcp.converters.youtube.yt_dlp.YoutubeDL")
+    @patch("gobbler_core.converters.youtube.yt_dlp.YoutubeDL")
     def test_get_video_metadata_success(self, mock_ytdl):
         """Test successful metadata extraction."""
         mock_instance = MagicMock()
@@ -98,7 +103,7 @@ class TestVideoMetadata:
         assert result["thumbnail"] == "https://example.com/thumb.jpg"
         assert result["description"] == "Test description"
 
-    @patch("gobbler_mcp.converters.youtube.yt_dlp.YoutubeDL")
+    @patch("gobbler_core.converters.youtube.yt_dlp.YoutubeDL")
     def test_get_video_metadata_uses_uploader_fallback(self, mock_ytdl):
         """Test that uploader is used when channel is not available."""
         mock_instance = MagicMock()
@@ -114,7 +119,7 @@ class TestVideoMetadata:
 
         assert result["channel"] == "Test Uploader"
 
-    @patch("gobbler_mcp.converters.youtube.yt_dlp.YoutubeDL")
+    @patch("gobbler_core.converters.youtube.yt_dlp.YoutubeDL")
     def test_get_video_metadata_failure_returns_none(self, mock_ytdl):
         """Test that metadata extraction failure returns None values."""
         mock_instance = MagicMock()
@@ -129,15 +134,24 @@ class TestVideoMetadata:
         assert result["description"] is None
 
 
+def create_mock_provider(segments, language="en", metadata=None):
+    """Create a mock provider that returns given segments."""
+    mock_provider = MagicMock(spec=TranscriptProvider)
+    mock_provider.fetch.return_value = TranscriptResult(
+        segments=[TranscriptSegment(**s) for s in segments],
+        language=language,
+        metadata=metadata or {},
+    )
+    return mock_provider
+
+
 class TestYouTubeConversion:
     """Test full YouTube to markdown conversion."""
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.youtube.get_video_metadata")
-    @patch("gobbler_mcp.converters.youtube.YouTubeTranscriptApi")
-    async def test_convert_youtube_basic(self, mock_api_class, mock_metadata):
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_basic(self, mock_metadata):
         """Test basic YouTube conversion without timestamps."""
-        # Mock metadata
         mock_metadata.return_value = {
             "title": "Test Video",
             "channel": "Test Channel",
@@ -145,59 +159,37 @@ class TestYouTubeConversion:
             "description": "Test description",
         }
 
-        # Mock transcript API
-        mock_api = MagicMock()
-        mock_api_class.return_value = mock_api
+        mock_provider = create_mock_provider([
+            {"text": "Hello world", "start": 0.0, "duration": 2.5},
+            {"text": "This is a test", "start": 2.5, "duration": 3.0},
+        ])
 
-        # Mock transcript entries
-        mock_entry1 = MagicMock()
-        mock_entry1.text = "Hello world"
-        mock_entry1.start = 0.0
-        mock_entry1.duration = 2.5
-
-        mock_entry2 = MagicMock()
-        mock_entry2.text = "This is a test"
-        mock_entry2.start = 2.5
-        mock_entry2.duration = 3.0
-
-        mock_transcript = MagicMock()
-        mock_transcript.fetch.return_value = [mock_entry1, mock_entry2]
-        mock_transcript.language_code = "en"
-
-        mock_list = MagicMock()
-        mock_list.find_generated_transcript.return_value = mock_transcript
-        mock_api.list.return_value = mock_list
-
-        # Execute conversion
         markdown, metadata = await convert_youtube_to_markdown(
             "https://youtube.com/watch?v=dQw4w9WgXcQ",
             include_timestamps=False,
             language="auto",
+            provider=mock_provider,
         )
 
-        # Verify markdown structure
-        assert "---" in markdown  # Frontmatter present
-        assert '"https://youtube.com/watch?v=dQw4w9WgXcQ"' in markdown  # URLs are quoted
+        assert "---" in markdown
+        assert '"https://youtube.com/watch?v=dQw4w9WgXcQ"' in markdown
         assert "type: youtube_transcript" in markdown
         assert "title: Test Video" in markdown
         assert "# Video Transcript" in markdown
         assert "Hello world" in markdown
         assert "This is a test" in markdown
 
-        # Verify metadata
         assert metadata["video_id"] == "dQw4w9WgXcQ"
         assert metadata["title"] == "Test Video"
         assert metadata["channel"] == "Test Channel"
         assert metadata["language"] == "en"
-        assert metadata["duration"] == 5  # 2.5 + 3.0 rounded
+        assert metadata["duration"] == 5
         assert metadata["word_count"] > 0
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.youtube.get_video_metadata")
-    @patch("gobbler_mcp.converters.youtube.YouTubeTranscriptApi")
-    async def test_convert_youtube_with_timestamps(self, mock_api_class, mock_metadata):
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_with_timestamps(self, mock_metadata):
         """Test YouTube conversion with timestamps enabled."""
-        # Mock metadata
         mock_metadata.return_value = {
             "title": "Test Video",
             "channel": "Test Channel",
@@ -205,36 +197,21 @@ class TestYouTubeConversion:
             "description": None,
         }
 
-        # Mock transcript API
-        mock_api = MagicMock()
-        mock_api_class.return_value = mock_api
+        mock_provider = create_mock_provider([
+            {"text": "Hello", "start": 90.0, "duration": 2.0},
+        ])
 
-        mock_entry = MagicMock()
-        mock_entry.text = "Hello"
-        mock_entry.start = 90.0  # 1:30
-        mock_entry.duration = 2.0
-
-        mock_transcript = MagicMock()
-        mock_transcript.fetch.return_value = [mock_entry]
-        mock_transcript.language_code = "en"
-
-        mock_list = MagicMock()
-        mock_list.find_generated_transcript.return_value = mock_transcript
-        mock_api.list.return_value = mock_list
-
-        # Execute conversion with timestamps
         markdown, _ = await convert_youtube_to_markdown(
             "https://youtube.com/watch?v=dQw4w9WgXcQ",
             include_timestamps=True,
+            provider=mock_provider,
         )
 
-        # Verify timestamp format
         assert "[01:30]" in markdown
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.youtube.get_video_metadata")
-    @patch("gobbler_mcp.converters.youtube.YouTubeTranscriptApi")
-    async def test_convert_youtube_specific_language(self, mock_api_class, mock_metadata):
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_specific_language(self, mock_metadata):
         """Test YouTube conversion with specific language selection."""
         mock_metadata.return_value = {
             "title": "Test Video",
@@ -243,33 +220,22 @@ class TestYouTubeConversion:
             "description": None,
         }
 
-        mock_api = MagicMock()
-        mock_api_class.return_value = mock_api
-
-        mock_entry = MagicMock()
-        mock_entry.text = "Hola mundo"
-        mock_entry.start = 0.0
-        mock_entry.duration = 2.0
-
-        mock_transcript = MagicMock()
-        mock_transcript.fetch.return_value = [mock_entry]
-
-        mock_list = MagicMock()
-        mock_list.find_transcript.return_value = mock_transcript
-        mock_api.list.return_value = mock_list
-
-        # Execute with specific language
-        markdown, metadata = await convert_youtube_to_markdown(
-            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+        mock_provider = create_mock_provider(
+            [{"text": "Hola mundo", "start": 0.0, "duration": 2.0}],
             language="es",
         )
 
-        # Verify language in metadata
+        markdown, metadata = await convert_youtube_to_markdown(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            language="es",
+            provider=mock_provider,
+        )
+
         assert metadata["language"] == "es"
         assert "Hola mundo" in markdown
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.youtube.extract_video_id")
+    @patch("gobbler_core.converters.youtube.extract_video_id")
     async def test_convert_youtube_invalid_url_raises_error(self, mock_extract):
         """Test that invalid URL raises ValueError."""
         mock_extract.side_effect = ValueError("Invalid YouTube URL format")
@@ -278,9 +244,8 @@ class TestYouTubeConversion:
             await convert_youtube_to_markdown("not a valid url")
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.youtube.get_video_metadata")
-    @patch("gobbler_mcp.converters.youtube.YouTubeTranscriptApi")
-    async def test_convert_youtube_no_transcript_raises_error(self, mock_api_class, mock_metadata):
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_no_transcript_raises_error(self, mock_metadata):
         """Test that missing transcript raises appropriate error."""
         mock_metadata.return_value = {
             "title": "Test Video",
@@ -289,9 +254,41 @@ class TestYouTubeConversion:
             "description": None,
         }
 
-        mock_api = MagicMock()
-        mock_api_class.return_value = mock_api
-        mock_api.list.side_effect = TranscriptsDisabled("video_id")
+        mock_provider = MagicMock(spec=TranscriptProvider)
+        mock_provider.fetch.side_effect = TranscriptsDisabled("video_id")
 
         with pytest.raises(TranscriptsDisabled):
-            await convert_youtube_to_markdown("https://youtube.com/watch?v=dQw4w9WgXcQ")
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=mock_provider,
+            )
+
+    @pytest.mark.asyncio
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_metrics_callback(self, mock_metadata):
+        """Test that metrics callback is invoked."""
+        mock_metadata.return_value = {
+            "title": "Test Video",
+            "channel": "Test Channel",
+            "thumbnail": None,
+            "description": None,
+        }
+
+        mock_provider = create_mock_provider([
+            {"text": "Test content", "start": 0.0, "duration": 1.0},
+        ])
+
+        metrics_called = []
+
+        def metrics_callback(converter_type, size_bytes):
+            metrics_called.append((converter_type, size_bytes))
+
+        await convert_youtube_to_markdown(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            provider=mock_provider,
+            metrics_callback=metrics_callback,
+        )
+
+        assert len(metrics_called) == 1
+        assert metrics_called[0][0] == "youtube"
+        assert metrics_called[0][1] > 0

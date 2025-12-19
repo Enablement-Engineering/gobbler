@@ -1,10 +1,20 @@
 """Unit tests for configuration management."""
 
+import threading
+
 import pytest
 from pathlib import Path
 from unittest.mock import patch, mock_open, MagicMock
 
 from gobbler_mcp.config import Config, get_config
+
+
+def create_test_config(data: dict) -> Config:
+    """Create a Config instance for testing without loading from file."""
+    config = Config.__new__(Config)
+    config._lock = threading.RLock()
+    config.data = data
+    return config
 
 
 class TestConfigLoading:
@@ -50,29 +60,25 @@ class TestConfigGet:
 
     def test_get_simple_key(self):
         """Test getting simple top-level key."""
-        config = Config.__new__(Config)
-        config.data = {"test_key": "test_value"}
+        config = create_test_config({"test_key": "test_value"})
 
         assert config.get("test_key") == "test_value"
 
     def test_get_nested_key(self):
         """Test getting nested key with dot notation."""
-        config = Config.__new__(Config)
-        config.data = {"level1": {"level2": {"level3": "value"}}}
+        config = create_test_config({"level1": {"level2": {"level3": "value"}}})
 
         assert config.get("level1.level2.level3") == "value"
 
     def test_get_missing_key_returns_default(self):
         """Test that missing keys return default value."""
-        config = Config.__new__(Config)
-        config.data = {}
+        config = create_test_config({})
 
         assert config.get("missing.key", "default") == "default"
 
     def test_get_partial_path_returns_default(self):
         """Test that partial paths return default."""
-        config = Config.__new__(Config)
-        config.data = {"level1": "value"}
+        config = create_test_config({"level1": "value"})
 
         assert config.get("level1.level2.level3", "default") == "default"
 
@@ -82,30 +88,28 @@ class TestServiceUrl:
 
     def test_get_service_url(self):
         """Test generating service URLs."""
-        config = Config.__new__(Config)
-        config.data = {
+        config = create_test_config({
             "services": {
                 "crawl4ai": {
                     "host": "localhost",
                     "port": 11235
                 }
             }
-        }
+        })
 
         url = config.get_service_url("crawl4ai")
         assert url == "http://localhost:11235"
 
     def test_get_service_url_custom_host(self):
         """Test service URL with custom host."""
-        config = Config.__new__(Config)
-        config.data = {
+        config = create_test_config({
             "services": {
                 "crawl4ai": {
                     "host": "example.com",
                     "port": 8080
                 }
             }
-        }
+        })
 
         url = config.get_service_url("crawl4ai")
         assert url == "http://example.com:8080"

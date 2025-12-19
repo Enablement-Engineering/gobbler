@@ -10,15 +10,15 @@ class TestWhisperPerformance:
     """Benchmark Whisper transcription performance."""
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio._get_whisper_model")
-    @patch("gobbler_mcp.converters.audio.os.path.getsize")
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
-    @patch("gobbler_mcp.converters.audio.get_file_extension")
+    @patch("gobbler_core.converters.audio._get_whisper_model")
+    @patch("gobbler_core.converters.audio.os.path.getsize")
+    @patch("gobbler_core.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.get_file_extension")
     async def test_transcription_speed_benchmark(
         self, mock_ext, mock_validate, mock_getsize, mock_get_model, benchmark
     ):
         """Benchmark transcription speed with mocked model."""
-        from gobbler_mcp.converters.audio import convert_audio_to_markdown
+        from gobbler_core.converters.audio import convert_audio_to_markdown
 
         # Mock setup
         mock_validate.return_value = None

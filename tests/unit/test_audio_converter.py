@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 import subprocess
 
-from gobbler_mcp.converters.audio import (
+from gobbler_core.converters.audio import (
     _extract_audio,
     _get_whisper_model,
     convert_audio_to_markdown,
@@ -21,9 +21,9 @@ class TestAudioExtraction:
     """Test ffmpeg audio extraction from video files."""
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio.subprocess.run")
-    @patch("gobbler_mcp.converters.audio.tempfile.mkstemp")
-    @patch("gobbler_mcp.converters.audio.os.close")
+    @patch("gobbler_core.converters.audio.subprocess.run")
+    @patch("gobbler_core.converters.audio.tempfile.mkstemp")
+    @patch("gobbler_core.converters.audio.os.close")
     async def test_extract_audio_success(self, mock_close, mock_mkstemp, mock_run):
         """Test successful audio extraction from video."""
         # Mock temp file creation
@@ -51,11 +51,11 @@ class TestAudioExtraction:
         assert "1" in call_args  # Mono
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio.subprocess.run")
-    @patch("gobbler_mcp.converters.audio.tempfile.mkstemp")
-    @patch("gobbler_mcp.converters.audio.os.close")
-    @patch("gobbler_mcp.converters.audio.os.path.exists")
-    @patch("gobbler_mcp.converters.audio.os.unlink")
+    @patch("gobbler_core.converters.audio.subprocess.run")
+    @patch("gobbler_core.converters.audio.tempfile.mkstemp")
+    @patch("gobbler_core.converters.audio.os.close")
+    @patch("gobbler_core.converters.audio.os.path.exists")
+    @patch("gobbler_core.converters.audio.os.unlink")
     async def test_extract_audio_ffmpeg_failure(
         self, mock_unlink, mock_exists, mock_close, mock_mkstemp, mock_run
     ):
@@ -75,11 +75,11 @@ class TestAudioExtraction:
         mock_unlink.assert_called_with("/tmp/gobbler_audio_test.mp3")
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio.subprocess.run")
-    @patch("gobbler_mcp.converters.audio.tempfile.mkstemp")
-    @patch("gobbler_mcp.converters.audio.os.close")
-    @patch("gobbler_mcp.converters.audio.os.path.exists")
-    @patch("gobbler_mcp.converters.audio.os.unlink")
+    @patch("gobbler_core.converters.audio.subprocess.run")
+    @patch("gobbler_core.converters.audio.tempfile.mkstemp")
+    @patch("gobbler_core.converters.audio.os.close")
+    @patch("gobbler_core.converters.audio.os.path.exists")
+    @patch("gobbler_core.converters.audio.os.unlink")
     async def test_extract_audio_timeout(
         self, mock_unlink, mock_exists, mock_close, mock_mkstemp, mock_run
     ):
@@ -96,11 +96,11 @@ class TestAudioExtraction:
         mock_unlink.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio.subprocess.run")
-    @patch("gobbler_mcp.converters.audio.tempfile.mkstemp")
-    @patch("gobbler_mcp.converters.audio.os.close")
-    @patch("gobbler_mcp.converters.audio.os.path.exists")
-    @patch("gobbler_mcp.converters.audio.os.unlink")
+    @patch("gobbler_core.converters.audio.subprocess.run")
+    @patch("gobbler_core.converters.audio.tempfile.mkstemp")
+    @patch("gobbler_core.converters.audio.os.close")
+    @patch("gobbler_core.converters.audio.os.path.exists")
+    @patch("gobbler_core.converters.audio.os.unlink")
     async def test_extract_audio_ffmpeg_not_found(
         self, mock_unlink, mock_exists, mock_close, mock_mkstemp, mock_run
     ):
@@ -120,14 +120,14 @@ class TestAudioExtraction:
 class TestWhisperModelLoading:
     """Test Whisper model initialization and caching."""
 
-    @patch("gobbler_mcp.converters.audio.WhisperModel")
+    @patch("gobbler_core.converters.audio.WhisperModel")
     def test_get_whisper_model_initialization(self, mock_whisper_class):
         """Test Whisper model is initialized correctly."""
         mock_model = MagicMock()
         mock_whisper_class.return_value = mock_model
 
         # Clear global cache
-        import gobbler_mcp.converters.audio as audio_module
+        import gobbler_core.converters.audio as audio_module
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -140,14 +140,14 @@ class TestWhisperModelLoading:
             compute_type="auto"
         )
 
-    @patch("gobbler_mcp.converters.audio.WhisperModel")
+    @patch("gobbler_core.converters.audio.WhisperModel")
     def test_get_whisper_model_caching(self, mock_whisper_class):
         """Test that Whisper model is cached and reused."""
         mock_model = MagicMock()
         mock_whisper_class.return_value = mock_model
 
         # Clear global cache
-        import gobbler_mcp.converters.audio as audio_module
+        import gobbler_core.converters.audio as audio_module
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -162,7 +162,7 @@ class TestWhisperModelLoading:
         assert result1 == result2
         assert call_count_after_first == call_count_after_second  # No new initialization
 
-    @patch("gobbler_mcp.converters.audio.WhisperModel")
+    @patch("gobbler_core.converters.audio.WhisperModel")
     def test_get_whisper_model_reload_on_size_change(self, mock_whisper_class):
         """Test that model is reloaded when size changes."""
         mock_model_small = MagicMock()
@@ -170,7 +170,7 @@ class TestWhisperModelLoading:
         mock_whisper_class.side_effect = [mock_model_small, mock_model_large]
 
         # Clear global cache
-        import gobbler_mcp.converters.audio as audio_module
+        import gobbler_core.converters.audio as audio_module
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -189,10 +189,10 @@ class TestAudioConversion:
     """Test full audio/video to markdown conversion."""
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio._get_whisper_model")
-    @patch("gobbler_mcp.converters.audio.os.path.getsize")
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
-    @patch("gobbler_mcp.converters.audio.get_file_extension")
+    @patch("gobbler_core.converters.audio._get_whisper_model")
+    @patch("gobbler_core.converters.audio.os.path.getsize")
+    @patch("gobbler_core.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.get_file_extension")
     async def test_convert_audio_basic(
         self, mock_get_ext, mock_validate, mock_getsize, mock_get_model
     ):
@@ -246,7 +246,7 @@ class TestAudioConversion:
         mock_model.transcribe.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.validate_input_path")
     async def test_convert_audio_invalid_file_path(self, mock_validate):
         """Test that invalid file path raises ValueError."""
         mock_validate.return_value = "File does not exist"
@@ -255,7 +255,7 @@ class TestAudioConversion:
             await convert_audio_to_markdown("/nonexistent/file.mp3")
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.validate_input_path")
     async def test_convert_audio_invalid_model(self, mock_validate):
         """Test that invalid model name raises ValueError."""
         mock_validate.return_value = None
@@ -267,13 +267,13 @@ class TestAudioConversion:
             )
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio._extract_audio")
-    @patch("gobbler_mcp.converters.audio._get_whisper_model")
-    @patch("gobbler_mcp.converters.audio.os.path.getsize")
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
-    @patch("gobbler_mcp.converters.audio.get_file_extension")
-    @patch("gobbler_mcp.converters.audio.os.path.exists")
-    @patch("gobbler_mcp.converters.audio.os.unlink")
+    @patch("gobbler_core.converters.audio._extract_audio")
+    @patch("gobbler_core.converters.audio._get_whisper_model")
+    @patch("gobbler_core.converters.audio.os.path.getsize")
+    @patch("gobbler_core.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.get_file_extension")
+    @patch("gobbler_core.converters.audio.os.path.exists")
+    @patch("gobbler_core.converters.audio.os.unlink")
     async def test_convert_large_video_extracts_audio(
         self, mock_unlink, mock_exists, mock_get_ext, mock_validate,
         mock_getsize, mock_get_model, mock_extract
@@ -317,10 +317,10 @@ class TestAudioConversion:
         mock_unlink.assert_called()
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio._get_whisper_model")
-    @patch("gobbler_mcp.converters.audio.os.path.getsize")
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
-    @patch("gobbler_mcp.converters.audio.get_file_extension")
+    @patch("gobbler_core.converters.audio._get_whisper_model")
+    @patch("gobbler_core.converters.audio.os.path.getsize")
+    @patch("gobbler_core.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.get_file_extension")
     async def test_convert_audio_empty_transcript_raises_error(
         self, mock_get_ext, mock_validate, mock_getsize, mock_get_model
     ):
@@ -340,10 +340,10 @@ class TestAudioConversion:
             await convert_audio_to_markdown("/path/to/silent_audio.mp3")
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio._get_whisper_model")
-    @patch("gobbler_mcp.converters.audio.os.path.getsize")
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
-    @patch("gobbler_mcp.converters.audio.get_file_extension")
+    @patch("gobbler_core.converters.audio._get_whisper_model")
+    @patch("gobbler_core.converters.audio.os.path.getsize")
+    @patch("gobbler_core.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.get_file_extension")
     async def test_convert_audio_with_specific_language(
         self, mock_get_ext, mock_validate, mock_getsize, mock_get_model
     ):
@@ -376,10 +376,10 @@ class TestAudioConversion:
         assert "Bonjour le monde" in markdown
 
     @pytest.mark.asyncio
-    @patch("gobbler_mcp.converters.audio._get_whisper_model")
-    @patch("gobbler_mcp.converters.audio.os.path.getsize")
-    @patch("gobbler_mcp.converters.audio.validate_input_path")
-    @patch("gobbler_mcp.converters.audio.get_file_extension")
+    @patch("gobbler_core.converters.audio._get_whisper_model")
+    @patch("gobbler_core.converters.audio.os.path.getsize")
+    @patch("gobbler_core.converters.audio.validate_input_path")
+    @patch("gobbler_core.converters.audio.get_file_extension")
     async def test_convert_audio_model_loading_failure(
         self, mock_get_ext, mock_validate, mock_getsize, mock_get_model
     ):

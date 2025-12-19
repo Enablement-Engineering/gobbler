@@ -34,7 +34,7 @@ def event_loop():
 @pytest.fixture
 def mock_youtube_api(mocker):
     """Mock YouTube Transcript API."""
-    mock_api = mocker.patch("gobbler_mcp.converters.youtube.YouTubeTranscriptApi")
+    mock_api = mocker.patch("gobbler_core.converters.youtube.YouTubeTranscriptApi")
     mock_api.get_transcript.return_value = [
         {"text": "Hello world", "start": 0.0, "duration": 2.5},
         {"text": "This is a test", "start": 2.5, "duration": 3.0},
@@ -46,7 +46,7 @@ def mock_youtube_api(mocker):
 @pytest.fixture
 def mock_yt_dlp(mocker):
     """Mock yt-dlp for video metadata and downloads."""
-    mock_ytdl = mocker.patch("gobbler_mcp.converters.youtube.yt_dlp.YoutubeDL")
+    mock_ytdl = mocker.patch("gobbler_core.converters.youtube.yt_dlp.YoutubeDL")
     mock_instance = MagicMock()
     mock_instance.extract_info.return_value = {
         "title": "Test Video",
@@ -63,7 +63,7 @@ def mock_yt_dlp(mocker):
 @pytest.fixture
 def mock_whisper_model(mocker):
     """Mock faster-whisper WhisperModel."""
-    mock_model = mocker.patch("gobbler_mcp.converters.audio.WhisperModel")
+    mock_model = mocker.patch("gobbler_core.converters.audio.WhisperModel")
     mock_instance = MagicMock()
 
     # Mock transcribe method to return segments
@@ -81,7 +81,7 @@ def mock_whisper_model(mocker):
 @pytest.fixture
 def mock_ffmpeg(mocker):
     """Mock ffmpeg subprocess for audio extraction."""
-    mock_run = mocker.patch("gobbler_mcp.converters.audio.subprocess.run")
+    mock_run = mocker.patch("gobbler_core.converters.audio.subprocess.run")
     mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
     return mock_run
 
