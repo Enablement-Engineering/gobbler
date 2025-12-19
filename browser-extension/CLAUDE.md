@@ -321,12 +321,12 @@ Get current page information.
 1. Open `chrome://extensions/` or `edge://extensions/`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
-4. Select the `/Users/dylanisaac/Projects/gobbler/browser-extension/` folder
+4. Select the `browser-extension/` folder from the Gobbler project
 
 **Firefox**:
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click "Load Temporary Add-on"
-3. Select any file in `/Users/dylanisaac/Projects/gobbler/browser-extension/`
+3. Select any file in the `browser-extension/` folder
 
 ### 2. Start Gobbler MCP Server
 
@@ -365,7 +365,7 @@ http_server:
 
 The extension connects to `ws://localhost:4625/ws` by default. To change:
 
-Edit `/Users/dylanisaac/Projects/gobbler/browser-extension/background.js`:
+Edit `browser-extension/background.js`:
 
 ```javascript
 const WS_URL = 'ws://localhost:4625/ws';  // Change this
@@ -647,6 +647,50 @@ Send command to browser extension via WebSocket.
 - ✅ Support for navigation and script execution
 - ✅ Comprehensive error handling and timeouts
 
+## Page-Specific APIs
+
+The Gobbler extension automatically injects specialized JavaScript APIs for certain websites when tabs are added to the "Gobbler" tab group. These APIs provide high-level methods for interacting with web applications that don't have official APIs.
+
+### NotebookLM API
+
+When a NotebookLM page is added to the Gobbler tab group, the extension automatically injects a comprehensive JavaScript API at `window.gobblerNotebookLM`.
+
+**Key Features**:
+- Ask questions and get complete responses
+- Extract chat history and sources
+- Get notebook metadata
+- Automate notebook workflows
+
+**Documentation**:
+- **Skill Guide**: `skills/notebooklm/SKILL.md` - Quick start and API reference
+- **Technical Documentation**: `docs/notebooklm-api.md` - Detailed technical documentation including:
+  - Complete API reference for all 10 methods
+  - Timeout hierarchy and configuration (90s vs 60s defaults)
+  - Selector fallback strategies (6 input selectors, 10 streaming indicators)
+  - Streaming detection heuristics
+  - Error recovery patterns
+  - Usage examples and best practices
+
+**Quick Example**:
+```javascript
+// Via browser_execute_script MCP tool
+const result = await window.gobblerNotebookLM.ask("What are the main themes?");
+console.log(result.response);
+```
+
+**API Version**: 1.2.0
+**Source File**: `browser-extension/page-apis/notebooklm.js`
+
+### Adding New Page APIs
+
+To add APIs for other websites (YouTube, Google Docs, etc.):
+
+1. Create API file in `browser-extension/page-apis/yoursite.js`
+2. Add entry to `browser-extension/page-apis/registry.js` (single source of truth)
+3. See NotebookLM API as reference implementation
+
+---
+
 ## Future Enhancements
 
 - [ ] Support for multiple browser tabs
@@ -659,3 +703,4 @@ Send command to browser extension via WebSocket.
 - [ ] Command history and logging
 - [ ] Rate limiting and queue management
 - [ ] Support for Firefox native messaging
+- [ ] Additional page-specific APIs (YouTube, Google Docs, etc.)

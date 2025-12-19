@@ -1,22 +1,49 @@
 // Popup script for Gobbler extension
 
-const statusEl = document.getElementById('status');
-const wsStatusEl = document.getElementById('wsStatus');
-const outputEl = document.getElementById('output');
-const actionsEl = document.getElementById('actions');
+// Element references
+const connectionBadge = document.getElementById('connectionBadge');
+const connectionText = document.getElementById('connectionText');
+const tabList = document.getElementById('tabList');
+const emptyTabList = document.getElementById('emptyTabList');
+const tabCount = document.getElementById('tabCount');
+const groupStatusIndicator = document.getElementById('groupStatusIndicator');
+const groupStatusIcon = document.getElementById('groupStatusIcon');
+const groupStatusText = document.getElementById('groupStatusText');
+const groupBtn = document.getElementById('groupBtn');
+const warningBanner = document.getElementById('warningBanner');
+const warningText = document.getElementById('warningText');
+const statusMessage = document.getElementById('statusMessage');
+const statusIcon = document.getElementById('statusIcon');
+const statusText = document.getElementById('statusText');
+const resultCard = document.getElementById('resultCard');
+const resultTitle = document.getElementById('resultTitle');
+const resultPreview = document.getElementById('resultPreview');
+const wordCountValue = document.getElementById('wordCountValue');
 const extractBtn = document.getElementById('extractBtn');
 const extractWithSelectorBtn = document.getElementById('extractWithSelector');
 const copyBtn = document.getElementById('copyBtn');
 const sendToClaudeBtn = document.getElementById('sendToClaudeBtn');
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsContent = document.getElementById('settingsContent');
 const serverUrlInput = document.getElementById('serverUrl');
-const groupStatusText = document.getElementById('groupStatusText');
-const groupBtn = document.getElementById('groupBtn');
-const tabCountEl = document.getElementById('tabCount');
-const tabListEl = document.getElementById('tabList');
-const notInGroupWarning = document.getElementById('notInGroupWarning');
+const serverStatus = document.getElementById('serverStatus');
+
+// API Injection elements
+const apiSection = document.getElementById('apiSection');
+const apiSelectContainer = document.getElementById('apiSelectContainer');
+const apiSelect = document.getElementById('apiSelect');
+const apiInjectBtn = document.getElementById('apiInjectBtn');
+const apiInfo = document.getElementById('apiInfo');
+const noApiMatch = document.getElementById('noApiMatch');
+
+// API registry is loaded from page-apis/registry.js via script tag in popup.html
+// This provides a single source of truth for all API definitions
+// PAGE_API_REGISTRY is available as a global variable
 
 let currentMarkdown = '';
 let isInGroup = false;
+let currentPageTitle = '';
+let currentTabUrl = '';
 
 // Load saved server URL
 chrome.storage.sync.get(['serverUrl'], (result) => {
@@ -30,15 +57,24 @@ serverUrlInput.addEventListener('change', () => {
   chrome.storage.sync.set({ serverUrl: serverUrlInput.value });
 });
 
+// Settings toggle
+settingsToggle.addEventListener('click', () => {
+  const isExpanded = settingsToggle.getAttribute('aria-expanded') === 'true';
+  settingsToggle.setAttribute('aria-expanded', !isExpanded);
+  settingsContent.classList.toggle('visible', !isExpanded);
+});
+
 // Check WebSocket connection status
 function updateConnectionStatus() {
   chrome.runtime.sendMessage({ action: 'getConnectionStatus' }, (response) => {
     if (response && response.connected) {
-      wsStatusEl.textContent = '🟢 Connected to Gobbler MCP';
-      wsStatusEl.className = 'ws-status connected';
+      connectionText.textContent = 'Connected';
+      connectionBadge.className = 'connection-badge connected';
+      serverStatus.style.display = 'inline-flex';
     } else {
-      wsStatusEl.textContent = '🔴 Not connected to Gobbler MCP';
-      wsStatusEl.className = 'ws-status disconnected';
+      connectionText.textContent = 'Disconnected';
+      connectionBadge.className = 'connection-badge disconnected';
+      serverStatus.style.display = 'none';
     }
   });
 }
@@ -51,61 +87,289 @@ function updateGroupStatus() {
 
       // Handle restricted URLs (chrome://, edge://, etc.)
       if (response.isRestricted) {
-        groupStatusText.textContent = '🚫 Browser page (restricted)';
-        groupStatusText.className = 'group-status-text not-in-group';
+        groupStatusIcon.textContent = '🚫';
+        groupStatusText.textContent = 'Browser page (restricted)';
+        groupStatusIndicator.className = 'group-status-indicator restricted';
         groupBtn.textContent = 'N/A';
-        groupBtn.className = 'group-btn add';
+        groupBtn.className = 'group-toggle-btn add';
         groupBtn.disabled = true;
-        notInGroupWarning.textContent = '⚠️ Cannot access browser internal pages (chrome://, edge://, about:)';
-        notInGroupWarning.classList.add('visible');
+        warningText.textContent = 'Cannot access browser internal pages (chrome://, edge://, about:)';
+        warningBanner.classList.add('visible');
         extractBtn.disabled = true;
         extractWithSelectorBtn.disabled = true;
       } else if (response.isInGobblerGroup) {
-        groupStatusText.textContent = '🦃 Tab in Gobbler group';
-        groupStatusText.className = 'group-status-text in-group';
+        groupStatusIcon.textContent = '🦃';
+        groupStatusText.textContent = 'In Gobbler group';
+        groupStatusIndicator.className = 'group-status-indicator in-group';
         groupBtn.textContent = 'Remove';
-        groupBtn.className = 'group-btn remove';
+        groupBtn.className = 'group-toggle-btn remove';
         groupBtn.disabled = false;
-        notInGroupWarning.classList.remove('visible');
+        warningBanner.classList.remove('visible');
         extractBtn.disabled = false;
         extractWithSelectorBtn.disabled = false;
       } else {
         // Not in group - show permission status
         const origin = response.origin ? new URL(response.origin.replace('/*', '')).host : 'this site';
         if (response.hasPermission) {
-          groupStatusText.textContent = '⚪ Tab not in group';
+          groupStatusIcon.textContent = '⚪';
+          groupStatusText.textContent = 'Not in group';
         } else {
-          groupStatusText.textContent = '🔒 Permission needed';
+          groupStatusIcon.textContent = '🔒';
+          groupStatusText.textContent = 'Permission needed';
         }
-        groupStatusText.className = 'group-status-text not-in-group';
-        groupBtn.textContent = response.hasPermission ? 'Add Tab' : '🔓 Allow & Add';
-        groupBtn.className = 'group-btn add';
+        groupStatusIndicator.className = 'group-status-indicator not-in-group';
+        groupBtn.textContent = response.hasPermission ? 'Add Tab' : 'Allow & Add';
+        groupBtn.className = 'group-toggle-btn add';
         groupBtn.disabled = false;
-        notInGroupWarning.textContent = response.hasPermission
-          ? '⚠️ Current tab is not in Gobbler group. Add it to enable extraction.'
-          : `🔒 Click "Allow & Add" to grant access to ${origin}`;
-        notInGroupWarning.classList.add('visible');
+        warningText.textContent = response.hasPermission
+          ? 'Add this tab to the Gobbler group to enable extraction.'
+          : `Grant access to ${origin} to use Gobbler.`;
+        warningBanner.classList.add('visible');
         extractBtn.disabled = true;
         extractWithSelectorBtn.disabled = true;
       }
 
       // Show tab count and list
       if (response.groupTabCount > 0) {
-        tabCountEl.textContent = `${response.groupTabCount} tab${response.groupTabCount > 1 ? 's' : ''} in group`;
-        tabListEl.innerHTML = response.groupTabs
-          .map(t => `<div class="tab-list-item${t.active ? ' active' : ''}" title="${t.url}">${t.title || 'Untitled'}</div>`)
+        tabCount.textContent = `${response.groupTabCount} tab${response.groupTabCount > 1 ? 's' : ''}`;
+        emptyTabList.style.display = 'none';
+        tabList.innerHTML = response.groupTabs
+          .map(t => {
+            const icon = getTabIcon(t.url, t.title);
+            const apiName = hasApiForUrl(t.url);
+            const apiBadge = apiName ? `<span class="api-badge" title="${apiName} API available">API</span>` : '';
+            return `<li class="tab-item${t.active ? '" aria-current="true' : ''}" title="${escapeHtml(t.url)}">
+              <span class="tab-icon" aria-hidden="true">${icon}</span>
+              <span class="tab-title">${escapeHtml(t.title || 'Untitled')}</span>
+              ${apiBadge}
+            </li>`;
+          })
           .join('');
       } else {
-        tabCountEl.textContent = 'No tabs in group yet';
-        tabListEl.innerHTML = '';
+        tabCount.textContent = '';
+        emptyTabList.style.display = 'block';
+        tabList.innerHTML = '';
       }
+
+      // Update API section
+      updateApiSection(response.tabUrl, response.tabId, response.isInGobblerGroup);
     } else {
+      groupStatusIcon.textContent = '❓';
       groupStatusText.textContent = 'No tab detected';
       groupBtn.disabled = true;
-      tabCountEl.textContent = '';
-      tabListEl.innerHTML = '';
+      tabCount.textContent = '';
+      tabList.innerHTML = '';
+      emptyTabList.style.display = 'block';
+      apiSection.classList.add('hidden');
     }
   });
+}
+
+// Get appropriate icon for tab based on URL/title
+function getTabIcon(url, title) {
+  const lowerUrl = (url || '').toLowerCase();
+  const lowerTitle = (title || '').toLowerCase();
+
+  if (lowerUrl.includes('notebooklm') || lowerTitle.includes('notebooklm')) {
+    return '📓';
+  } else if (lowerUrl.includes('github')) {
+    return '🐙';
+  } else if (lowerUrl.includes('youtube')) {
+    return '📺';
+  } else if (lowerUrl.includes('docs.') || lowerTitle.includes('documentation')) {
+    return '📚';
+  } else if (lowerTitle.includes('claude') || lowerUrl.includes('claude')) {
+    return '🤖';
+  }
+  return '📄';
+}
+
+// Check if URL has an API available (returns API name or null)
+function hasApiForUrl(url) {
+  if (!url) return null;
+  for (const api of PAGE_API_REGISTRY) {
+    if (api.pattern.test(url)) {
+      return api.name;
+    }
+  }
+  return null;
+}
+
+// Get all APIs that match the given URL
+function getMatchingApis(url) {
+  if (!url) return [];
+  return PAGE_API_REGISTRY.filter(api => api.pattern.test(url));
+}
+
+// Get all available APIs (for showing all options)
+function getAllApis() {
+  return PAGE_API_REGISTRY;
+}
+
+// Update the API section based on current tab
+function updateApiSection(tabUrl, tabId, isInGobblerGroup) {
+  // Only show API section if tab is in group
+  if (!isInGobblerGroup) {
+    apiSection.classList.add('hidden');
+    return;
+  }
+
+  apiSection.classList.remove('hidden');
+
+  // Skip rebuild if URL hasn't changed
+  if (tabUrl === currentTabUrl) {
+    return;
+  }
+
+  currentTabUrl = tabUrl;
+
+  // Get matching APIs for this URL
+  const matchingApis = getMatchingApis(tabUrl);
+  const allApis = getAllApis();
+
+  // Preserve current selection if possible
+  const previousSelection = apiSelect.value;
+
+  // Clear and populate select
+  apiSelect.innerHTML = '<option value="">Select an API...</option>';
+
+  if (matchingApis.length > 0) {
+    // Add matching APIs first (highlighted)
+    const matchGroup = document.createElement('optgroup');
+    matchGroup.label = '✓ Available for this page';
+    matchingApis.forEach(api => {
+      const option = document.createElement('option');
+      option.value = api.name;
+      option.textContent = `${api.name}`;
+      option.dataset.domain = api.domain;
+      option.dataset.description = api.description;
+      option.dataset.globalVar = api.globalVar;
+      option.dataset.methods = api.methods.join(', ');
+      matchGroup.appendChild(option);
+    });
+    apiSelect.appendChild(matchGroup);
+
+    // Add other APIs (grayed out / different group)
+    const otherApis = allApis.filter(api => !matchingApis.includes(api));
+    if (otherApis.length > 0) {
+      const otherGroup = document.createElement('optgroup');
+      otherGroup.label = '○ Other APIs';
+      otherApis.forEach(api => {
+        const option = document.createElement('option');
+        option.value = api.name;
+        option.textContent = `${api.name} (${api.domain})`;
+        option.dataset.domain = api.domain;
+        option.dataset.description = api.description;
+        option.dataset.globalVar = api.globalVar;
+        option.dataset.methods = api.methods.join(', ');
+        option.disabled = true; // Can't inject non-matching APIs
+        otherGroup.appendChild(option);
+      });
+      apiSelect.appendChild(otherGroup);
+    }
+
+    apiSelectContainer.style.display = 'block';
+    noApiMatch.style.display = 'none';
+
+    // Restore previous selection if still valid, otherwise auto-select if only one
+    const canRestorePrevious = previousSelection && matchingApis.some(api => api.name === previousSelection);
+    if (canRestorePrevious) {
+      apiSelect.value = previousSelection;
+      updateApiInfo(matchingApis.find(api => api.name === previousSelection));
+      apiInjectBtn.disabled = false;
+    } else if (matchingApis.length === 1) {
+      apiSelect.value = matchingApis[0].name;
+      updateApiInfo(matchingApis[0]);
+      apiInjectBtn.disabled = false;
+    }
+  } else if (allApis.length > 0) {
+    // No matching APIs, show all as disabled
+    const otherGroup = document.createElement('optgroup');
+    otherGroup.label = '○ No match for this domain';
+    allApis.forEach(api => {
+      const option = document.createElement('option');
+      option.value = api.name;
+      option.textContent = `${api.name} (${api.domain})`;
+      option.disabled = true;
+      otherGroup.appendChild(option);
+    });
+    apiSelect.appendChild(otherGroup);
+
+    apiSelectContainer.style.display = 'block';
+    noApiMatch.style.display = 'none';
+    apiInfo.innerHTML = '<span style="color: var(--warning-amber);">No APIs match this domain.</span>';
+  } else {
+    apiSelectContainer.style.display = 'none';
+    noApiMatch.style.display = 'block';
+  }
+}
+
+// Update the API info text when selection changes
+function updateApiInfo(api) {
+  if (!api) {
+    apiInfo.innerHTML = '';
+    return;
+  }
+  apiInfo.innerHTML = `
+    ${api.description}<br>
+    <code>${api.globalVar}</code> → ${api.methods.slice(0, 3).join(', ')}${api.methods.length > 3 ? '...' : ''}
+  `;
+}
+
+// Handle API select change
+apiSelect.addEventListener('change', () => {
+  const selectedName = apiSelect.value;
+  const selectedApi = PAGE_API_REGISTRY.find(api => api.name === selectedName);
+
+  if (selectedApi) {
+    updateApiInfo(selectedApi);
+    apiInjectBtn.disabled = false;
+  } else {
+    apiInfo.innerHTML = '';
+    apiInjectBtn.disabled = true;
+  }
+});
+
+// Handle inject button click
+apiInjectBtn.addEventListener('click', async () => {
+  const selectedName = apiSelect.value;
+  if (!selectedName) return;
+
+  apiInjectBtn.disabled = true;
+  apiInjectBtn.textContent = 'Injecting...';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      throw new Error('No active tab');
+    }
+
+    // Send message to background to inject API
+    chrome.runtime.sendMessage({
+      action: 'injectApi',
+      tabId: tab.id,
+      apiName: selectedName
+    }, (response) => {
+      if (response && response.success) {
+        showStatus(`${selectedName} API injected! Use ${PAGE_API_REGISTRY.find(a => a.name === selectedName)?.globalVar} in console.`, 'success', '✓');
+      } else {
+        showStatus(`Failed: ${response?.error || 'Unknown error'}`, 'error', '✗');
+      }
+      apiInjectBtn.disabled = false;
+      apiInjectBtn.textContent = 'Inject';
+    });
+  } catch (error) {
+    showStatus(`Error: ${error.message}`, 'error', '✗');
+    apiInjectBtn.disabled = false;
+    apiInjectBtn.textContent = 'Inject';
+  }
+});
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Handle group button click
@@ -124,13 +388,13 @@ groupBtn.addEventListener('click', async () => {
     // Add to group (will request permission if needed)
     chrome.runtime.sendMessage({ action: 'addToGroup' }, (response) => {
       if (response && response.success) {
-        showStatus(`✓ Added to Gobbler group`, 'success');
+        showStatus('Added to Gobbler group', 'success', '✓');
         updateGroupStatus();
       } else if (response && response.error) {
         if (response.permissionDenied) {
-          showStatus('Permission denied. Click "Allow" when prompted.', 'error');
+          showStatus('Permission denied. Click "Allow" when prompted.', 'error', '✗');
         } else {
-          showStatus(`Error: ${response.error}`, 'error');
+          showStatus(`Error: ${response.error}`, 'error', '✗');
         }
       }
       groupBtn.disabled = false;
@@ -138,27 +402,43 @@ groupBtn.addEventListener('click', async () => {
   }
 });
 
-// Update status on load and every 2 seconds
+// Update status on load and periodically
 updateConnectionStatus();
 updateGroupStatus();
 setInterval(updateConnectionStatus, 5000);
 setInterval(updateGroupStatus, 2000);
 
-function showStatus(message, type = 'info') {
-  statusEl.textContent = message;
-  statusEl.className = `status ${type}`;
+function showStatus(message, type = 'info', icon = 'ℹ') {
+  statusIcon.textContent = icon;
+  statusText.textContent = message;
+  statusMessage.className = `status-message visible ${type}`;
 }
 
-function showOutput(markdown) {
+function hideStatus() {
+  statusMessage.classList.remove('visible');
+}
+
+function showResult(markdown, pageTitle) {
   currentMarkdown = markdown;
-  outputEl.textContent = markdown;
-  outputEl.classList.add('visible');
-  actionsEl.style.display = 'flex';
+  currentPageTitle = pageTitle;
+
+  // Count words (rough estimate)
+  const wordCount = markdown.split(/\s+/).filter(w => w.length > 0).length;
+  wordCountValue.textContent = `${wordCount.toLocaleString()} words`;
+
+  // Set title
+  resultTitle.textContent = pageTitle || 'Untitled Page';
+
+  // Show preview (first ~500 chars of markdown)
+  const preview = markdown.substring(0, 500) + (markdown.length > 500 ? '...' : '');
+  resultPreview.textContent = preview;
+
+  // Show the result card
+  resultCard.classList.add('visible');
 }
 
-function hideOutput() {
-  outputEl.classList.remove('visible');
-  actionsEl.style.display = 'none';
+function hideResult() {
+  resultCard.classList.remove('visible');
 }
 
 async function getCurrentTab() {
@@ -169,8 +449,9 @@ async function getCurrentTab() {
 async function extractPage() {
   try {
     extractBtn.disabled = true;
-    hideOutput();
-    showStatus('Extracting page content...', 'info');
+    hideResult();
+    hideStatus();
+    showStatus('Extracting page content...', 'info', '⏳');
 
     const tab = await getCurrentTab();
 
@@ -189,7 +470,7 @@ async function extractPage() {
 
     const pageData = result.result;
 
-    showStatus('Sending to Gobbler server...', 'info');
+    showStatus('Sending to Gobbler server...', 'info', '⏳');
 
     // Send to Gobbler server
     const serverUrl = serverUrlInput.value;
@@ -207,12 +488,12 @@ async function extractPage() {
 
     const data = await response.json();
 
-    showStatus('✓ Page extracted successfully!', 'success');
-    showOutput(data.markdown);
+    hideStatus();
+    showResult(data.markdown, pageData.title);
 
   } catch (error) {
     console.error('Extract error:', error);
-    showStatus(`Error: ${error.message}`, 'error');
+    showStatus(`Error: ${error.message}`, 'error', '✗');
   } finally {
     extractBtn.disabled = false;
   }
@@ -221,7 +502,8 @@ async function extractPage() {
 async function extractWithSelector() {
   try {
     extractWithSelectorBtn.disabled = true;
-    hideOutput();
+    hideResult();
+    hideStatus();
 
     const selector = prompt('Enter CSS selector (e.g., article, .main-content, #post):');
     if (!selector) {
@@ -229,7 +511,7 @@ async function extractWithSelector() {
       return;
     }
 
-    showStatus('Extracting with selector...', 'info');
+    showStatus('Extracting with selector...', 'info', '⏳');
 
     const tab = await getCurrentTab();
 
@@ -253,7 +535,7 @@ async function extractWithSelector() {
 
     const pageData = result.result;
 
-    showStatus('Sending to Gobbler server...', 'info');
+    showStatus('Sending to Gobbler server...', 'info', '⏳');
 
     const serverUrl = serverUrlInput.value;
     const response = await fetch(`${serverUrl}/extract`, {
@@ -270,12 +552,12 @@ async function extractWithSelector() {
 
     const data = await response.json();
 
-    showStatus('✓ Content extracted successfully!', 'success');
-    showOutput(data.markdown);
+    hideStatus();
+    showResult(data.markdown, `${pageData.title} (${selector})`);
 
   } catch (error) {
     console.error('Extract error:', error);
-    showStatus(`Error: ${error.message}`, 'error');
+    showStatus(`Error: ${error.message}`, 'error', '✗');
   } finally {
     extractWithSelectorBtn.disabled = false;
   }
@@ -284,17 +566,30 @@ async function extractWithSelector() {
 function copyToClipboard() {
   navigator.clipboard.writeText(currentMarkdown)
     .then(() => {
-      showStatus('✓ Copied to clipboard!', 'success');
+      showStatus('Copied to clipboard!', 'success', '✓');
+      // Auto-hide success message after 2 seconds
+      setTimeout(() => {
+        hideStatus();
+      }, 2000);
     })
     .catch((error) => {
-      showStatus(`Copy failed: ${error.message}`, 'error');
+      showStatus(`Copy failed: ${error.message}`, 'error', '✗');
     });
 }
 
 function sendToClaude() {
-  // TODO: Implement sending to Claude Code
-  // This could use Claude Code's API or copy to a special format
-  showStatus('Send to Claude - Coming soon!', 'info');
+  // Copy to clipboard and show message
+  navigator.clipboard.writeText(currentMarkdown)
+    .then(() => {
+      showStatus('Copied! Paste in Claude to continue.', 'success', '✓');
+      // Auto-hide after 3 seconds
+      setTimeout(() => {
+        hideStatus();
+      }, 3000);
+    })
+    .catch((error) => {
+      showStatus(`Copy failed: ${error.message}`, 'error', '✗');
+    });
 }
 
 // Event listeners
@@ -302,3 +597,25 @@ extractBtn.addEventListener('click', extractPage);
 extractWithSelectorBtn.addEventListener('click', extractWithSelector);
 copyBtn.addEventListener('click', copyToClipboard);
 sendToClaudeBtn.addEventListener('click', sendToClaude);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Ctrl/Cmd + Enter to extract
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    if (!extractBtn.disabled) {
+      extractPage();
+    }
+  }
+  // Ctrl/Cmd + C when result is shown to copy
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c' && resultCard.classList.contains('visible')) {
+    // Only if no text is selected
+    if (!window.getSelection().toString()) {
+      e.preventDefault();
+      copyToClipboard();
+    }
+  }
+  // Escape to close result card
+  if (e.key === 'Escape' && resultCard.classList.contains('visible')) {
+    hideResult();
+  }
+});

@@ -1,275 +1,1047 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gobbler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gobbler - Web Content Extractor</title>
   <style>
-    body {
-      width: 350px;
-      padding: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      margin: 0;
+    :root {
+      --primary-orange: #E67E50;
+      --primary-orange-hover: #D66A3C;
+      --turkey-brown: #5D4037;
+      --success-teal: #26A69A;
+      --success-teal-hover: #1E8E82;
+      --background-cream: #FFF8F0;
+      --background-warm: #FEF3E8;
+      --text-dark: #3E2723;
+      --text-muted: #8D6E63;
+      --border-light: #E8D5C4;
+      --error-red: #E57373;
+      --warning-amber: #FFB74D;
+      --focus-ring: 0 0 0 3px rgba(230, 126, 80, 0.4);
     }
 
-    h1 {
-      font-size: 18px;
-      margin: 0 0 16px 0;
-      color: #1a1a1a;
-    }
-
-    .status {
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      font-size: 14px;
-      display: none;
-    }
-
-    .status.success {
-      background: #d4edda;
-      color: #155724;
-      display: block;
-    }
-
-    .status.error {
-      background: #f8d7da;
-      color: #721c24;
-      display: block;
-    }
-
-    .status.info {
-      background: #d1ecf1;
-      color: #0c5460;
-      display: block;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #0066cc;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-bottom: 8px;
-    }
-
-    button:hover {
-      background: #0052a3;
-    }
-
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .config {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid #e0e0e0;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 4px;
-    }
-
-    input {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
+    * {
       box-sizing: border-box;
     }
 
-    .output {
-      margin-top: 12px;
-      padding: 12px;
-      background: #f5f5f5;
-      border-radius: 6px;
-      font-size: 12px;
-      max-height: 200px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      display: none;
+    body {
+      width: 340px;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      background: var(--background-cream);
+      color: var(--text-dark);
     }
 
-    .output.visible {
-      display: block;
+    /* Focus styles for accessibility */
+    :focus {
+      outline: none;
     }
 
-    .actions {
+    :focus-visible {
+      box-shadow: var(--focus-ring);
+      outline: 2px solid var(--primary-orange);
+      outline-offset: 2px;
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      box-shadow: var(--focus-ring);
+    }
+
+    /* Skip link for keyboard navigation */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: var(--primary-orange);
+      color: white;
+      padding: 8px;
+      z-index: 100;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* Header */
+    .header {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, var(--primary-orange) 0%, #D4845A 100%);
+      color: white;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
       gap: 8px;
-      margin-top: 8px;
     }
 
-    .actions button {
-      flex: 1;
-      font-size: 12px;
-      padding: 8px;
+    .header-logo {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
     }
 
-    .ws-status {
-      font-size: 12px;
-      padding: 8px;
-      border-radius: 4px;
-      margin-bottom: 12px;
-      text-align: center;
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
     }
 
-    .ws-status.connected {
-      background: #d4edda;
-      color: #155724;
+    .connection-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.2);
     }
 
-    .ws-status.disconnected {
-      background: #f8d7da;
-      color: #721c24;
+    .connection-badge.connected {
+      background: rgba(38, 166, 154, 0.9);
     }
 
-    .group-section {
-      margin-bottom: 16px;
+    .connection-badge.disconnected {
+      background: rgba(229, 115, 115, 0.9);
+    }
+
+    .connection-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Visually hidden but accessible to screen readers */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Main Content */
+    .main {
+      padding: 16px;
+    }
+
+    /* Tab Group Section */
+    .tab-group-section {
+      background: white;
+      border-radius: 10px;
       padding: 12px;
-      border-radius: 6px;
-      background: #fff8f0;
-      border: 1px solid #f0a050;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-light);
     }
 
-    .group-status {
+    .tab-group-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 8px;
     }
 
-    .group-status-text {
+    .tab-group-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .tab-group-count {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .tab-list {
+      max-height: 100px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+      list-style: none;
+      padding: 0;
+      margin-top: 0;
+    }
+
+    .tab-list:empty {
+      display: none;
+    }
+
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      margin: 2px 0;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-dark);
+      background: var(--background-warm);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.15s ease;
+    }
+
+    .tab-item:hover {
+      background: var(--background-cream);
+    }
+
+    .tab-item[aria-current="true"] {
+      background: var(--primary-orange);
+      color: white;
+      font-weight: 500;
+    }
+
+    .tab-item[aria-current="true"] .tab-icon {
+      opacity: 0.9;
+    }
+
+    .tab-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .tab-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .api-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--success-teal);
+      color: white;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    .tab-item[aria-current="true"] .api-badge {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .tab-group-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .group-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .group-status-indicator.in-group {
+      color: var(--success-teal);
+    }
+
+    .group-status-indicator.not-in-group {
+      color: var(--warning-amber);
+    }
+
+    .group-status-indicator.restricted {
+      color: var(--text-muted);
+    }
+
+    .group-toggle-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .group-toggle-btn.add {
+      background: var(--success-teal);
+      color: white;
+    }
+
+    .group-toggle-btn.add:hover:not(:disabled) {
+      background: var(--success-teal-hover);
+    }
+
+    .group-toggle-btn.remove {
+      background: var(--error-red);
+      color: white;
+    }
+
+    .group-toggle-btn.remove:hover:not(:disabled) {
+      background: #EF5350;
+    }
+
+    .group-toggle-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Warning Banner */
+    .warning-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      background: #FFF3E0;
+      border: 1px solid var(--warning-amber);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #E65100;
+      line-height: 1.4;
+    }
+
+    .warning-banner.visible {
+      display: flex;
+    }
+
+    .warning-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Primary Action */
+    .primary-action {
+      margin-bottom: 16px;
+    }
+
+    .extract-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, var(--primary-orange) 0%, #D4845A 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(230, 126, 80, 0.3);
+    }
+
+    .extract-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(230, 126, 80, 0.4);
+    }
+
+    .extract-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .extract-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .extract-btn .btn-icon {
+      font-size: 20px;
+    }
+
+    .extract-btn .btn-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .extract-btn .btn-label {
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .extract-btn .btn-hint {
+      font-size: 11px;
+      opacity: 0.85;
+      font-weight: 400;
+    }
+
+    .secondary-action {
+      text-align: center;
+    }
+
+    .selector-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .selector-link:hover:not(:disabled) {
+      color: var(--turkey-brown);
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .selector-link:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Status Messages */
+    .status-message {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
     }
 
-    .group-status-text.in-group {
-      color: #155724;
+    .status-message.visible {
+      display: flex;
     }
 
-    .group-status-text.not-in-group {
-      color: #856404;
+    .status-message.success {
+      background: #E8F5E9;
+      color: #2E7D32;
+      border: 1px solid #A5D6A7;
     }
 
-    .group-btn {
-      padding: 6px 12px;
+    .status-message.error {
+      background: #FFEBEE;
+      color: #C62828;
+      border: 1px solid #EF9A9A;
+    }
+
+    .status-message.info {
+      background: #E3F2FD;
+      color: #1565C0;
+      border: 1px solid #90CAF9;
+    }
+
+    .status-icon {
+      font-size: 16px;
+    }
+
+    /* Success Result Card */
+    .result-card {
+      display: none;
+      background: white;
+      border-radius: 10px;
+      border: 1px solid var(--border-light);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .result-card.visible {
+      display: block;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: #E8F5E9;
+      border-bottom: 1px solid #C8E6C9;
+    }
+
+    .result-icon {
+      font-size: 24px;
+    }
+
+    .result-title-area {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .result-status {
       font-size: 12px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      font-weight: 500;
+      font-weight: 600;
+      color: #2E7D32;
+      margin-bottom: 2px;
     }
 
-    .group-btn.add {
-      background: #28a745;
-      color: white;
-    }
-
-    .group-btn.add:hover {
-      background: #218838;
-    }
-
-    .group-btn.remove {
-      background: #dc3545;
-      color: white;
-    }
-
-    .group-btn.remove:hover {
-      background: #c82333;
-    }
-
-    .tab-count {
-      font-size: 11px;
-      color: #666;
-      margin-top: 4px;
-    }
-
-    .tab-list {
-      font-size: 11px;
-      color: #555;
-      margin-top: 8px;
-      max-height: 80px;
-      overflow-y: auto;
-    }
-
-    .tab-list-item {
-      padding: 3px 0;
+    .result-page-title {
+      font-size: 13px;
+      color: var(--text-dark);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .tab-list-item.active {
+    .result-meta {
+      padding: 10px 12px;
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .result-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .result-preview {
+      padding: 12px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 11px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      color: var(--text-muted);
+      background: var(--background-cream);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: 1.5;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      background: white;
+    }
+
+    .result-action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
       font-weight: 600;
-      color: #0066cc;
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
 
-    .not-in-group-warning {
-      background: #fff3cd;
-      color: #856404;
-      padding: 8px;
-      border-radius: 4px;
+    .result-action-btn.secondary {
+      background: var(--background-warm);
+      color: var(--turkey-brown);
+      border: 1px solid var(--border-light);
+    }
+
+    .result-action-btn.secondary:hover {
+      background: var(--background-cream);
+    }
+
+    .result-action-btn.primary {
+      background: var(--success-teal);
+      color: white;
+    }
+
+    .result-action-btn.primary:hover {
+      background: var(--success-teal-hover);
+    }
+
+    /* Settings Section */
+    .settings-section {
+      border-top: 1px solid var(--border-light);
+      padding-top: 12px;
+    }
+
+    .settings-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 8px 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
       font-size: 12px;
-      margin-bottom: 12px;
-      display: none;
-      line-height: 1.4;
     }
 
-    .not-in-group-warning.visible {
+    .settings-toggle:hover {
+      color: var(--text-dark);
+    }
+
+    .settings-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .settings-toggle-icon {
+      transition: transform 0.2s ease;
+    }
+
+    .settings-toggle[aria-expanded="true"] .settings-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .settings-content {
+      display: none;
+      padding-top: 12px;
+    }
+
+    .settings-content.visible {
       display: block;
     }
 
-    .group-btn.add {
-      min-width: 90px;
+    .settings-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .settings-field input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-dark);
+      background: white;
+      transition: border-color 0.15s ease;
+    }
+
+    .settings-field input:focus {
+      border-color: var(--primary-orange);
+    }
+
+    .settings-field .input-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--success-teal);
+    }
+
+    /* API Injection Section */
+    .api-section {
+      background: white;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-light);
+    }
+
+    .api-section.hidden {
+      display: none;
+    }
+
+    .api-section-header {
+      margin-bottom: 10px;
+    }
+
+    .api-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .api-select-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .api-select-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .api-select {
+      width: 100%;
+      padding: 8px 28px 8px 10px;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-dark);
+      background: white;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .api-select:focus {
+      border-color: var(--primary-orange);
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    .api-select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .api-select-arrow {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .api-inject-btn {
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: var(--success-teal);
+      color: white;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .api-inject-btn:hover:not(:disabled) {
+      background: var(--success-teal-hover);
+    }
+
+    .api-inject-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .api-info {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .api-info code {
+      background: var(--background-warm);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 10px;
+    }
+
+    .no-api-match {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px;
+    }
+
+    /* Empty state */
+    .empty-tab-list {
+      text-align: center;
+      padding: 12px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+      :root {
+        --border-light: #5D4037;
+        --text-muted: #5D4037;
+      }
+
+      .extract-btn,
+      .group-toggle-btn,
+      .result-action-btn {
+        border: 2px solid currentColor;
+      }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>🦃 Gobbler</h1>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <div id="wsStatus" class="ws-status">Checking connection...</div>
-
-  <div class="group-section">
-    <div class="group-status">
-      <span id="groupStatusText" class="group-status-text">Checking...</span>
-      <button id="groupBtn" class="group-btn add">Add Tab</button>
+  <!-- Header -->
+  <header class="header" role="banner">
+    <div class="header-brand">
+      <img src="icons/icon48.png" alt="" class="header-logo" aria-hidden="true">
+      <h1 class="header-title">Gobbler</h1>
     </div>
-    <div id="tabCount" class="tab-count"></div>
-    <div id="tabList" class="tab-list"></div>
-  </div>
+    <div
+      id="connectionBadge"
+      class="connection-badge"
+      role="status"
+      aria-live="polite"
+      aria-label="Connection status"
+    >
+      <span class="connection-dot" aria-hidden="true"></span>
+      <span id="connectionText">Checking...</span>
+    </div>
+  </header>
 
-  <div id="notInGroupWarning" class="not-in-group-warning">
-    ⚠️ Current tab is not in Gobbler group. Add it to enable extraction.
-  </div>
+  <!-- Main Content -->
+  <main id="main-content" class="main" role="main">
+    <!-- Tab Group Section -->
+    <section class="tab-group-section" aria-labelledby="tab-group-heading">
+      <div class="tab-group-header">
+        <h2 id="tab-group-heading" class="tab-group-label">Gobbler Group</h2>
+        <span id="tabCount" class="tab-group-count" aria-live="polite"></span>
+      </div>
 
-  <div id="status" class="status"></div>
+      <ul id="tabList" class="tab-list" role="list" aria-label="Tabs in Gobbler group"></ul>
 
-  <button id="extractBtn">Extract Current Page</button>
-  <button id="extractWithSelector" style="background: #6c757d;">Extract with Selector</button>
+      <p id="emptyTabList" class="empty-tab-list">
+        No tabs in group yet
+      </p>
 
-  <div class="config">
-    <label for="serverUrl">Gobbler Server URL</label>
-    <input type="text" id="serverUrl" value="http://localhost:4625" placeholder="http://localhost:4625">
-  </div>
+      <div class="tab-group-status">
+        <div
+          id="groupStatusIndicator"
+          class="group-status-indicator"
+          role="status"
+          aria-live="polite"
+        >
+          <span id="groupStatusIcon" aria-hidden="true">⚪</span>
+          <span id="groupStatusText">Checking...</span>
+        </div>
+        <button
+          id="groupBtn"
+          class="group-toggle-btn add"
+          aria-describedby="groupStatusText"
+        >
+          Add Tab
+        </button>
+      </div>
+    </section>
 
-  <div id="output" class="output"></div>
+    <!-- API Injection Section -->
+    <section id="apiSection" class="api-section hidden" aria-labelledby="api-section-heading">
+      <div class="api-section-header">
+        <h2 id="api-section-heading" class="api-section-label">Page API</h2>
+      </div>
 
-  <div class="actions" id="actions" style="display: none;">
-    <button id="copyBtn">Copy</button>
-    <button id="sendToClaudeBtn">Send to Claude</button>
-  </div>
+      <div id="apiSelectContainer">
+        <div class="api-select-row">
+          <div class="api-select-wrapper">
+            <select id="apiSelect" class="api-select" aria-label="Select API to inject">
+              <option value="">Select an API...</option>
+            </select>
+            <span class="api-select-arrow" aria-hidden="true">▼</span>
+          </div>
+          <button id="apiInjectBtn" class="api-inject-btn" disabled>
+            Inject
+          </button>
+        </div>
+        <p id="apiInfo" class="api-info"></p>
+      </div>
 
+      <p id="noApiMatch" class="no-api-match" style="display: none;">
+        No APIs available for this domain
+      </p>
+    </section>
+
+    <!-- Warning Banner -->
+    <div
+      id="warningBanner"
+      class="warning-banner"
+      role="alert"
+      aria-live="assertive"
+    >
+      <span class="warning-icon" aria-hidden="true">⚠️</span>
+      <span id="warningText">Current tab is not in Gobbler group.</span>
+    </div>
+
+    <!-- Status Message -->
+    <div
+      id="statusMessage"
+      class="status-message"
+      role="status"
+      aria-live="polite"
+    >
+      <span id="statusIcon" class="status-icon" aria-hidden="true"></span>
+      <span id="statusText"></span>
+    </div>
+
+    <!-- Result Card (shown after extraction) -->
+    <article
+      id="resultCard"
+      class="result-card"
+      aria-labelledby="resultStatus"
+      aria-live="polite"
+    >
+      <header class="result-header">
+        <span class="result-icon" aria-hidden="true">🦃</span>
+        <div class="result-title-area">
+          <p id="resultStatus" class="result-status">Gobbled!</p>
+          <p id="resultTitle" class="result-page-title"></p>
+        </div>
+      </header>
+      <div class="result-meta">
+        <span id="wordCount" class="result-meta-item">
+          <span aria-hidden="true">📝</span>
+          <span id="wordCountValue">0 words</span>
+        </span>
+        <span class="result-meta-item">
+          <span aria-hidden="true">🕐</span>
+          <span>Just now</span>
+        </span>
+      </div>
+      <div
+        id="resultPreview"
+        class="result-preview"
+        role="region"
+        aria-label="Extracted content preview"
+        tabindex="0"
+      ></div>
+      <div class="result-actions">
+        <button id="copyBtn" class="result-action-btn secondary">
+          <span aria-hidden="true">📋</span>
+          <span>Copy</span>
+        </button>
+        <button id="sendToClaudeBtn" class="result-action-btn primary">
+          <span aria-hidden="true">📤</span>
+          <span>Send to Claude</span>
+        </button>
+      </div>
+    </article>
+
+    <!-- Primary Action -->
+    <div class="primary-action">
+      <button
+        id="extractBtn"
+        class="extract-btn"
+        aria-describedby="extract-hint"
+      >
+        <span class="btn-icon" aria-hidden="true">🦃</span>
+        <span class="btn-text">
+          <span class="btn-label">Gobble This Page</span>
+          <span id="extract-hint" class="btn-hint">Extract content as markdown</span>
+        </span>
+      </button>
+    </div>
+
+    <!-- Secondary Action -->
+    <div class="secondary-action">
+      <button
+        id="extractWithSelector"
+        class="selector-link"
+        aria-label="Extract content using a CSS selector"
+      >
+        <span aria-hidden="true">⚙️</span>
+        <span>Extract with CSS selector</span>
+      </button>
+    </div>
+
+    <!-- Settings Section -->
+    <section class="settings-section" aria-labelledby="settings-heading">
+      <h2 id="settings-heading" class="sr-only">Settings</h2>
+      <button
+        id="settingsToggle"
+        class="settings-toggle"
+        aria-expanded="false"
+        aria-controls="settingsContent"
+      >
+        <span class="settings-toggle-label">
+          <span aria-hidden="true">⚙️</span>
+          <span>Settings</span>
+        </span>
+        <span class="settings-toggle-icon" aria-hidden="true">▼</span>
+      </button>
+
+      <div
+        id="settingsContent"
+        class="settings-content"
+        role="region"
+        aria-labelledby="settings-heading"
+      >
+        <div class="settings-field">
+          <label for="serverUrl">Server URL</label>
+          <input
+            type="url"
+            id="serverUrl"
+            value="http://localhost:4625"
+            placeholder="http://localhost:4625"
+            autocomplete="url"
+            spellcheck="false"
+          >
+          <div id="serverStatus" class="input-status" style="display: none;" aria-live="polite">
+            <span aria-hidden="true">✓</span>
+            <span>Connected</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Load API registry first (single source of truth) -->
+  <script src="page-apis/registry.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,5 +1,12 @@
 // Background service worker for Gobbler extension
 
+// ============================================================================
+// Page-Specific API Registry - loaded from single source of truth
+// ============================================================================
+// Import the registry which defines PAGE_API_REGISTRY and findMatchingApi
+// in the global scope. This is the recommended way for MV3 service workers.
+importScripts('page-apis/registry.js');
+
 let ws = null;
 let reconnectInterval = null;
 const WS_URL = 'ws://localhost:4625/ws';
@@ -10,6 +17,85 @@ const GOBBLER_GROUP_TITLE = 'Gobbler';
 
 // Permission management - track granted origins
 const grantedOrigins = new Set();
+
+// Track which tabs have had APIs injected
+const injectedTabs = new Map(); // tabId -> { apiName, timestamp }
+
+/**
+ * Inject page-specific API into a tab
+ */
+async function injectPageApi(tabId, apiEntry) {
+  try {
+    // Check if already injected for this API
+    const existing = injectedTabs.get(tabId);
+    if (existing && existing.apiName === apiEntry.name) {
+      console.log(`[Gobbler] ${apiEntry.name} API already injected in tab ${tabId}`);
+      return { success: true, alreadyInjected: true };
+    }
+
+    console.log(`[Gobbler] Injecting ${apiEntry.name} API into tab ${tabId}...`);
+
+    // Inject the API script into the MAIN world (not the isolated content script world)
+    // This makes window.gobblerNotebookLM accessible from the page console and other scripts
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: [apiEntry.apiFile],
+      world: 'MAIN'  // Critical: inject into page's main world, not isolated world
+    });
+
+    // Track injection
+    injectedTabs.set(tabId, {
+      apiName: apiEntry.name,
+      timestamp: Date.now()
+    });
+
+    console.log(`[Gobbler] ${apiEntry.name} API injected successfully into tab ${tabId}`);
+    return { success: true, apiName: apiEntry.name };
+  } catch (error) {
+    console.error(`[Gobbler] Failed to inject ${apiEntry.name} API:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check and inject API for a tab if it matches a registered pattern
+ */
+async function checkAndInjectApi(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.url) return { success: false, reason: 'no-url' };
+
+    // Only inject for tabs in Gobbler group
+    const isInGroup = await isTabInGobblerGroup(tabId);
+    if (!isInGroup) {
+      return { success: false, reason: 'not-in-group' };
+    }
+
+    const apiEntry = findMatchingApi(tab.url);
+    if (!apiEntry) {
+      return { success: false, reason: 'no-matching-api' };
+    }
+
+    return await injectPageApi(tabId, apiEntry);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Inject APIs into all tabs currently in the Gobbler group
+ */
+async function injectApisIntoAllGobblerTabs() {
+  const tabs = await getGobblerGroupTabs();
+  const results = [];
+
+  for (const tab of tabs) {
+    const result = await checkAndInjectApi(tab.id);
+    results.push({ tabId: tab.id, url: tab.url, ...result });
+  }
+
+  return results;
+}
 
 // Extract origin pattern from a URL for permission requests
 function getOriginPattern(url) {
@@ -197,7 +283,20 @@ async function addCurrentTabToGroup() {
 
   await chrome.tabs.group({ tabIds: [tab.id], groupId });
   console.log(`Added tab ${tab.id} to Gobbler group (origin: ${originPattern})`);
-  return { success: true, alreadyInGroup: false, tabId: tab.id, origin: originPattern };
+
+  // Inject page-specific API if available
+  const apiResult = await checkAndInjectApi(tab.id);
+  if (apiResult.success && apiResult.apiName) {
+    console.log(`[Gobbler] Injected ${apiResult.apiName} API for tab ${tab.id}`);
+  }
+
+  return {
+    success: true,
+    alreadyInGroup: false,
+    tabId: tab.id,
+    origin: originPattern,
+    injectedApi: apiResult.apiName || null
+  };
 }
 
 // Remove current tab from Gobbler group
@@ -252,6 +351,75 @@ async function listGobblerTabs(params = {}) {
   }));
 
   return { success: true, tabs: tabList };
+}
+
+// Get information about injected APIs (for MCP command)
+async function getInjectedApis(params = {}) {
+  const stored = await chrome.storage.local.get('gobblerGroupId');
+  if (!stored.gobblerGroupId) {
+    return { success: true, tabs: [], message: 'No Gobbler group exists yet' };
+  }
+
+  const tabs = await chrome.tabs.query({ groupId: stored.gobblerGroupId });
+  const result = [];
+
+  for (const tab of tabs) {
+    const injection = injectedTabs.get(tab.id);
+    const matchingApi = findMatchingApi(tab.url);
+
+    result.push({
+      tabId: tab.id,
+      title: tab.title || 'Untitled',
+      url: tab.url,
+      isActive: tab.active,
+      injectedApi: injection?.apiName || null,
+      injectedAt: injection?.timestamp || null,
+      availableApi: matchingApi?.name || null,
+      hasMatchingApi: !!matchingApi
+    });
+  }
+
+  return {
+    success: true,
+    tabs: result,
+    registeredApis: PAGE_API_REGISTRY.filter(a => a.enabled).map(a => ({
+      name: a.name,
+      pattern: a.pattern.toString()
+    }))
+  };
+}
+
+// Manually inject API into a tab (for MCP command)
+async function manuallyInjectApi(params) {
+  const { tabId } = params;
+
+  if (!tabId) {
+    return { success: false, error: 'tabId is required' };
+  }
+
+  // Security check: Verify tab is in Gobbler group
+  const isInGroup = await isTabInGobblerGroup(tabId);
+  if (!isInGroup) {
+    return {
+      success: false,
+      error: `Tab ${tabId} is not in Gobbler group. Add it first via extension popup or right-click menu.`
+    };
+  }
+
+  const tab = await chrome.tabs.get(tabId);
+  const apiEntry = findMatchingApi(tab.url);
+
+  if (!apiEntry) {
+    return {
+      success: false,
+      error: `No registered API matches URL: ${tab.url}`,
+      registeredApis: PAGE_API_REGISTRY.filter(a => a.enabled).map(a => a.name)
+    };
+  }
+
+  // Force re-injection by clearing the tracking
+  injectedTabs.delete(tabId);
+  return await injectPageApi(tabId, apiEntry);
 }
 
 // Execute script in a specific tab (must be in Gobbler group)
@@ -473,6 +641,14 @@ async function handleCommand(message) {
         result = await executeScriptInTab(params);
         break;
 
+      case 'get_injected_apis':
+        result = await getInjectedApis(params);
+        break;
+
+      case 'inject_api':
+        result = await manuallyInjectApi(params);
+        break;
+
       default:
         result = { success: false, error: `Unknown command: ${command}` };
     }
@@ -627,8 +803,9 @@ async function executeScript(params) {
   }
 }
 
-// Clean up debugger when tab is closed
+// Clean up debugger and injected APIs when tab is closed
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  // Clean up debugger
   if (debuggerAttachedTabs.has(tabId)) {
     try {
       await chrome.debugger.detach({ tabId });
@@ -640,6 +817,67 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
       }
     }
     debuggerAttachedTabs.delete(tabId);
+  }
+
+  // Clean up injection tracking
+  if (injectedTabs.has(tabId)) {
+    injectedTabs.delete(tabId);
+    console.log(`[Gobbler] Cleaned up injection tracking for closed tab ${tabId}`);
+  }
+});
+
+// Re-inject APIs when tabs in Gobbler group navigate or refresh
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only act when page load is complete
+  if (changeInfo.status !== 'complete') return;
+
+  // Check if tab is in Gobbler group
+  const isInGroup = await isTabInGobblerGroup(tabId);
+  if (!isInGroup) return;
+
+  // Check if there's a matching API for this URL
+  const apiEntry = findMatchingApi(tab.url);
+  if (!apiEntry) {
+    // URL no longer matches any API - clean up tracking
+    if (injectedTabs.has(tabId)) {
+      injectedTabs.delete(tabId);
+      console.log(`[Gobbler] Tab ${tabId} no longer matches any API pattern`);
+    }
+    return;
+  }
+
+  // Actually check if API is already present in the page (not just in our tracking)
+  // This handles SPAs where onUpdated fires without full page reloads
+  try {
+    // Use the injection marker from registry for dynamic multi-API support
+    const markerName = apiEntry.injectionMarker || `__gobbler${apiEntry.name}Injected`;
+
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (marker) => typeof window[marker] !== 'undefined',
+      args: [markerName]
+    });
+
+    const alreadyInjected = results && results[0] && results[0].result === true;
+
+    if (alreadyInjected) {
+      // API still exists in page, update our tracking but don't re-inject
+      if (!injectedTabs.has(tabId)) {
+        injectedTabs.set(tabId, { apiName: apiEntry.name, timestamp: Date.now() });
+      }
+      return;
+    }
+
+    // API not in page - need to inject
+    console.log(`[Gobbler] API not found in page, injecting ${apiEntry.name}...`);
+    injectedTabs.delete(tabId);
+    const result = await injectPageApi(tabId, apiEntry);
+    if (result.success) {
+      console.log(`[Gobbler] Injected ${apiEntry.name} API after page change`);
+    }
+  } catch (error) {
+    console.error(`[Gobbler] Error checking/injecting API:`, error);
   }
 });
 
@@ -772,6 +1010,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ tabs });
     }).catch(error => {
       sendResponse({ error: error.message });
+    });
+    return true;
+  } else if (request.action === 'injectApi') {
+    // Inject API into a specific tab
+    const { tabId, apiName } = request;
+    if (!tabId) {
+      sendResponse({ success: false, error: 'tabId is required' });
+      return true;
+    }
+
+    // Find the API entry by name
+    const apiEntry = PAGE_API_REGISTRY.find(a => a.name === apiName);
+    if (!apiEntry) {
+      sendResponse({ success: false, error: `Unknown API: ${apiName}` });
+      return true;
+    }
+
+    // Verify tab is in Gobbler group
+    isTabInGobblerGroup(tabId).then(isInGroup => {
+      if (!isInGroup) {
+        sendResponse({
+          success: false,
+          error: 'Tab is not in Gobbler group'
+        });
+        return;
+      }
+
+      // Force re-injection by clearing the tracking
+      injectedTabs.delete(tabId);
+
+      // Inject the API
+      injectPageApi(tabId, apiEntry).then(result => {
+        sendResponse(result);
+      }).catch(error => {
+        sendResponse({ success: false, error: error.message });
+      });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
     });
     return true;
   }
