@@ -17,6 +17,7 @@ from .frontmatter import (
 )
 from .health import ServiceHealth, get_service_unavailable_error
 from .http_client import RetryableHTTPClient
+from .metrics_helpers import get_metrics_callback
 
 __all__ = [
     "ServiceHealth",
@@ -33,4 +34,5 @@ __all__ = [
     "create_webpage_frontmatter",
     "create_document_frontmatter",
     "create_audio_frontmatter",
+    "get_metrics_callback",
 ]

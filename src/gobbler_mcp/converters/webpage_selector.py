@@ -10,9 +10,9 @@ import httpx
 from bs4 import BeautifulSoup
 
 from ..config import get_config
-from ..utils.frontmatter import count_words, create_webpage_frontmatter
-from ..utils.health import get_service_unavailable_error
-from ..utils.http_client import RetryableHTTPClient
+from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
+from gobbler_core.utils.health import get_service_unavailable_error
+from gobbler_core.utils.http_client import RetryableHTTPClient
 
 logger = logging.getLogger(__name__)
 

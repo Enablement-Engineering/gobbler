@@ -4,16 +4,28 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
+from ..config import get_config
 from ..converters.audio import convert_audio_to_markdown
 from ..converters.document import convert_document_to_markdown
-from ..utils import save_markdown_file
+from ..utils import save_markdown_file, get_metrics_callback
 from .batch_manager import BatchProcessor
 from .models import BatchItem, BatchResult, BatchSummary
 
 logger = logging.getLogger(__name__)
 
 # Supported file extensions
-AUDIO_EXTENSIONS = {".mp3", ".mp4", ".wav", ".m4a", ".mov", ".avi", ".mkv", ".flac", ".ogg", ".webm"}
+AUDIO_EXTENSIONS = {
+    ".mp3",
+    ".mp4",
+    ".wav",
+    ".m4a",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".flac",
+    ".ogg",
+    ".webm",
+}
 DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx"}
 
 
@@ -137,11 +149,15 @@ async def process_audio_batch(
                     metadata={"reason": "File already exists"},
                 )
 
+            # Get metrics callback for tracking
+            metrics_callback = get_metrics_callback()
+
             # Convert to markdown
             markdown, metadata = await convert_audio_to_markdown(
                 file_path=str(file_path),
                 model=model,
                 language=language,
+                metrics_callback=metrics_callback,
             )
 
             # Get unique output path
@@ -194,9 +210,7 @@ async def process_audio_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(
-        f"Batch complete: {summary.successful}/{summary.total_items} successful"
-    )
+    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
 
     return summary
 
@@ -270,10 +284,17 @@ async def process_document_batch(
                     metadata={"reason": "File already exists"},
                 )
 
+            # Get infrastructure dependencies
+            config = get_config()
+            service_url = config.get_service_url("docling")
+            metrics_callback = get_metrics_callback()
+
             # Convert to markdown
             markdown, metadata = await convert_document_to_markdown(
                 file_path=str(file_path),
                 enable_ocr=enable_ocr,
+                service_url=service_url,
+                metrics_callback=metrics_callback,
             )
 
             # Get unique output path
@@ -326,8 +347,6 @@ async def process_document_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(
-        f"Batch complete: {summary.successful}/{summary.total_items} successful"
-    )
+    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
 
     return summary
