@@ -1,6 +1,16 @@
-# Gobbler MCP - Product Requirements Documents (PRDs)
+# Gobbler MCP - Documentation
 
-This directory contains all Product Requirements Documents for Gobbler MCP.
+This directory contains documentation for Gobbler MCP.
+
+## Quick Links
+
+- **[SKILLS.md](SKILLS.md)** - Claude Code Skills that bypass MCP (YouTube, Webpage, Document, Audio, Browser)
+- **[QUICK_START.md](QUICK_START.md)** - Getting started guide
+- **[ARCHITECTURE-VISUAL.md](ARCHITECTURE-VISUAL.md)** - System architecture diagrams
+
+## Product Requirements Documents (PRDs)
+
+This directory also contains all Product Requirements Documents for Gobbler MCP.
 
 ## PRD Status Tracking
 
@@ -168,6 +178,36 @@ This directory contains all Product Requirements Documents for Gobbler MCP.
 **Status**: Pending
 **Dependencies**: PRD-001 (Testing Infrastructure)
 **Effort**: 2-3 days
+
+**Blocks**: None
+
+---
+
+### PRD-006: Advanced Docling Integration 🆕
+**Status**: Pending
+**Dependencies**: PRD-001 (Testing Infrastructure), Docling service
+**Effort**: 5-7 days
+
+**Summary**: Deep integration with Docling's capabilities beyond basic markdown conversion. Includes structured document output, RAG-optimized chunking, schema-based extraction, table intelligence, and advanced pipeline options.
+
+**Planned Deliverables**:
+- [ ] Structured document output (DoclingDocument with tables, images, sections)
+- [ ] RAG-optimized chunking (hierarchical + hybrid strategies, tokenizer integration)
+- [ ] Schema-based extraction (JSON Schema, TypeScript, or example-based)
+- [ ] Table-specific extraction (DataFrame, CSV, JSON output)
+- [ ] Advanced pipeline selection (standard, VLM, fast)
+- [ ] Image classification and VLM captioning
+- [ ] PII detection and redaction mode
+- [ ] Visual grounding with bounding boxes for citations
+
+**New MCP Tools**:
+- `convert_document` (enhanced with `output_format` param)
+- `chunk_document` - RAG-optimized chunking
+- `extract_structured_data` - Schema-based extraction
+- `extract_tables` - Table-specific extraction
+- `convert_document_advanced` - Full pipeline control
+
+**Inspiration**: [Cloudflare Code Mode](https://blog.cloudflare.com/code-mode/) - LLMs are better at writing code than making tool calls.
 
 **Blocks**: None
 
