@@ -69,5 +69,9 @@ tests/fixtures/*.webloc
 tests/fixtures/*transcript*.md
 tests/fixtures/*queued*.md
 
-# Claude Code directory
+# Claude Code local settings only (skills and commands are now at root)
 .claude/
+
+# Skill caches
+skills/**/__pycache__/
+skills/**/*.pyc

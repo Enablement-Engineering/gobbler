@@ -216,7 +216,22 @@ claude-config:
 # Runs pytest with coverage reporting
 test:
 	@echo "🧪 Running tests..."
-	uv run pytest
+	uv run pytest tests/unit/ tests/integration/test_mcp_tools.py -v
+
+# Run unit tests only (fast)
+test-unit:
+	@echo "🧪 Running unit tests..."
+	uv run pytest tests/unit/ -v
+
+# Run integration tests only (requires Docker for some tests)
+test-integration:
+	@echo "🧪 Running integration tests..."
+	uv run pytest tests/integration/ -v
+
+# Run all tests including E2E (requires Docker services)
+test-all:
+	@echo "🧪 Running all tests (unit + integration + E2E)..."
+	uv run pytest tests/ -v --ignore=tests/benchmarks/
 
 # Launch the MCP Inspector for interactive testing
 # Opens a web interface at http://localhost:5173 to test MCP tools

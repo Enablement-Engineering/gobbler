@@ -68,6 +68,27 @@ make claude-install  # Shows command to run
 
 ## Architecture
 
+Gobbler uses a **dual-interface architecture** with two complementary approaches to the same backend services:
+
+### Dual Approach: Skills vs MCP Tools
+
+**Skills (Context-Efficient)**
+- ~100 tokens loaded into Claude's context
+- Progressive disclosure - only load when needed
+- Ideal for: exploration, interactive workflows, limited context
+- Works standalone without MCP server
+
+**MCP Tools (Comprehensive)**
+- ~4,500 tokens of tool definitions always loaded
+- Ideal for: batch operations, automation, frequent usage
+- Background queue system for long-running tasks
+
+**Shared Backend:** Both approaches use the same providers, converters, and services - no code duplication.
+
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed comparison and [ARCHITECTURE-VISUAL.md](docs/ARCHITECTURE-VISUAL.md) for diagrams.
+
+### System Architecture
+
 Gobbler uses a **hybrid architecture** optimized for performance:
 
 ```mermaid
@@ -832,6 +853,41 @@ Some videos don't have transcripts. Try downloading and transcribing instead:
 ```
 "Download this video and transcribe it with auto-queue"
 ```
+
+### Browser Extension / Relay Issues
+
+**"Cannot connect to relay at localhost:4625"**
+
+The relay server must be running for browser skills to work. It auto-starts with the MCP server, but you can manage it manually:
+
+```bash
+uv run src/gobbler_relay/relay.py --status  # Check if running
+uv run src/gobbler_relay/relay.py --daemon  # Start as daemon
+uv run src/gobbler_relay/relay.py --stop    # Stop daemon
+```
+
+**"Address already in use" on port 4625**
+
+This actually means the relay IS running! Verify with:
+
+```bash
+curl http://localhost:4625/health
+# Returns: {"status": "ok", "websocket_connections": 1}
+```
+
+**"No browser extension connected"**
+
+1. Install the Gobbler extension from `browser-extension/` (load unpacked in Chrome)
+2. Check the extension popup shows "Connected" (not "Disconnected")
+3. Ensure the port is 4625 (changed from old 4624)
+4. Try refreshing the extension
+
+**"No NotebookLM tabs found"**
+
+Move your NotebookLM tab to the "Gobbler" tab group:
+1. Right-click the tab
+2. Select "Add tab to group" → "Gobbler"
+3. The tab will now be accessible to Claude
 
 ## Development
 
