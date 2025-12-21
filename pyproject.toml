@@ -83,7 +83,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gobbler_core", "src/gobbler_mcp", "src/gobbler_relay"]
+packages = ["src/gobbler_core", "src/gobbler_mcp", "src/gobbler_relay", "src/gobbler_sdk"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -177,7 +177,7 @@ mccabe.max-complexity = 12
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["gobbler_core", "gobbler_mcp", "gobbler_relay"]
+known-first-party = ["gobbler_core", "gobbler_mcp", "gobbler_relay", "gobbler_sdk"]
 combine-as-imports = true
 
 [tool.coverage.run]
