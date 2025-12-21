@@ -19,7 +19,8 @@ Environment Variables:
     GOBBLER_API_KEY: Optional API key for authentication
 """
 
+from .__main__ import main
 from .server import app, create_app
 
 __version__ = "0.1.0"
-__all__ = ["app", "create_app"]
+__all__ = ["app", "create_app", "main"]

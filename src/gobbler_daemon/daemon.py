@@ -357,5 +357,10 @@ async def main() -> None:
         sys.exit(1)
 
 
-if __name__ == "__main__":
+def main_sync() -> None:
+    """Synchronous entry point for running the daemon."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    main_sync()
