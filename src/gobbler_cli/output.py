@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 console = Console()
+error_console = Console(stderr=True)
 
 
 class OutputFormat(str, Enum):
@@ -63,7 +64,7 @@ def write_json(
 
 def print_error(message: str) -> None:
     """Print an error message to stderr."""
-    console.print(f"[red]Error:[/red] {message}", file=sys.stderr)
+    error_console.print(f"[red]Error:[/red] {message}")
 
 
 def print_success(message: str) -> None:

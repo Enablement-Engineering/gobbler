@@ -56,23 +56,37 @@ def completion(
         # Fish
         gobbler completion fish > ~/.config/fish/completions/gobbler.fish
     """
+    import click
     from typer.main import get_command
 
     click_app = get_command(app)
 
-    if shell == "bash":
-        completion_script = click_app.get_completion_script("bash", "gobbler")
-    elif shell == "zsh":
-        completion_script = click_app.get_completion_script("zsh", "gobbler")
-    elif shell == "fish":
-        completion_script = click_app.get_completion_script("fish", "gobbler")
-    elif shell == "powershell":
-        completion_script = click_app.get_completion_script("powershell", "gobbler")
-    else:
-        typer.echo(f"Unsupported shell: {shell}", err=True)
-        raise typer.Exit(1)
+    # Use click-shell-completion for generating completion scripts
+    try:
+        if shell == "bash":
+            from click.shell_completion import BashComplete
+            complete = BashComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
+            completion_script = complete.source()
+        elif shell == "zsh":
+            from click.shell_completion import ZshComplete
+            complete = ZshComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
+            completion_script = complete.source()
+        elif shell == "fish":
+            from click.shell_completion import FishComplete
+            complete = FishComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
+            completion_script = complete.source()
+        elif shell == "powershell":
+            typer.echo("PowerShell completion not supported in this version. Use --install-completion instead.", err=True)
+            raise typer.Exit(1)
+        else:
+            typer.echo(f"Unsupported shell: {shell}", err=True)
+            raise typer.Exit(1)
 
-    typer.echo(completion_script)
+        typer.echo(completion_script)
+    except Exception as e:
+        typer.echo(f"Error generating completion script: {e}", err=True)
+        typer.echo("Try using 'gobbler --install-completion' instead.", err=True)
+        raise typer.Exit(1)
 
 
 def cli() -> None:

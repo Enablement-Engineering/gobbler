@@ -365,6 +365,9 @@ async def convert_webpage(
             file_path=file_path,
         )
 
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is (don't wrap them)
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

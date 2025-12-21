@@ -58,9 +58,10 @@ async def _start_daemon(port: int, detach: bool) -> None:
 
         if detach:
             print_info(f"Starting Gobbler daemon on port {port}...")
-            await start_relay_daemon(port=port)
+            pid = start_relay_daemon(port=port)
             print_success("Daemon started successfully")
             print_info(f"API available at http://localhost:{port}")
+            print_info(f"Daemon PID: {pid}")
         else:
             print_info(f"Starting Gobbler daemon on port {port} (foreground mode)...")
             print_info("Press Ctrl+C to stop")
@@ -98,8 +99,11 @@ async def _stop_daemon() -> None:
         from gobbler_relay import stop_relay_daemon
 
         print_info("Stopping Gobbler daemon...")
-        await stop_relay_daemon()
-        print_success("Daemon stopped successfully")
+        success = stop_relay_daemon()
+        if success:
+            print_success("Daemon stopped successfully")
+        else:
+            print_warning("Failed to stop daemon (may not be running)")
 
     except Exception as e:
         print_error(f"Failed to stop daemon: {e}")

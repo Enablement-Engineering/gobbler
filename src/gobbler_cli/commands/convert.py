@@ -9,7 +9,13 @@ from typing import Optional
 import typer
 from typing_extensions import Annotated
 
-from gobbler_cli.output import OutputFormat, print_error, print_success, write_output
+from gobbler_cli.output import (
+    OutputFormat,
+    print_error,
+    print_success,
+    print_warning,
+    write_output,
+)
 from gobbler_cli.progress import ProgressTracker
 
 app = typer.Typer(help="Convert individual content items to markdown")
@@ -64,10 +70,10 @@ async def _convert_youtube(
     """Async implementation of YouTube conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.youtube import convert_youtube
+        from gobbler_core.converters.youtube import convert_youtube_to_markdown
 
         with ProgressTracker("Converting YouTube video"):
-            result = await convert_youtube(
+            result, metadata = await convert_youtube_to_markdown(
                 video_url=url,
                 language=language,
                 include_timestamps=timestamps,
@@ -141,14 +147,17 @@ async def _convert_audio(
             raise ValueError(f"File not found: {file_path}")
 
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.audio import transcribe_audio
+        from gobbler_core.converters.audio import convert_audio_to_markdown
 
         with ProgressTracker("Transcribing audio file"):
-            result = await transcribe_audio(
+            # Note: timestamps option is not currently supported by the underlying converter
+            if timestamps:
+                print_warning("Timestamps option is not yet implemented in the audio converter")
+
+            result, metadata = await convert_audio_to_markdown(
                 file_path=str(file_path),
-                language=language,
-                model_size=model,
-                include_timestamps=timestamps,
+                language=language or "auto",
+                model=model,
             )
 
         write_output(result, output, format)
@@ -207,10 +216,10 @@ async def _convert_document(
             raise ValueError(f"File not found: {file_path}")
 
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.document import convert_document
+        from gobbler_core.converters.document import convert_document_to_markdown
 
         with ProgressTracker("Converting document"):
-            result = await convert_document(
+            result, metadata = await convert_document_to_markdown(
                 file_path=str(file_path),
                 enable_ocr=ocr,
             )
@@ -273,12 +282,16 @@ async def _convert_webpage(
     """Async implementation of webpage conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.webpage import convert_webpage
+        from gobbler_core.converters.webpage import convert_webpage_to_markdown
 
         with ProgressTracker("Converting web page"):
-            result = await convert_webpage(
+            # Note: css_selector is not currently supported by the underlying converter
+            # It uses the Gobbler service for extraction instead
+            if css_selector:
+                print_warning("CSS selector option is not yet implemented in the webpage converter")
+
+            result, metadata = await convert_webpage_to_markdown(
                 url=url,
-                css_selector=css_selector,
                 timeout=timeout,
             )
 
