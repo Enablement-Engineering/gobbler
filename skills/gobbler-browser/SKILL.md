@@ -1,6 +1,7 @@
 ---
 name: gobbler-browser
 description: Control browser via Gobbler extension - navigate pages, execute JavaScript, extract content, and interact with NotebookLM. Use when user wants to interact with their browser, extract current page content, or use NotebookLM.
+version: 1.0.0
 ---
 
 # Gobbler Browser

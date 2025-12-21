@@ -213,6 +213,101 @@ This directory also contains all Product Requirements Documents for Gobbler MCP.
 
 ---
 
+### PRD-011: Eliminate Package Duplication 🆕
+**Status**: Pending
+**Dependencies**: None
+**Effort**: 2-3 days
+**Priority**: High
+
+**Summary**: Remove ~900 lines of identical code duplicated between gobbler_core and gobbler_mcp packages. Files like frontmatter.py, file_handler.py, audio.py are 100% identical in both packages. Also addresses unused exceptions.py (113 lines).
+
+**Key Deliverables**:
+- [ ] Delete duplicate files from gobbler_mcp (use re-exports instead)
+- [ ] Update gobbler_relay to import from gobbler_core
+- [ ] Address unused exceptions.py (remove or integrate)
+- [ ] Fix pyproject.toml isort configuration
+
+**Impact**: ~1,000 lines of code removed, cleaner architecture
+
+---
+
+### PRD-012: Test Coverage Expansion 🆕
+**Status**: Pending
+**Dependencies**: PRD-001 (Testing Infrastructure)
+**Effort**: 5-7 days
+**Priority**: High
+
+**Summary**: Expand test coverage from ~40% to 70%+. Critical modules like relay.py (850 lines), browser.py (282 lines), and crawl.py (389 lines) have zero tests.
+
+**Key Deliverables**:
+- [ ] Add tests for relay server (~25 tests)
+- [ ] Add tests for browser tools (~15 tests)
+- [ ] Add tests for crawl tools (~20 tests)
+- [ ] Fix test isolation (global state leaking)
+- [ ] Establish E2E test framework
+- [ ] Fix benchmark tests to actually benchmark
+
+**Impact**: 100+ new tests, 70%+ coverage
+
+---
+
+### PRD-013: Documentation Improvements 🆕
+**Status**: Pending
+**Dependencies**: None
+**Effort**: 2-3 days
+**Priority**: Medium
+
+**Summary**: Complete API.md (missing 15+ tools), comprehensive config.example.yml, gobbler_core README, and fix type hint documentation.
+
+**Key Deliverables**:
+- [ ] Document all 25+ MCP tools in API.md
+- [ ] Complete config.example.yml (redis, queue, monitoring, relay)
+- [ ] Create gobbler_core package README
+- [ ] Standardize SKILL.md format with versions
+- [ ] Fix type hints (str = None -> Optional[str])
+
+**Impact**: Complete documentation for all features
+
+---
+
+### PRD-014: Skills Architecture Consolidation 🆕
+**Status**: Pending
+**Dependencies**: PRD-011 (Eliminate Package Duplication)
+**Effort**: 3-4 days
+**Priority**: Medium
+
+**Summary**: Consolidate duplicate NotebookLM scripts, remove hardcoded paths, fix skill dependencies on gobbler_mcp, standardize shebangs.
+
+**Key Deliverables**:
+- [ ] Consolidate duplicate notebooklm.py scripts
+- [ ] Remove hardcoded path from sandbox_bridge.py
+- [ ] Fix gobbler-youtube to use gobbler_core
+- [ ] Standardize shebang across all skills
+- [ ] Relocate skill tests to central location
+
+**Impact**: Cleaner skill architecture, no duplicate code
+
+---
+
+### PRD-015: Project Configuration Improvements 🆕
+**Status**: Pending
+**Dependencies**: None
+**Effort**: 1-2 days
+**Priority**: Medium
+
+**Summary**: Fix Python version mismatch (3.10 vs 3.11), enable CI type checking, add security scanning, complete .env.example.
+
+**Key Deliverables**:
+- [ ] Fix Python version to 3.11 in mypy/ruff
+- [ ] Remove continue-on-error from CI type checking
+- [ ] Add security scanning workflow (CodeQL, Dependabot)
+- [ ] Complete .env.example with all variables
+- [ ] Secure default API tokens
+
+**Impact**: Reliable CI, security scanning, better DX
+
+---
+
 ## Execution Notes
 
 ### Phase 1: Foundation ✅
@@ -287,4 +382,4 @@ When adding new PRDs, follow this structure:
 
 ---
 
-Last Updated: 2025-10-03
+Last Updated: 2025-12-19

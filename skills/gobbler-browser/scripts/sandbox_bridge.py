@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = []
@@ -65,9 +65,10 @@ def is_sandboxed() -> bool:
     # This is slower but catches cases where HOME looks normal
     try:
         import socket
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
-        result = sock.connect_ex(('127.0.0.1', 4625))
+        result = sock.connect_ex(("127.0.0.1", 4625))
         sock.close()
         # If connection refused (111) or success (0), we CAN reach localhost
         # If timeout or other error, we're likely sandboxed
@@ -80,6 +81,20 @@ def is_sandboxed() -> bool:
     return False
 
 
+def get_project_root():
+    """Get project root directory dynamically."""
+    from pathlib import Path
+    import os
+
+    # Walk up from this script to find pyproject.toml
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists():
+            return str(parent)
+    # Fallback to environment variable
+    return os.environ.get("GOBBLER_ROOT", str(Path.home() / "Projects" / "gobbler"))
+
+
 def get_host_project_path() -> str:
     """Get the Gobbler project path on the host machine.
 
@@ -90,9 +105,8 @@ def get_host_project_path() -> str:
     if path := os.environ.get("GOBBLER_PROJECT_PATH"):
         return path
 
-    # Default assumption based on typical install
-    # Users can set GOBBLER_PROJECT_PATH if different
-    return "/Users/dylanisaac/Projects/gobbler"
+    # Use dynamic detection
+    return get_project_root()
 
 
 def run_on_host(command: str, cwd: str | None = None, timeout: int = 120) -> tuple[int, str, str]:

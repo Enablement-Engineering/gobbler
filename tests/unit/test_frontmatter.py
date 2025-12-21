@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch
 from datetime import datetime, timezone
 
-from gobbler_mcp.utils.frontmatter import (
+from gobbler_core.utils.frontmatter import (
     create_frontmatter,
     get_iso8601_timestamp,
     count_words,
@@ -82,7 +82,7 @@ class TestTimestampGeneration:
         assert timestamp[16] == ":"
         assert timestamp[-1] == "Z"
 
-    @patch("gobbler_mcp.utils.frontmatter.datetime")
+    @patch("gobbler_core.utils.frontmatter.datetime")
     def test_get_iso8601_timestamp_uses_utc(self, mock_datetime):
         """Test that timestamp uses UTC timezone."""
         # Mock datetime to return a fixed time
@@ -122,7 +122,7 @@ class TestWordCounting:
 class TestYouTubeFrontmatter:
     """Test YouTube-specific frontmatter generation."""
 
-    @patch("gobbler_mcp.utils.frontmatter.get_iso8601_timestamp")
+    @patch("gobbler_core.utils.frontmatter.get_iso8601_timestamp")
     def test_create_youtube_frontmatter_minimal(self, mock_timestamp):
         """Test YouTube frontmatter with minimal required fields."""
         mock_timestamp.return_value = "2025-10-03T00:00:00Z"
@@ -143,7 +143,7 @@ class TestYouTubeFrontmatter:
         assert "word_count: 500" in result
         assert '"2025-10-03T00:00:00Z"' in result  # Timestamps are quoted (contain :)
 
-    @patch("gobbler_mcp.utils.frontmatter.get_iso8601_timestamp")
+    @patch("gobbler_core.utils.frontmatter.get_iso8601_timestamp")
     def test_create_youtube_frontmatter_with_optionals(self, mock_timestamp):
         """Test YouTube frontmatter with all optional fields."""
         mock_timestamp.return_value = "2025-10-03T00:00:00Z"
@@ -169,7 +169,7 @@ class TestYouTubeFrontmatter:
 class TestWebpageFrontmatter:
     """Test webpage-specific frontmatter generation."""
 
-    @patch("gobbler_mcp.utils.frontmatter.get_iso8601_timestamp")
+    @patch("gobbler_core.utils.frontmatter.get_iso8601_timestamp")
     def test_create_webpage_frontmatter(self, mock_timestamp):
         """Test webpage frontmatter generation."""
         mock_timestamp.return_value = "2025-10-03T00:00:00Z"
@@ -192,7 +192,7 @@ class TestWebpageFrontmatter:
 class TestDocumentFrontmatter:
     """Test document-specific frontmatter generation."""
 
-    @patch("gobbler_mcp.utils.frontmatter.get_iso8601_timestamp")
+    @patch("gobbler_core.utils.frontmatter.get_iso8601_timestamp")
     def test_create_document_frontmatter(self, mock_timestamp):
         """Test document frontmatter generation."""
         mock_timestamp.return_value = "2025-10-03T00:00:00Z"
@@ -217,7 +217,7 @@ class TestDocumentFrontmatter:
 class TestAudioFrontmatter:
     """Test audio-specific frontmatter generation."""
 
-    @patch("gobbler_mcp.utils.frontmatter.get_iso8601_timestamp")
+    @patch("gobbler_core.utils.frontmatter.get_iso8601_timestamp")
     def test_create_audio_frontmatter(self, mock_timestamp):
         """Test audio frontmatter generation."""
         mock_timestamp.return_value = "2025-10-03T00:00:00Z"

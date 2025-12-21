@@ -22,6 +22,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Redis - Queue backend for long-running tasks
   redis:
@@ -43,6 +48,11 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Docling - Document conversion (PDF, DOCX, PPTX, XLSX)
   docling:
@@ -52,7 +62,7 @@ services:
       - "5001:5001"
     volumes:
       # Model cache - user can customize this path in config
-      - ${GOBBLER_MODELS_PATH:-~/.gobbler/models}/docling:/app/models
+      - ${GOBBLER_MODELS_PATH:-${HOME}/.gobbler/models}/docling:/app/models
     environment:
       - DOCLING_OCR=true
       - DOCLING_VLM=false
@@ -68,6 +78,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   redis-data:

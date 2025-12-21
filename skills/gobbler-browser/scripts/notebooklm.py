@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
@@ -49,8 +49,6 @@ def send_command(command: str, params: dict | None = None, timeout: float = TIME
             raise click.ClickException(error_data.get("error", "No browser extension connected"))
         response.raise_for_status()
         return response.json()
-
-
 
 
 def get_notebooklm_tabs() -> list[dict]:
@@ -229,7 +227,10 @@ def info(tab_id: int | None):
 
         if not tabs:
             click.echo("No NotebookLM tabs found in Gobbler group.", err=True)
-            click.echo("Make sure you have a NotebookLM tab open and it's in the Gobbler tab group.", err=True)
+            click.echo(
+                "Make sure you have a NotebookLM tab open and it's in the Gobbler tab group.",
+                err=True,
+            )
             sys.exit(1)
 
         click.echo(f"Found {len(tabs)} NotebookLM tab(s):\n")
@@ -326,9 +327,14 @@ def query(query_text: str, tab_id: int | None, timeout: int):
                     response = data.get("response", "No response text")
                     # Clean up NotebookLM UI artifacts
                     import re
-                    response = re.sub(r'keep_pin\s*Save to note', '', response)
-                    response = response.replace('copy_all', '').replace('thumb_up', '').replace('thumb_down', '')
-                    response = re.sub(r'\n{3,}', '\n\n', response).strip()
+
+                    response = re.sub(r"keep_pin\s*Save to note", "", response)
+                    response = (
+                        response.replace("copy_all", "")
+                        .replace("thumb_up", "")
+                        .replace("thumb_down", "")
+                    )
+                    response = re.sub(r"\n{3,}", "\n\n", response).strip()
 
                     click.echo("--- Response ---\n")
                     click.echo(response)
@@ -437,7 +443,7 @@ def last(tab_id: int | None):
 
                 click.echo(f"Total messages in chat: {data.get('totalMessages', 'unknown')}")
                 click.echo("\n--- Last Response ---\n")
-                click.echo(data.get('lastResponse', 'No response text'))
+                click.echo(data.get("lastResponse", "No response text"))
             else:
                 click.echo(str(data))
         else:
@@ -457,7 +463,9 @@ def last(tab_id: int | None):
 
 @cli.command()
 @click.option("--tab-id", default=None, type=int, help="Specific tab ID to query")
-@click.option("--count", "-n", default=5, type=int, help="Number of recent messages to show (default: 5)")
+@click.option(
+    "--count", "-n", default=5, type=int, help="Number of recent messages to show (default: 5)"
+)
 @click.option("--all", "-a", is_flag=True, help="Show all messages in the chat")
 def history(tab_id: int | None, count: int, all: bool):
     """Get recent messages from the NotebookLM chat history."""
@@ -511,17 +519,17 @@ def history(tab_id: int | None, count: int, all: bool):
                     click.echo(f"Error: {data['error']}", err=True)
                     sys.exit(1)
 
-                total = data.get('totalMessages', 0)
-                returned = data.get('returned', 0)
-                messages = data.get('messages', [])
+                total = data.get("totalMessages", 0)
+                returned = data.get("returned", 0)
+                messages = data.get("messages", [])
 
                 click.echo(f"Total messages in chat: {total}")
                 click.echo(f"Showing {returned} message(s)\n")
                 click.echo("=" * 60)
 
                 for msg in messages:
-                    idx = msg.get('index', 0)
-                    text = msg.get('text', '')
+                    idx = msg.get("index", 0)
+                    text = msg.get("text", "")
                     click.echo(f"\n[Message {idx + 1}]\n")
                     click.echo(text)
                     click.echo("\n" + "-" * 60)

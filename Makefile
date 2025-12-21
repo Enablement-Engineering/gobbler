@@ -1,4 +1,4 @@
-.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall verify diagnose
+.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall verify diagnose lint security typecheck
 
 # Default target - Show available commands and their descriptions
 # Use this to get started or find the right command for your task
@@ -32,6 +32,9 @@ help:
 	@echo ""
 	@echo "🧪 Testing & Diagnostics:"
 	@echo "  make test           - Run tests"
+	@echo "  make lint           - Run linter (ruff)"
+	@echo "  make security       - Run security scan (bandit)"
+	@echo "  make typecheck      - Run type checker (mypy)"
 	@echo "  make inspector      - Launch MCP inspector for testing"
 	@echo "  make diagnose       - Run diagnostics and suggest fixes for common issues"
 	@echo ""
@@ -217,6 +220,25 @@ claude-config:
 test:
 	@echo "🧪 Running tests..."
 	uv run pytest tests/unit/ tests/integration/test_mcp_tools.py -v
+
+# Run linting with ruff
+# Checks code style, formatting, and common issues
+lint:
+	@echo "🔍 Running linter (ruff)..."
+	uv run ruff check src/ tests/
+	uv run ruff format --check src/ tests/
+
+# Run security checks with bandit
+# Scans for common security vulnerabilities in Python code
+security:
+	@echo "🔒 Running security scan (bandit)..."
+	uv run bandit -r src/ -c pyproject.toml
+
+# Run type checking with mypy
+# Validates type annotations and catches type errors
+typecheck:
+	@echo "🔎 Running type checker (mypy)..."
+	uv run mypy src/
 
 # Run unit tests only (fast)
 test-unit:

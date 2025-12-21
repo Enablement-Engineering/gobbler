@@ -1,6 +1,7 @@
 ---
 name: gobbler-utils
 description: Shared utilities for Gobbler content conversion skills. Provides frontmatter generation, output formatting, and Docker service health checks. Other gobbler-* skills depend on these utilities.
+version: 1.0.0
 ---
 
 # Gobbler Utilities

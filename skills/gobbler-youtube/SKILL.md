@@ -1,6 +1,7 @@
 ---
 name: gobbler-youtube
 description: Transcribe YouTube videos to markdown and download video/audio files. Use when user wants to get transcripts, captions, subtitles from YouTube videos, or download YouTube content as video/audio files.
+version: 1.0.0
 ---
 
 # Gobbler YouTube

@@ -1,6 +1,7 @@
 ---
 name: gobbler-audio
 description: Transcribe audio and video files to markdown using Whisper. Use when user wants to transcribe audio files, video files, podcasts, recordings, or any spoken content to text.
+version: 1.0.0
 ---
 
 # Gobbler Audio

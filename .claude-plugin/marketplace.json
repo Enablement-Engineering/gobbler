@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "gobbler",
-      "source": ".",
+      "source": "./",
       "description": "Content conversion and browser automation skills. Convert YouTube, web pages, documents, audio to markdown. Control browsers and NotebookLM."
     }
   ]

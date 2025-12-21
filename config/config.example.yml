@@ -49,3 +49,30 @@ services:
 # Model cache directory (used by docker-compose.yml)
 # Set GOBBLER_MODELS_PATH environment variable to customize
 models_path: ~/.gobbler/models
+
+# Redis queue settings (for background jobs)
+redis:
+  host: localhost
+  port: 6380          # Non-standard port to avoid conflicts
+  db: 0
+  password: null      # Set for production
+
+# Queue settings
+queue:
+  auto_queue_threshold: 105  # seconds (1:45) - queue if longer
+  default_queue: default
+  job_timeout: 600    # 10 minutes max job time
+
+# Monitoring settings  
+monitoring:
+  metrics_enabled: false      # Enable Prometheus metrics
+  metrics_port: 9090          # Metrics HTTP server port
+  log_format: text            # 'text' or 'json'
+  log_level: INFO             # DEBUG, INFO, WARNING, ERROR
+
+# HTTP server for browser extension relay
+relay:
+  enabled: true
+  host: "127.0.0.1"
+  port: 4625
+  auto_shutdown_timeout: 14400  # 4 hours of inactivity

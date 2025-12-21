@@ -1,7 +1,7 @@
 """Utilities for generating YAML frontmatter in markdown files."""
 
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 def create_frontmatter(metadata: Dict[str, Any]) -> str:
@@ -64,10 +64,10 @@ def create_youtube_frontmatter(
     duration: int,
     language: str,
     word_count: int,
-    title: str = None,
-    channel: str = None,
-    thumbnail: str = None,
-    description: str = None,
+    title: Optional[str] = None,
+    channel: Optional[str] = None,
+    thumbnail: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> str:
     """
     Create frontmatter for YouTube transcript.
@@ -102,12 +102,14 @@ def create_youtube_frontmatter(
     if description:
         metadata["description"] = description
 
-    metadata.update({
-        "duration": duration,
-        "language": language,
-        "word_count": word_count,
-        "converted_at": get_iso8601_timestamp(),
-    })
+    metadata.update(
+        {
+            "duration": duration,
+            "language": language,
+            "word_count": word_count,
+            "converted_at": get_iso8601_timestamp(),
+        }
+    )
 
     return create_frontmatter(metadata)
 

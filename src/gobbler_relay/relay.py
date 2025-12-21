@@ -38,6 +38,8 @@ from aiohttp import web
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
+from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
+
 if TYPE_CHECKING:
     from typing import Dict, Set
 
@@ -59,32 +61,6 @@ pending_commands: "Dict[str, Dict]" = {}  # command_id -> {event: asyncio.Event,
 # Activity tracking for auto-shutdown
 last_activity_time: float = 0.0
 auto_shutdown_task: Optional[asyncio.Task] = None
-
-
-def count_words(text: str) -> int:
-    """Count words in text."""
-    return len(text.split())
-
-
-def create_webpage_frontmatter(
-    url: str,
-    title: str,
-    word_count: int,
-    conversion_time_ms: int,
-) -> str:
-    """Create YAML frontmatter for webpage content."""
-    from datetime import datetime, timezone
-
-    now = datetime.now(timezone.utc).isoformat()
-    return f"""---
-title: {title}
-url: {url}
-word_count: {word_count}
-fetched_at: {now}
-conversion_time_ms: {conversion_time_ms}
----
-
-"""
 
 
 async def extract_handler(request: web.Request) -> web.Response:
@@ -123,9 +99,7 @@ async def extract_handler(request: web.Request) -> web.Response:
             if element:
                 soup = BeautifulSoup(str(element), "html.parser")
             else:
-                return web.json_response(
-                    {"error": f"Selector '{selector}' not found"}, status=400
-                )
+                return web.json_response({"error": f"Selector '{selector}' not found"}, status=400)
 
         # Remove scripts, styles, and navigation elements
         for script in soup(["script", "style", "nav", "header", "footer"]):
@@ -143,9 +117,7 @@ async def extract_handler(request: web.Request) -> web.Response:
 
         # Clean up excessive newlines
         markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
-        markdown_content = "\n".join(
-            line.strip() for line in markdown_content.split("\n")
-        )
+        markdown_content = "\n".join(line.strip() for line in markdown_content.split("\n"))
         markdown_content = markdown_content.strip()
 
         # Create frontmatter
@@ -192,9 +164,7 @@ async def extract_handler(request: web.Request) -> web.Response:
 
 async def health_handler(request: web.Request) -> web.Response:
     """Health check endpoint."""
-    return web.json_response(
-        {"status": "ok", "websocket_connections": len(websocket_connections)}
-    )
+    return web.json_response({"status": "ok", "websocket_connections": len(websocket_connections)})
 
 
 async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
@@ -221,9 +191,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Handle response to a command we sent
                         command_id = data.get("command_id")
                         if command_id in pending_commands:
-                            pending_commands[command_id]["response"] = data.get(
-                                "result", {}
-                            )
+                            pending_commands[command_id]["response"] = data.get("result", {})
                             pending_commands[command_id]["event"].set()
 
                     elif message_type == "ping":
@@ -232,9 +200,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
                     elif message_type == "register":
                         # Extension registered successfully
-                        await ws.send_json(
-                            {"type": "registered", "server_version": "0.1.0"}
-                        )
+                        await ws.send_json({"type": "registered", "server_version": "0.1.0"})
                         logger.info("Extension registered via WebSocket")
 
                 except json.JSONDecodeError:
@@ -245,9 +211,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
     finally:
         websocket_connections.discard(ws)
-        logger.info(
-            f"WebSocket disconnected. Total connections: {len(websocket_connections)}"
-        )
+        logger.info(f"WebSocket disconnected. Total connections: {len(websocket_connections)}")
 
     return ws
 
@@ -306,9 +270,7 @@ async def send_command_to_extension(
             return response
 
         except asyncio.TimeoutError:
-            raise RuntimeError(
-                f"Command '{command}' timed out after {timeout} seconds"
-            )
+            raise RuntimeError(f"Command '{command}' timed out after {timeout} seconds")
 
     finally:
         # Cleanup
@@ -333,9 +295,7 @@ async def command_handler(request: web.Request) -> web.Response:
 
         command = data.get("command")
         if not command:
-            return web.json_response(
-                {"error": "Missing 'command' field"}, status=400
-            )
+            return web.json_response({"error": "Missing 'command' field"}, status=400)
 
         params = data.get("params", {})
         timeout = data.get("timeout", 30)
@@ -360,10 +320,13 @@ def update_activity() -> None:
     """Update the last activity timestamp."""
     global last_activity_time
     import time
+
     last_activity_time = time.time()
 
 
-def create_app(enable_auto_shutdown: bool = False, shutdown_event: Optional[asyncio.Event] = None) -> web.Application:
+def create_app(
+    enable_auto_shutdown: bool = False, shutdown_event: Optional[asyncio.Event] = None
+) -> web.Application:
     """Create and configure the HTTP server application.
 
     Args:
@@ -392,6 +355,7 @@ def create_app(enable_auto_shutdown: bool = False, shutdown_event: Optional[asyn
 
     # Add activity tracking middleware for auto-shutdown
     if enable_auto_shutdown:
+
         @web.middleware
         async def activity_middleware(
             request: web.Request, handler: web.RequestHandler
@@ -415,7 +379,9 @@ def create_app(enable_auto_shutdown: bool = False, shutdown_event: Optional[asyn
     return app
 
 
-async def auto_shutdown_monitor(shutdown_event: asyncio.Event, timeout: int = AUTO_SHUTDOWN_TIMEOUT) -> None:
+async def auto_shutdown_monitor(
+    shutdown_event: asyncio.Event, timeout: int = AUTO_SHUTDOWN_TIMEOUT
+) -> None:
     """
     Monitor activity and trigger shutdown after inactivity timeout.
 
@@ -445,9 +411,7 @@ async def auto_shutdown_monitor(shutdown_event: asyncio.Event, timeout: int = AU
             logger.debug(f"Auto-shutdown in {int(remaining)}s unless activity detected")
 
 
-async def start_relay_server(
-    host: str = "127.0.0.1", port: int = 4625
-) -> web.AppRunner:
+async def start_relay_server(host: str = "127.0.0.1", port: int = 4625) -> web.AppRunner:
     """
     Start the relay server for browser extension communication.
 
@@ -565,8 +529,10 @@ def start_relay_daemon(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> in
         sys.executable,
         str(relay_module),
         "--daemon",
-        "--host", host,
-        "--port", str(port),
+        "--host",
+        host,
+        "--port",
+        str(port),
     ]
 
     # Start detached process
@@ -726,10 +692,7 @@ async def run_as_daemon(
     signal.signal(signal.SIGINT, handle_signal)
 
     # Create app with auto-shutdown enabled
-    app = create_app(
-        enable_auto_shutdown=auto_shutdown,
-        shutdown_event=shutdown_event
-    )
+    app = create_app(enable_auto_shutdown=auto_shutdown, shutdown_event=shutdown_event)
 
     # Start the server
     runner = web.AppRunner(app)
@@ -744,9 +707,7 @@ async def run_as_daemon(
     # Start auto-shutdown monitor if enabled
     monitor_task = None
     if auto_shutdown:
-        monitor_task = asyncio.create_task(
-            auto_shutdown_monitor(shutdown_event, shutdown_timeout)
-        )
+        monitor_task = asyncio.create_task(auto_shutdown_monitor(shutdown_event, shutdown_timeout))
 
     try:
         # Wait for shutdown signal (from signal handler or auto-shutdown)
@@ -787,20 +748,24 @@ def cli_main() -> None:
 
     parser = argparse.ArgumentParser(description="Gobbler Browser Extension Relay Server")
     parser.add_argument("--daemon", action="store_true", help="Run as background daemon")
-    parser.add_argument("--host", default=DEFAULT_HOST, help=f"Host to bind to (default: {DEFAULT_HOST})")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Port to bind to (default: {DEFAULT_PORT})")
+    parser.add_argument(
+        "--host", default=DEFAULT_HOST, help=f"Host to bind to (default: {DEFAULT_HOST})"
+    )
+    parser.add_argument(
+        "--port", type=int, default=DEFAULT_PORT, help=f"Port to bind to (default: {DEFAULT_PORT})"
+    )
     parser.add_argument("--stop", action="store_true", help="Stop the running daemon")
     parser.add_argument("--status", action="store_true", help="Check daemon status")
     parser.add_argument(
         "--no-auto-shutdown",
         action="store_true",
-        help="Disable auto-shutdown (daemon will run until explicitly stopped)"
+        help="Disable auto-shutdown (daemon will run until explicitly stopped)",
     )
     parser.add_argument(
         "--shutdown-timeout",
         type=int,
         default=AUTO_SHUTDOWN_TIMEOUT,
-        help=f"Auto-shutdown timeout in seconds (default: {AUTO_SHUTDOWN_TIMEOUT})"
+        help=f"Auto-shutdown timeout in seconds (default: {AUTO_SHUTDOWN_TIMEOUT})",
     )
 
     args = parser.parse_args()
@@ -835,12 +800,14 @@ def cli_main() -> None:
 
     if args.daemon:
         # Run as daemon with auto-shutdown
-        asyncio.run(run_as_daemon(
-            host=args.host,
-            port=args.port,
-            auto_shutdown=not args.no_auto_shutdown,
-            shutdown_timeout=args.shutdown_timeout,
-        ))
+        asyncio.run(
+            run_as_daemon(
+                host=args.host,
+                port=args.port,
+                auto_shutdown=not args.no_auto_shutdown,
+                shutdown_timeout=args.shutdown_timeout,
+            )
+        )
     else:
         # Run interactively (no auto-shutdown)
         asyncio.run(main())

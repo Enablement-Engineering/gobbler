@@ -1,6 +1,7 @@
 ---
 name: gobbler-webpage
 description: Convert web pages to markdown, extract specific content with CSS selectors, and crawl websites. Use when user wants to fetch, scrape, or extract content from web pages or websites.
+version: 1.0.0
 ---
 
 # Gobbler Webpage

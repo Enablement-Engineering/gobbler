@@ -3,10 +3,26 @@
 import asyncio
 import tempfile
 from pathlib import Path
-from typing import AsyncGenerator, Generator
+from typing import Generator
 from unittest.mock import MagicMock
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def reset_config_singleton():
+    """Reset config singleton between tests to ensure isolation.
+
+    This fixture runs automatically before each test to reset the global
+    config instance, preventing state leakage between tests.
+    """
+    import gobbler_mcp.config as config_module
+
+    # Reset before test
+    config_module._config = None
+    yield
+    # Reset after test
+    config_module._config = None
 
 
 @pytest.fixture(scope="session")
@@ -164,6 +180,7 @@ def check_redis_available() -> bool:
     """Check if Redis service is available for integration tests."""
     try:
         import redis
+
         r = redis.Redis(host="localhost", port=6380, socket_connect_timeout=1)
         r.ping()
         return True
@@ -176,6 +193,7 @@ def check_crawl4ai_available() -> bool:
     """Check if Crawl4AI service is available for integration tests."""
     try:
         import httpx
+
         response = httpx.get("http://localhost:11235/health", timeout=2)
         return response.status_code == 200
     except Exception:
@@ -187,6 +205,7 @@ def check_docling_available() -> bool:
     """Check if Docling service is available for integration tests."""
     try:
         import httpx
+
         response = httpx.get("http://localhost:5001/health", timeout=2)
         return response.status_code == 200
     except Exception:

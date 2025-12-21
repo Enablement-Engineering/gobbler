@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
@@ -117,8 +117,6 @@ def check_health() -> dict:
         return response.json()
 
 
-
-
 @click.group()
 def cli():
     """Gobbler Browser API - Control browser via extension."""
@@ -141,7 +139,9 @@ def check():
             click.echo("Relay server running, but no browser extension connected", err=True)
             click.echo("", err=True)
             click.echo("To fix:", err=True)
-            click.echo("  1. Install extension from browser-extension/ (load unpacked in Chrome)", err=True)
+            click.echo(
+                "  1. Install extension from browser-extension/ (load unpacked in Chrome)", err=True
+            )
             click.echo("  2. Check extension popup shows 'Connected'", err=True)
             click.echo("  3. Add tabs to 'Gobbler' tab group for Claude access", err=True)
             sys.exit(1)
