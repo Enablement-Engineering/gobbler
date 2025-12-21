@@ -89,7 +89,7 @@ dev = [
 
 [project.scripts]
 # Main CLI
-gobbler = "gobbler_cli.main:app"
+gobbler = "gobbler_cli.main:cli"
 # Individual services
 gobbler-daemon = "gobbler_daemon:main"
 gobbler-api = "gobbler_api:main"
