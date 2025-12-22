@@ -69,8 +69,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4g
-          cpus: '2'
+          memory: 8g
+          cpus: '4'
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]

@@ -1,83 +1,94 @@
 ---
 name: gobbler-utils
 description: Shared utilities for Gobbler content conversion skills. Provides frontmatter generation, output formatting, and Docker service health checks. Other gobbler-* skills depend on these utilities.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Gobbler Utilities
 
-Shared utilities for all Gobbler content conversion skills.
+Shared utilities for managing Gobbler services and checking system health.
 
-## Scripts
+## Service Health Checks
 
-### frontmatter.py
-
-Generate YAML frontmatter for markdown output. Supports YouTube, webpage, document, and audio content types.
+### Using the CLI
 
 ```bash
-# Generate YouTube frontmatter
-uv run scripts/frontmatter.py youtube \
-  --url "https://youtube.com/watch?v=VIDEO_ID" \
-  --video-id "VIDEO_ID" \
-  --title "Video Title" \
-  --duration 300 \
-  --language "en" \
-  --word-count 1500
+# Check daemon status
+gobbler daemon status
 
-# Generate webpage frontmatter
-uv run scripts/frontmatter.py webpage \
-  --url "https://example.com" \
-  --title "Page Title" \
-  --word-count 500 \
-  --conversion-time 1200
-
-# Generate document frontmatter
-uv run scripts/frontmatter.py document \
-  --path "/path/to/file.pdf" \
-  --format "pdf" \
-  --pages 10 \
-  --word-count 3000 \
-  --conversion-time 5000
-
-# Generate audio frontmatter
-uv run scripts/frontmatter.py audio \
-  --path "/path/to/audio.mp3" \
-  --duration 600 \
-  --language "en" \
-  --model "small" \
-  --word-count 2000 \
-  --conversion-time 45000
+# View daemon logs
+gobbler daemon logs
+gobbler daemon logs --follow
 ```
 
-### docker_health.py
-
-Check availability of Docker services (Crawl4AI, Docling).
+### Using curl
 
 ```bash
-# Check Crawl4AI (port 11235)
-uv run scripts/docker_health.py crawl4ai
+# Check Gobbler API (port 4600)
+curl http://localhost:4600/health
 
 # Check Docling (port 5001)
-uv run scripts/docker_health.py docling
+curl http://localhost:5001/health
 
-# Check all services
-uv run scripts/docker_health.py all
+# Check Crawl4AI (port 11235)
+curl http://localhost:11235/health
+
+# Check Redis (port 6380)
+redis-cli -p 6380 ping
 ```
 
-### http_client.py
-
-Retry-enabled HTTP client for Docker service calls.
+## Service Management
 
 ```bash
-# POST request with retry
-uv run scripts/http_client.py POST http://localhost:11235/crawl \
-  --json '{"urls": ["https://example.com"]}' \
-  --retries 3
+# Start all Docker services
+cd /path/to/gobbler
+docker compose up -d
 
-# GET request
-uv run scripts/http_client.py GET http://localhost:5001/health
+# Start specific service
+docker compose up -d docling
+docker compose up -d crawl4ai
+
+# View service logs
+docker logs gobbler-docling --tail 50
+docker logs gobbler-crawl4ai --tail 50
+
+# Restart a service
+docker compose restart docling
 ```
 
-## Usage from Other Skills
+## Daemon Management
 
-Other gobbler-* skills can use these utilities by running them as subprocesses or importing the patterns directly into their own UV scripts.
+```bash
+# Start daemon (background)
+gobbler daemon start
+
+# Start daemon (foreground for debugging)
+gobbler daemon start --foreground
+
+# Stop daemon
+gobbler daemon stop
+
+# Restart daemon
+gobbler daemon restart
+```
+
+## Python SDK Health Check
+
+```python
+from gobbler_sdk import GobblerClient
+
+client = GobblerClient()
+
+# Check API health
+health = client.health()
+print(health)  # {'status': 'healthy', 'services': {...}}
+```
+
+## Notes
+
+With Gobbler v2.0, most utilities are now built into the core packages:
+- `gobbler_core` - Frontmatter generation, HTTP clients, file handling
+- `gobbler_daemon` - Service health monitoring
+- `gobbler_cli` - Command-line utilities
+
+The old `uv run scripts/...` approach is deprecated in favor of the unified `gobbler` CLI.

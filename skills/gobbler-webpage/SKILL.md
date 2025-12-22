@@ -1,75 +1,92 @@
 ---
 name: gobbler-webpage
 description: Convert web pages to markdown, extract specific content with CSS selectors, and crawl websites. Use when user wants to fetch, scrape, or extract content from web pages or websites.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Gobbler Webpage
 
 Convert web pages to markdown using the Crawl4AI service.
 
-**Requires**: Crawl4AI Docker container running on port 11235
+**Requires**: Crawl4AI Docker container running (`docker compose up -d crawl4ai`)
 
 ## Fetch Single Page
 
-Convert a web page to markdown:
-
 ```bash
-uv run scripts/fetch.py "https://example.com"
-
-# Exclude images
-uv run scripts/fetch.py "https://example.com" --no-images
+# Basic fetch
+gobbler webpage "https://example.com"
 
 # Save to file
-uv run scripts/fetch.py "https://example.com" --output page.md
+gobbler webpage "https://example.com" -o page.md
 
 # Custom timeout
-uv run scripts/fetch.py "https://example.com" --timeout 60
+gobbler webpage "https://example.com" --timeout 60
 ```
 
-## Extract with Selector
-
-Extract specific content using CSS or XPath selectors:
+## Extract with CSS Selector
 
 ```bash
-# CSS selector
-uv run scripts/fetch_with_selector.py "https://example.com" --selector "article.main-content"
-
-# XPath selector
-uv run scripts/fetch_with_selector.py "https://example.com" --xpath "//div[@class='content']"
-
-# Extract and get all links
-uv run scripts/fetch_with_selector.py "https://example.com" --selector ".content" --extract-links
+# Extract specific content
+gobbler webpage "https://example.com" --selector "article.main-content" -o article.md
 ```
 
-## Crawl Website
-
-Recursively crawl a website:
+## Alternative: Using the Convert Subcommand
 
 ```bash
-# Basic crawl (depth 2, max 50 pages)
-uv run scripts/crawl.py "https://docs.example.com"
+gobbler convert webpage "https://example.com" -o page.md
+```
 
-# Custom depth and limits
-uv run scripts/crawl.py "https://docs.example.com" --max-depth 3 --max-pages 100
+## Python SDK
 
-# URL pattern filtering
-uv run scripts/crawl.py "https://example.com" --include "/docs/" --exclude "/api/"
+```python
+from gobbler_sdk import GobblerClient
 
-# Save all pages to directory
-uv run scripts/crawl.py "https://docs.example.com" --output-dir ./crawled
+client = GobblerClient()
+
+# Fetch webpage
+result = client.convert.webpage(
+    "https://example.com",
+    include_images=True,
+    timeout=30
+)
+print(result.markdown)
+print(result.metadata)  # url, title, word_count, etc.
+```
+
+## REST API
+
+```bash
+curl -X POST http://localhost:4600/convert/webpage \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "include_images": true,
+    "timeout": 30
+  }'
+```
+
+## Advanced Options (via API)
+
+```bash
+# With CSS selector extraction
+curl -X POST http://localhost:4600/convert/webpage \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "css_selector": "article.content",
+    "extract_links": true,
+    "bypass_cache": true
+  }'
 ```
 
 ## Prerequisites
 
-Start Crawl4AI container before using:
+Start services before using:
 
 ```bash
-docker run -d -p 11235:11235 --name crawl4ai crawl4ai/crawl4ai
-```
+cd /path/to/gobbler
+docker compose up -d crawl4ai
 
-Check health:
-
-```bash
-uv run ../gobbler-utils/scripts/docker_health.py crawl4ai
+# Check health
+curl http://localhost:11235/health
 ```

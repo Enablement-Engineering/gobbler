@@ -1,11 +1,3 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "gobbler": {
-      "type": "local",
-      "command": ["uv", "run", "gobbler-mcp"],
-      "enabled": true,
-      "timeout": 30000
-    }
-  }
+  "$schema": "https://opencode.ai/config.json"
 }
