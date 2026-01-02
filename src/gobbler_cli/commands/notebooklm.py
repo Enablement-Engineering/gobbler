@@ -368,7 +368,7 @@ def query(
     timeout: Annotated[
         int,
         typer.Option("--timeout", help="Response timeout in seconds"),
-    ] = 60,
+    ] = 150,  # 2.5 minutes default
 ) -> None:
     """Send a query to NotebookLM and get the response."""
     asyncio.run(_query(message, tab_id, timeout))

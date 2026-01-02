@@ -1,48 +1,53 @@
 ---
 name: notebooklm
 description: "Query Google NotebookLM notebooks via browser automation. Use when user wants to ask NotebookLM questions, get chat history, or interact with their research notebooks."
-version: 2.2.0
+version: 2.3.0
 ---
 
 # NotebookLM Integration
 
 Query NotebookLM notebooks through the Gobbler CLI. The browser extension connects to NotebookLM tabs and allows sending queries and retrieving responses.
 
-## CRITICAL: One Query at a Time
+## CRITICAL: One Query at a Time Per Notebook
 
-**NotebookLM can only process ONE query at a time per notebook.** 
+**Send only ONE query at a time to each notebook, then WAIT for the response.**
 
-- NEVER send multiple queries in parallel to the same notebook
-- ALWAYS wait for a response before sending the next query
-- If you need to query multiple topics, send them SEQUENTIALLY with 3-second delays
+Why? The query command waits for the "last message" in the chat. If you send multiple queries in parallel:
+- All questions get submitted to NotebookLM
+- The first query's script may return the WRONG answer (from a later question)
+- You get mismatched question/answer pairs
 
-**For parallel research:** Open multiple notebooks in separate tabs, then query each tab by its ID:
+**Correct pattern:**
 ```bash
-gobbler notebooklm query "Question for notebook 1" --tab 123456
-gobbler notebooklm query "Question for notebook 2" --tab 789012
+# Sequential - CORRECT
+gobbler notebooklm query "Question 1" --timeout 120
+# Wait for response, then:
+gobbler notebooklm query "Question 2" --timeout 120
+```
+
+**Wrong pattern:**
+```bash
+# Parallel - WRONG (will get mismatched answers)
+gobbler notebooklm query "Question 1" &
+gobbler notebooklm query "Question 2" &
 ```
 
 ## Prerequisites
 
-Before using NotebookLM commands:
-
 1. **Browser extension installed** - Load `browser-extension/` folder in Chrome
-2. **NotebookLM tab in "Gobbler" tab group** - Right-click tab → "Add to group" → name it "Gobbler"
-3. **Relay server running** - Auto-starts, or run `gobbler relay start`
+2. **NotebookLM tab in "Gobbler" group** - Right-click tab → "Add to group" → name it "Gobbler"
+3. **Relay running** - Auto-starts when you run commands
 
 ## Quick Workflow
 
 ```bash
-# 1. Check connection (extension must be connected)
-gobbler relay status
-
-# 2. List available NotebookLM tabs
+# 1. List available NotebookLM tabs
 gobbler notebooklm list
 
-# 3. Send a query and wait for response
+# 2. Send query and get response (waits for complete answer)
 gobbler notebooklm query "Your question here" --timeout 120
 
-# 4. Get the complete response (always do this)
+# 3. If response looks incomplete, get full last response
 gobbler notebooklm last
 ```
 
@@ -62,10 +67,10 @@ gobbler notebooklm list
 
 ### `gobbler notebooklm query`
 
-Send a question to NotebookLM and wait for the response.
+Send a question to NotebookLM and wait for the complete response.
 
 ```bash
-# Basic query
+# Basic query (waits for full response)
 gobbler notebooklm query "What are the main themes?"
 
 # With longer timeout for complex questions
@@ -76,14 +81,14 @@ gobbler notebooklm query "Summarize" --tab 1700453262
 ```
 
 **Options**:
-- `--timeout SECONDS` - Max wait time (default: 90, increase for complex queries)
+- `--timeout SECONDS` - Max wait time (default: 150 / 2.5 min)
 - `--tab TAB_ID` - Target specific tab instead of first NotebookLM tab
 
-**Important**: The query command may truncate long responses in the terminal. Always use `gobbler notebooklm last` to get the complete response.
+The command waits until the response text is stable for 3 seconds before returning.
 
 ### `gobbler notebooklm last`
 
-Get the last/most recent response from the chat. **Use this after every query** to ensure you have the complete response.
+Get the last/most recent response from the chat. Use as a backup if the query response looks incomplete.
 
 ```bash
 gobbler notebooklm last
@@ -113,73 +118,38 @@ gobbler notebooklm info
 
 ## Recommended Workflow for AI Agents
 
-**IMPORTANT: Execute these steps SEQUENTIALLY, never in parallel.**
-
-### Step 1: Verify Connection
-
-```bash
-gobbler relay status
-```
-
-Expected: "1 browser extension(s) connected"
-
-If not connected:
-- Check extension is loaded in browser
-- Ensure a tab is in "Gobbler" tab group
-- Reload extension if needed
-
-### Step 2: Identify Target Notebook
+### Step 1: List Notebooks
 
 ```bash
 gobbler notebooklm list
 ```
 
-Note the Tab ID if you have multiple notebooks open.
+Note the Tab ID if you have multiple notebooks.
 
-### Step 3: Send Query (ONE AT A TIME)
+### Step 2: Send Query and Wait
 
 ```bash
 gobbler notebooklm query "Your question" --timeout 120
 ```
 
-**Timeout guidelines**:
-- Simple questions: 60 seconds
-- Standard analysis: 90-120 seconds  
-- Complex multi-source analysis: 180 seconds
+The command returns the complete response. **Wait for it to finish before sending another query.**
 
-### Step 4: Get Full Response
+**Timeout**: Default is 150 seconds (2.5 minutes). For very complex queries, increase with `--timeout 300`.
+
+### Step 3: Verify Response (if needed)
+
+If the response looks cut off:
 
 ```bash
 gobbler notebooklm last
 ```
 
-**Always run this** after a query to ensure you capture the complete response.
+### Step 4: Follow-up Questions
 
-### Step 5: Follow-up Questions (SEQUENTIAL ONLY)
-
-Wait 3 seconds, then send the next query:
+Send the next query only AFTER the previous one completes:
 
 ```bash
-# Wait 3 seconds before next query
 gobbler notebooklm query "Follow-up question" --timeout 120
-gobbler notebooklm last
-```
-
-### Multiple Notebooks Pattern
-
-If you need to query multiple topics in parallel, use DIFFERENT notebooks:
-
-```bash
-# First, list all notebooks
-gobbler notebooklm list
-
-# Query different notebooks by tab ID (these CAN be parallel)
-gobbler notebooklm query "Question A" --tab 111111 --timeout 120
-gobbler notebooklm query "Question B" --tab 222222 --timeout 120
-
-# Then get responses
-gobbler notebooklm last --tab 111111
-gobbler notebooklm last --tab 222222
 ```
 
 ---
