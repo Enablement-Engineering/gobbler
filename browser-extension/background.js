@@ -545,7 +545,7 @@ function connectWebSocket() {
     // Send registration message
     ws.send(JSON.stringify({
       type: 'register',
-      extension_version: '0.1.0'
+      extension_version: '0.2.0'
     }));
 
     // Clear reconnect interval if it exists
@@ -649,6 +649,10 @@ async function handleCommand(message) {
         result = await manuallyInjectApi(params);
         break;
 
+      case 'open_tabs':
+        result = await openTabs(params);
+        break;
+
       default:
         result = { success: false, error: `Unknown command: ${command}` };
     }
@@ -741,6 +745,53 @@ async function navigateToUrl(params) {
     }
 
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Open multiple URLs in new tabs within the Gobbler group
+async function openTabs(params) {
+  try {
+    const { urls, activate_first = true } = params;
+    
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      return { success: false, error: 'No URLs provided' };
+    }
+
+    // Get or create the Gobbler tab group
+    const gobblerGroupId = await getOrCreateGobblerGroup();
+    
+    const openedTabs = [];
+    
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      
+      // Create the tab
+      const tab = await chrome.tabs.create({
+        url: url,
+        active: activate_first && i === 0  // Only activate first tab if requested
+      });
+      
+      // Add to Gobbler group
+      await chrome.tabs.group({
+        tabIds: [tab.id],
+        groupId: gobblerGroupId
+      });
+      
+      openedTabs.push({
+        id: tab.id,
+        url: url,
+        title: tab.title || url
+      });
+    }
+    
+    return {
+      success: true,
+      tabs: openedTabs,
+      count: openedTabs.length,
+      group_id: gobblerGroupId
+    };
   } catch (error) {
     return { success: false, error: error.message };
   }
