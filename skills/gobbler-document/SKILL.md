@@ -13,23 +13,22 @@ Convert documents to markdown using the Docling service.
 ## Convert Document
 
 ```bash
-# Basic conversion (digital PDFs - fast)
+# Basic conversion (OCR enabled by default - works for all documents)
 gobbler document /path/to/document.pdf -o output.md
 
-# Disable OCR explicitly (recommended for digital PDFs)
+# Disable OCR for faster processing on digital PDFs
 gobbler document /path/to/document.pdf --no-ocr -o output.md
-
-# Enable OCR for scanned documents (slower, needs more memory)
-gobbler document /path/to/scanned.pdf --ocr -o output.md
 ```
 
-## When to Use OCR
+**Note**: OCR is **enabled by default** for maximum compatibility with scanned documents. Use `--no-ocr` for faster processing when you know the PDF has embedded text.
 
-| Document Type | Use OCR? | Notes |
-|--------------|----------|-------|
-| Digital PDF | No | Text is already embedded, OCR wastes resources |
-| Scanned PDF | Yes | Images of text need OCR |
-| DOCX/PPTX/XLSX | No | Native text extraction |
+## When to Disable OCR
+
+| Document Type | Recommendation | Notes |
+|--------------|----------------|-------|
+| Digital PDF | Use `--no-ocr` | Faster - text is already embedded |
+| Scanned PDF | Default (OCR on) | Required - images need OCR |
+| DOCX/PPTX/XLSX | Either works | Native text extraction regardless |
 
 ## Supported Formats
 
@@ -41,7 +40,7 @@ gobbler document /path/to/scanned.pdf --ocr -o output.md
 ## Alternative: Using the Convert Subcommand
 
 ```bash
-gobbler convert document /path/to/document.pdf --no-ocr -o output.md
+gobbler convert document /path/to/document.pdf -o output.md
 ```
 
 ## Python SDK

@@ -1,134 +1,140 @@
 ---
 name: gobbler-browser
-description: Control browser via Gobbler extension - navigate pages, execute JavaScript, extract content, and interact with NotebookLM. Use when user wants to interact with their browser, extract current page content, or use NotebookLM.
-version: 2.0.0
+description: Control browser via Gobbler extension - navigate pages, execute JavaScript, extract content, open tabs. Use when user wants to interact with their browser or extract current page content.
+version: 2.1.0
 ---
 
 # Gobbler Browser
 
-Control the browser via the Gobbler browser extension and relay server.
+Control the browser via the Gobbler CLI and browser extension.
 
-**Requires**: Gobbler browser extension connected, daemon running
+**Requires**: 
+- Gobbler browser extension installed
+- Target tabs in "Gobbler" tab group
+- Relay server (auto-starts when needed)
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Start the daemon (includes relay server)
-gobbler daemon start
+# Check browser connection
+gobbler browser status
 
-# 2. Check browser connection
-curl http://localhost:4625/health
+# List tabs in Gobbler group
+gobbler browser list
+
+# Extract current page to markdown
+gobbler browser extract -o page.md
 ```
 
 ---
 
-## Browser Commands
+## CLI Commands
+
+### Check Status
+
+```bash
+gobbler browser status
+```
+
+Shows relay status and number of connected extensions.
 
 ### List Tabs
 
 ```bash
-curl http://localhost:4625/api/tabs
+# All tabs in Gobbler group
+gobbler browser list
+
+# Filter by site
+gobbler browser list --filter notebooklm
+gobbler browser list --filter claude
 ```
 
-### Navigate to URL
+### Open URLs
 
 ```bash
-curl -X POST http://localhost:4625/api/navigate \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com"}'
+# Open one or more URLs in Gobbler tab group
+gobbler browser open "https://example.com"
+gobbler browser open "https://example.com" "https://google.com"
 ```
 
-### Extract Current Page Content
+### Navigate Current Tab
 
 ```bash
-# Full page
-curl http://localhost:4625/api/extract
+gobbler browser navigate "https://example.com"
+```
 
-# With CSS selector
-curl "http://localhost:4625/api/extract?selector=article.content"
+### Extract Page Content
+
+```bash
+# Full page as markdown
+gobbler browser extract
+
+# Save to file
+gobbler browser extract -o page.md
+
+# With CSS selector (experimental)
+gobbler browser extract --selector "article.content"
+
+# From specific tab
+gobbler browser extract --tab 1234567890
+
+# JSON output
+gobbler browser extract --json
 ```
 
 ### Execute JavaScript
 
 ```bash
-curl -X POST http://localhost:4625/api/execute \
-  -H "Content-Type: application/json" \
-  -d '{"script": "document.title"}'
+# In active tab
+gobbler browser exec "document.title"
+
+# In specific tab
+gobbler browser exec "document.title" --tab 1234567890
+
+# JSON output
+gobbler browser exec "document.title" --json
+
+# With timeout
+gobbler browser exec "await fetch('/api').then(r => r.json())" --timeout 30
 ```
 
 ---
 
-## Python SDK
+## Related Integrations
 
-```python
-from gobbler_sdk import GobblerClient
-
-client = GobblerClient()
-
-# List browser tabs
-tabs = client.browser.list_tabs()
-
-# Navigate
-client.browser.navigate("https://example.com")
-
-# Extract page content
-content = client.browser.extract()
-content = client.browser.extract(selector="article.content")
-
-# Execute JavaScript
-result = client.browser.execute("document.title")
-```
-
----
-
-## NotebookLM Integration
-
-See the [notebooklm skill](../notebooklm/SKILL.md) for NotebookLM-specific commands.
-
-### Quick NotebookLM Commands
-
-```bash
-# Query NotebookLM
-curl -X POST http://localhost:4625/api/notebooklm/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What are the key points?"}'
-
-# Get last response
-curl http://localhost:4625/api/notebooklm/last
-```
+For site-specific automation, see:
+- [notebooklm skill](../notebooklm/SKILL.md) - Query NotebookLM notebooks
+- [gobbler-claude skill](../gobbler-claude/SKILL.md) - Chat with Claude.ai
 
 ---
 
 ## Troubleshooting
 
-### "Cannot connect to localhost:4625"
+### "Relay not running"
 
 ```bash
-# Check if daemon is running
-gobbler daemon status
-
-# Start daemon if not running
-gobbler daemon start
+gobbler relay start
+gobbler relay status
 ```
 
 ### "No browser extension connected"
 
-1. Ensure Gobbler extension is installed in Chrome/Arc
-2. Check extension popup shows "Connected"
+1. Ensure Gobbler extension is installed in Chrome/Edge
+2. Check extension popup shows "Connected" 
 3. Verify target tabs are in the "Gobbler" tab group
 
-### Check relay health
+### "No tabs found"
 
-```bash
-curl -s http://localhost:4625/health
-```
+1. Open the page you want to control
+2. Right-click the tab → "Add to group" → "Gobbler"
+3. Run `gobbler browser list` again
 
 ---
 
 ## Prerequisites
 
-1. **Gobbler daemon** running (`gobbler daemon start`)
-2. **Browser extension** installed and showing "Connected"
-3. **Target tabs** in the "Gobbler" tab group
+1. **Browser extension** installed (load `browser-extension/` folder)
+2. **Target tabs** in a tab group named "Gobbler"
+3. **Relay server** running (auto-starts with commands)
