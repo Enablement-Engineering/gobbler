@@ -41,9 +41,6 @@ dependencies = [
     "httpx>=0.27.0",
     "aiohttp>=3.9.0",
     "aiofiles>=24.0.0",
-    # API server (FastAPI)
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
     # MCP server
     "fastmcp>=0.2.0",
     # CLI
@@ -54,9 +51,6 @@ dependencies = [
     "watchdog>=4.0.0",
     "prometheus-client>=0.20.0",
     "psutil>=5.9.0",
-    # Task queue
-    "redis>=6.4.0",
-    "rq>=2.6.0",
     # Browser automation
     "playwright>=1.49.0",
 ]
@@ -75,7 +69,7 @@ dev = [
     "pytest-mock>=3.12.0",
     "pytest-benchmark>=4.0.0",
     "pytest-httpx>=0.30.0",
-    "fakeredis>=2.21.0",
+
     "mypy>=1.10.0",
     "ruff>=0.4.0",
     "pre-commit>=3.0.0",
@@ -83,7 +77,7 @@ dev = [
     "interrogate>=1.7.0",
     "types-PyYAML>=6.0.0",
     "types-aiofiles>=24.0.0",
-    "types-redis>=4.6.0",
+
     "types-beautifulsoup4>=4.12.0",
 ]
 
@@ -92,7 +86,6 @@ dev = [
 gobbler = "gobbler_cli.main:cli"
 # Individual services
 gobbler-daemon = "gobbler_daemon:main"
-gobbler-api = "gobbler_api:main"
 gobbler-mcp = "gobbler_mcp.__main__:main"
 # Queue worker
 gobbler-worker = "gobbler_queue.worker:main"
@@ -105,7 +98,6 @@ build-backend = "hatchling.build"
 packages = [
     "src/gobbler_core",
     "src/gobbler_daemon",
-    "src/gobbler_api",
     "src/gobbler_sdk",
     "src/gobbler_cli",
     "src/gobbler_mcp",
@@ -208,7 +200,6 @@ convention = "google"
 known-first-party = [
     "gobbler_core",
     "gobbler_daemon",
-    "gobbler_api",
     "gobbler_sdk",
     "gobbler_cli",
     "gobbler_mcp",
@@ -221,7 +212,6 @@ combine-as-imports = true
 source = [
     "src/gobbler_core",
     "src/gobbler_daemon",
-    "src/gobbler_api",
     "src/gobbler_sdk",
     "src/gobbler_cli",
     "src/gobbler_mcp",

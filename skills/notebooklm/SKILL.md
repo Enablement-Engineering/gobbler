@@ -1,30 +1,60 @@
 ---
 name: notebooklm
-description: "Interact with Google NotebookLM via browser automation. Use when user wants to query NotebookLM, extract chat history, list sources, or automate notebook interactions. The API provides methods like ask(), getChatContent(), getSources(), and getNotebookInfo()."
-version: 1.2.0
-allowed-tools:
-  - mcp__gobbler-mcp__browser_execute_script
-  - mcp__gobbler-mcp__browser_check_connection
-  - mcp__gobbler-mcp__browser_list_tabs
-  - mcp__gobbler-mcp__browser_execute_script_in_tab
+description: "Interact with Google NotebookLM via browser automation. Use when user wants to query NotebookLM, extract chat history, list sources, or automate notebook interactions."
+version: 2.0.0
 ---
 
 # NotebookLM Automation Skill
 
-Interact with Google NotebookLM through the Gobbler browser extension's JavaScript API. The NotebookLM API is automatically injected into NotebookLM pages when they are added to the "Gobbler" tab group.
-
-**API Version**: 1.2.0
+Interact with Google NotebookLM through the Gobbler CLI and browser extension.
 
 **Prerequisites**:
 - Gobbler browser extension installed
 - NotebookLM tab in "Gobbler" tab group
-- Page-specific API auto-injected at `window.gobblerNotebookLM`
+- Relay server (auto-starts when needed)
 
 ---
 
-## Quick Start
+## Quick Start - CLI Commands
 
 The simplest way to interact with NotebookLM:
+
+```bash
+# List available NotebookLM tabs
+gobbler notebooklm list
+
+# Query NotebookLM and get response
+gobbler notebooklm query "What are the main themes?"
+
+# Get notebook info
+gobbler notebooklm info
+
+# Get the last response from chat
+gobbler notebooklm last
+
+# Get recent chat history
+gobbler notebooklm history --count 5
+gobbler notebooklm history --all
+```
+
+### Options
+
+```bash
+# Target specific tab by ID
+gobbler notebooklm query "Summarize the sources" --tab 12345
+
+# Set custom timeout (seconds)
+gobbler notebooklm query "Detailed analysis" --timeout 120
+
+# Disable auto-start of relay (for debugging)
+gobbler notebooklm --no-auto-start list
+```
+
+---
+
+## JavaScript API Reference
+
+For advanced automation, the NotebookLM API is available at `window.gobblerNotebookLM` when a tab is in the Gobbler group.
 
 ```javascript
 // Ask a question and get complete response
@@ -32,6 +62,12 @@ const result = await window.gobblerNotebookLM.ask("What are the main themes?");
 if (result.success) {
   console.log(result.response);
 }
+```
+
+Execute custom JavaScript via the browser CLI:
+
+```bash
+gobbler browser exec 'await window.gobblerNotebookLM.ask("Question?")' --tab 12345
 ```
 
 ---

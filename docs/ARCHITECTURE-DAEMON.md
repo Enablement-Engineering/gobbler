@@ -516,8 +516,7 @@ pyproject.toml              # Multiple entry points
 ├── [project.scripts]
 │   ├── gobbler = "gobbler_cli:main"
 │   ├── gobbler-daemon = "gobbler_daemon:main"
-│   ├── gobbler-mcp = "gobbler_mcp:main"
-│   └── gobbler-api = "gobbler_api:main"
+│   └── gobbler-mcp = "gobbler_mcp:main"
 ```
 
 ---
