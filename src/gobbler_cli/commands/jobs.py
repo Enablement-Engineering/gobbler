@@ -2,15 +2,44 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Optional
+from typing import Optional
 
 import typer
 from typing_extensions import Annotated
 
-from gobbler_cli.output import print_error, print_info, print_success, print_table, print_warning
+from gobbler_cli.output import print_error, print_info, print_success, print_warning
+from gobbler_queue import JobManager, JobStatus, JobType
+from gobbler_queue.cli_integration import (
+    format_job_detail,
+    format_job_table,
+    get_worker_pid,
+    is_worker_running,
+    start_worker_daemon,
+    stop_worker_daemon,
+)
 
 app = typer.Typer(help="Job management")
+worker_app = typer.Typer(help="Worker daemon management")
+app.add_typer(worker_app, name="worker")
+
+
+def _get_worker_status_line() -> str:
+    """Get a formatted worker status line."""
+    if is_worker_running():
+        pid = get_worker_pid()
+        return f"Worker: running (PID {pid})"
+    return "Worker: stopped"
+
+
+def _parse_status(status_str: Optional[str]) -> Optional[JobStatus]:
+    """Parse a status string to JobStatus enum."""
+    if status_str is None:
+        return None
+    try:
+        return JobStatus(status_str.lower())
+    except ValueError:
+        valid = ", ".join(s.value for s in JobStatus)
+        raise typer.BadParameter(f"Invalid status '{status_str}'. Valid: {valid}")
 
 
 @app.command()
@@ -20,7 +49,7 @@ def list(
         typer.Option(
             "--status",
             "-s",
-            help="Filter by status (pending/running/completed/failed)",
+            help="Filter by status (pending/running/completed/failed/cancelled)",
         ),
     ] = None,
     limit: Annotated[
@@ -36,40 +65,24 @@ def list(
         gobbler jobs list --status running
         gobbler jobs list --limit 10
     """
-    asyncio.run(_list_jobs(status_filter=status_filter, limit=limit))
-
-
-async def _list_jobs(status_filter: Optional[str], limit: int) -> None:
-    """List jobs from the daemon."""
     try:
-        # TODO: This will need integration with the daemon API when implemented
-        # For now, show a placeholder message
-        print_info("Job listing requires the daemon to be running")
-        print_info("This feature will be available once the daemon API is implemented")
+        # Show worker status
+        print_info(_get_worker_status_line())
+        print()
 
-        # Placeholder implementation showing what it would look like
-        jobs = await _get_jobs(status_filter=status_filter, limit=limit)
+        # Parse status filter
+        status = _parse_status(status_filter)
 
-        if not jobs:
-            print_info("No jobs found")
-            return
+        # Get jobs from manager
+        manager = JobManager()
+        jobs = manager.list_jobs(status=status, limit=limit)
 
-        # Display jobs in a table
-        print_table(
-            "Jobs",
-            ["ID", "Type", "Status", "Progress", "Created"],
-            [
-                [
-                    job["id"],
-                    job["type"],
-                    job["status"],
-                    job["progress"],
-                    job["created"],
-                ]
-                for job in jobs
-            ],
-        )
+        # Format and display
+        output = format_job_table(jobs)
+        print(output)
 
+    except typer.BadParameter:
+        raise
     except Exception as e:
         print_error(f"Failed to list jobs: {e}")
         raise typer.Exit(1)
@@ -90,41 +103,20 @@ def get(
         gobbler jobs get abc123
         gobbler jobs get abc123 --result
     """
-    asyncio.run(_get_job(job_id=job_id, show_result=show_result))
-
-
-async def _get_job(job_id: str, show_result: bool) -> None:
-    """Get job details from the daemon."""
     try:
-        # TODO: This will need integration with the daemon API when implemented
-        print_info(f"Getting details for job: {job_id}")
-        print_info("This feature will be available once the daemon API is implemented")
+        manager = JobManager()
+        job = manager.get_job(job_id)
 
-        # Placeholder implementation
-        job = await _fetch_job(job_id)
-
-        if not job:
+        if job is None:
             print_error(f"Job not found: {job_id}")
             raise typer.Exit(1)
 
-        # Display job details
-        print_table(
-            f"Job {job_id}",
-            ["Property", "Value"],
-            [
-                ["ID", job["id"]],
-                ["Type", job["type"]],
-                ["Status", job["status"]],
-                ["Progress", job["progress"]],
-                ["Created", job["created"]],
-                ["Updated", job["updated"]],
-            ],
-        )
+        # Format and display job details
+        output = format_job_detail(job)
+        print(output)
 
-        if show_result and job["status"] == "completed":
-            print_info("\nResult:")
-            print(job.get("result", "No result available"))
-
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to get job: {e}")
         raise typer.Exit(1)
@@ -145,12 +137,24 @@ def cancel(
         gobbler jobs cancel abc123
         gobbler jobs cancel abc123 --force
     """
-    asyncio.run(_cancel_job(job_id=job_id, force=force))
-
-
-async def _cancel_job(job_id: str, force: bool) -> None:
-    """Cancel a job."""
     try:
+        manager = JobManager()
+
+        # Check if job exists first
+        job = manager.get_job(job_id)
+        if job is None:
+            print_error(f"Job not found: {job_id}")
+            raise typer.Exit(1)
+
+        # Check if job is already terminal
+        if job.is_terminal:
+            print_warning(f"Job {job_id} is already {job.status.value}")
+            return
+
+        # Check if worker is running for running jobs
+        if job.status == JobStatus.RUNNING and not is_worker_running():
+            print_warning("Worker is not running. Job may be orphaned.")
+
         # Confirm cancellation unless forced
         if not force:
             confirm = typer.confirm(f"Are you sure you want to cancel job {job_id}?")
@@ -158,12 +162,8 @@ async def _cancel_job(job_id: str, force: bool) -> None:
                 print_info("Cancellation aborted")
                 return
 
-        # TODO: This will need integration with the daemon API when implemented
-        print_info(f"Cancelling job: {job_id}")
-        print_info("This feature will be available once the daemon API is implemented")
-
-        # Placeholder implementation
-        success = await _cancel_job_api(job_id)
+        # Cancel the job
+        success = manager.cancel_job(job_id)
 
         if success:
             print_success(f"Job {job_id} cancelled successfully")
@@ -171,6 +171,8 @@ async def _cancel_job(job_id: str, force: bool) -> None:
             print_error(f"Failed to cancel job {job_id}")
             raise typer.Exit(1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         print_error(f"Failed to cancel job: {e}")
         raise typer.Exit(1)
@@ -183,9 +185,17 @@ def clear(
         typer.Option(
             "--status",
             "-s",
-            help="Clear jobs with specific status (completed/failed)",
+            help="Clear jobs with specific status (completed/failed/cancelled)",
         ),
     ] = "completed",
+    older_than_days: Annotated[
+        Optional[int],
+        typer.Option(
+            "--older-than-days",
+            "-d",
+            help="Only clear jobs older than this many days",
+        ),
+    ] = None,
     force: Annotated[
         bool,
         typer.Option("--force", "-f", help="Clear without confirmation"),
@@ -197,61 +207,134 @@ def clear(
     Examples:
         gobbler jobs clear
         gobbler jobs clear --status failed
+        gobbler jobs clear --older-than-days 7
         gobbler jobs clear --force
     """
-    asyncio.run(_clear_jobs(status_filter=status_filter, force=force))
-
-
-async def _clear_jobs(status_filter: Optional[str], force: bool) -> None:
-    """Clear jobs from the queue."""
     try:
+        # Parse status filter
+        status = _parse_status(status_filter)
+
+        # Build confirmation message
+        status_desc = status.value if status else "all"
+        age_desc = f" older than {older_than_days} days" if older_than_days else ""
+        message = f"Are you sure you want to clear {status_desc} jobs{age_desc}?"
+
         # Confirm clearing unless forced
         if not force:
-            message = f"Are you sure you want to clear all {status_filter or 'completed'} jobs?"
             confirm = typer.confirm(message)
             if not confirm:
                 print_info("Clear operation aborted")
                 return
 
-        # TODO: This will need integration with the daemon API when implemented
-        print_info(f"Clearing {status_filter or 'completed'} jobs")
-        print_info("This feature will be available once the daemon API is implemented")
-
-        # Placeholder implementation
-        count = await _clear_jobs_api(status_filter)
+        # Clear jobs
+        manager = JobManager()
+        count = manager.clear_jobs(status=status, older_than_days=older_than_days)
 
         if count > 0:
-            print_success(f"Cleared {count} jobs")
+            print_success(f"Cleared {count} job(s)")
         else:
             print_info("No jobs to clear")
 
+    except typer.BadParameter:
+        raise
     except Exception as e:
         print_error(f"Failed to clear jobs: {e}")
         raise typer.Exit(1)
 
 
-# Placeholder API functions - these will be replaced with actual daemon API calls
+@app.command()
+def count() -> None:
+    """
+    Show job counts by status.
+
+    Examples:
+        gobbler jobs count
+    """
+    try:
+        manager = JobManager()
+        counts = manager.count_jobs()
+
+        # Show worker status
+        print_info(_get_worker_status_line())
+        print()
+
+        # Display counts
+        print("Job Counts")
+        print("==========")
+        for status in JobStatus:
+            count_val = counts.get(status.value, 0)
+            print(f"  {status.value.capitalize():12} {count_val:>5}")
+        print(f"  {'Total':12} {counts.get('total', 0):>5}")
+
+    except Exception as e:
+        print_error(f"Failed to count jobs: {e}")
+        raise typer.Exit(1)
 
 
-async def _get_jobs(status_filter: Optional[str], limit: int) -> list[dict[str, Any]]:
-    """Placeholder for getting jobs from API."""
-    # This will be replaced with actual API call
-    return []
+# Worker subcommand group
 
 
-async def _fetch_job(job_id: str) -> Optional[dict[str, Any]]:
-    """Placeholder for fetching a job from API."""
-    # This will be replaced with actual API call
-    return None
+@worker_app.command("start")
+def worker_start() -> None:
+    """
+    Start the worker daemon.
+
+    Examples:
+        gobbler jobs worker start
+    """
+    try:
+        if is_worker_running():
+            pid = get_worker_pid()
+            print_warning(f"Worker is already running (PID {pid})")
+            return
+
+        pid = start_worker_daemon()
+        print_success(f"Worker started (PID {pid})")
+
+    except RuntimeError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
+    except Exception as e:
+        print_error(f"Failed to start worker: {e}")
+        raise typer.Exit(1)
 
 
-async def _cancel_job_api(job_id: str) -> bool:
-    """Placeholder for cancelling a job via API."""
-    # This will be replaced with actual API call
-    return False
+@worker_app.command("stop")
+def worker_stop() -> None:
+    """
+    Stop the worker daemon.
+
+    Examples:
+        gobbler jobs worker stop
+    """
+    try:
+        if not is_worker_running():
+            print_info("Worker is not running")
+            return
+
+        stopped = stop_worker_daemon()
+
+        if stopped:
+            print_success("Worker stopped")
+        else:
+            print_error("Failed to stop worker")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        print_error(f"Failed to stop worker: {e}")
+        raise typer.Exit(1)
 
 
-async def _clear_jobs_api(status_filter: Optional[str]) -> int:
-    """Placeholder for clearing jobs via API."""
-    # This will be replaced with actual API call
-    return 0
+@worker_app.command("status")
+def worker_status() -> None:
+    """
+    Show worker daemon status.
+
+    Examples:
+        gobbler jobs worker status
+    """
+    if is_worker_running():
+        pid = get_worker_pid()
+        print_success(f"Worker is running (PID {pid})")
+    else:
+        print_info("Worker is not running")

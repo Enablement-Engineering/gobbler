@@ -232,3 +232,302 @@ def _detect_file_type(file_path: Path) -> str:
         return "document"
     else:
         return "unknown"
+
+
+@app.command()
+def webpages(
+    input_file: Annotated[
+        Optional[Path],
+        typer.Argument(help="File containing URLs (one per line). Use - or omit for stdin."),
+    ] = None,
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir", "-o", help="Output directory for converted files"),
+    ] = ...,
+    concurrency: Annotated[
+        int,
+        typer.Option(
+            "--concurrency",
+            "-c",
+            help="Number of concurrent conversions (max 10)",
+            min=1,
+            max=10,
+        ),
+    ] = 3,
+    timeout: Annotated[
+        int,
+        typer.Option("--timeout", "-t", help="Timeout per page in seconds"),
+    ] = 30,
+    selector: Annotated[
+        Optional[str],
+        typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
+    ] = None,
+    skip_existing: Annotated[
+        bool,
+        typer.Option(
+            "--skip-existing/--no-skip-existing", help="Skip URLs that already have output files"
+        ),
+    ] = True,
+    queue: Annotated[
+        bool,
+        typer.Option("--queue", help="Queue the batch job instead of running inline"),
+    ] = False,
+) -> None:
+    """
+    Batch convert web pages to markdown.
+
+    Reads URLs from a file (one per line) or stdin, and converts each to markdown.
+    Lines starting with # are treated as comments and skipped.
+
+    Examples:
+        gobbler batch webpages urls.txt -o ./output
+        cat urls.txt | gobbler batch webpages -o ./output
+        gobbler batch webpages urls.txt -o ./out --concurrency 5 --timeout 60
+        gobbler batch webpages urls.txt -o ./out --queue
+    """
+    if queue:
+        _queue_batch_webpages(
+            input_file=input_file,
+            output_dir=output_dir,
+            concurrency=concurrency,
+            timeout=timeout,
+            selector=selector,
+            skip_existing=skip_existing,
+        )
+    else:
+        asyncio.run(
+            _batch_webpages(
+                input_file=input_file,
+                output_dir=output_dir,
+                concurrency=concurrency,
+                timeout=timeout,
+                selector=selector,
+                skip_existing=skip_existing,
+            )
+        )
+
+
+def _queue_batch_webpages(
+    input_file: Optional[Path],
+    output_dir: Path,
+    concurrency: int,
+    timeout: int,
+    selector: Optional[str],
+    skip_existing: bool,
+) -> None:
+    """Queue the batch webpages job for background processing."""
+    import sys
+
+    from gobbler_queue.manager import JobManager
+    from gobbler_queue.models import JobType
+
+    # Read URLs from file or stdin
+    urls = _read_urls(input_file)
+    if not urls:
+        print_error("No valid URLs found in input")
+        raise typer.Exit(1)
+
+    # Build command for the worker to execute
+    # Store URLs in args since they come from stdin/file
+    args = {
+        "urls": urls,
+        "output_dir": str(output_dir),
+        "concurrency": concurrency,
+        "timeout": timeout,
+        "selector": selector,
+        "skip_existing": skip_existing,
+    }
+
+    # Build a representative command string
+    command = f"gobbler batch webpages --output-dir {output_dir} --concurrency {concurrency} --timeout {timeout}"
+    if selector:
+        command += f" --selector {selector}"
+    if not skip_existing:
+        command += " --no-skip-existing"
+
+    try:
+        manager = JobManager()
+        job = manager.create_job(
+            job_type=JobType.BATCH_WEBPAGE,
+            command=command,
+            args=args,
+        )
+        print_success(f"Queued batch webpage job: {job.id}")
+        print_info(f"Processing {len(urls)} URLs")
+        print_info("Use 'gobbler queue status' to check progress")
+    except Exception as e:
+        print_error(f"Failed to queue job: {e}")
+        raise typer.Exit(1)
+
+
+def _read_urls(input_file: Optional[Path]) -> list[str]:
+    """
+    Read URLs from file or stdin.
+
+    Args:
+        input_file: Path to file containing URLs, or None for stdin
+
+    Returns:
+        List of valid URLs (empty lines and comments removed)
+    """
+    import sys
+
+    lines: list[str] = []
+
+    if input_file is None or str(input_file) == "-":
+        # Read from stdin
+        if sys.stdin.isatty():
+            print_error("No input file specified and stdin is empty")
+            return []
+        lines = sys.stdin.read().splitlines()
+    else:
+        # Read from file
+        if not input_file.exists():
+            print_error(f"Input file not found: {input_file}")
+            return []
+        lines = input_file.read_text(encoding="utf-8").splitlines()
+
+    # Filter out empty lines and comments
+    urls = []
+    for line in lines:
+        line = line.strip()
+        if line and not line.startswith("#"):
+            urls.append(line)
+
+    return urls
+
+
+def _sanitize_url_to_filename(url: str) -> str:
+    """
+    Convert a URL to a safe filename.
+
+    Args:
+        url: The URL to sanitize
+
+    Returns:
+        A safe filename based on the URL's domain and path
+    """
+    import re
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+
+    # Get domain without www prefix
+    domain = parsed.netloc.lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    # Get path, remove leading/trailing slashes
+    path = parsed.path.strip("/")
+
+    # Combine domain and path
+    if path:
+        name = f"{domain}_{path}"
+    else:
+        name = domain
+
+    # Replace unsafe characters with underscores
+    name = re.sub(r"[^\w\-.]", "_", name)
+
+    # Collapse multiple underscores
+    name = re.sub(r"_+", "_", name)
+
+    # Truncate if too long (keep extension room)
+    if len(name) > 200:
+        name = name[:200]
+
+    return name
+
+
+async def _batch_webpages(
+    input_file: Optional[Path],
+    output_dir: Path,
+    concurrency: int,
+    timeout: int,
+    selector: Optional[str],
+    skip_existing: bool,
+) -> None:
+    """Async implementation of batch webpage processing."""
+    from gobbler_core.converters.webpage import convert_webpage_to_markdown
+
+    try:
+        # Read URLs
+        urls = _read_urls(input_file)
+        if not urls:
+            print_error("No valid URLs found in input")
+            raise typer.Exit(1)
+
+        # Create output directory
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        print_info(f"Processing {len(urls)} URLs with concurrency {concurrency}")
+
+        # Track results
+        successful = 0
+        failed = 0
+        skipped = 0
+
+        # Create semaphore for concurrency control
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def process_url(url: str) -> tuple[str, bool, str]:
+            """Process a single URL. Returns (url, success, message)."""
+            async with semaphore:
+                # Generate output filename
+                filename = _sanitize_url_to_filename(url) + ".md"
+                output_path = output_dir / filename
+
+                # Check if already exists
+                if skip_existing and output_path.exists():
+                    return (url, True, "skipped")
+
+                try:
+                    # Convert webpage to markdown
+                    markdown_content, metadata = await convert_webpage_to_markdown(
+                        url=url,
+                        timeout=timeout,
+                    )
+
+                    # Write output
+                    output_path.write_text(markdown_content, encoding="utf-8")
+                    return (url, True, "success")
+
+                except Exception as e:
+                    return (url, False, str(e))
+
+        # Process all URLs with progress bar
+        progress = create_progress()
+        with progress:
+            task = progress.add_task("Converting webpages", total=len(urls))
+
+            # Create tasks for all URLs
+            tasks = [process_url(url) for url in urls]
+
+            # Process with asyncio.as_completed for real-time progress
+            for coro in asyncio.as_completed(tasks):
+                url, success, message = await coro
+
+                if success:
+                    if message == "skipped":
+                        skipped += 1
+                    else:
+                        successful += 1
+                else:
+                    failed += 1
+                    print_error(f"Failed: {url} - {message}")
+
+                progress.update(task, advance=1)
+
+        # Print summary
+        print_success(f"Converted {successful} webpages successfully")
+        if skipped > 0:
+            print_info(f"Skipped {skipped} existing files")
+        if failed > 0:
+            print_error(f"{failed} webpages failed to convert")
+            raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Failed to process webpages: {e}")
+        raise typer.Exit(1)
