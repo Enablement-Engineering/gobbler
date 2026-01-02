@@ -47,288 +47,71 @@ def claude_callback(
 
 
 # JavaScript snippets for Claude.ai interaction
-SEND_AND_WAIT_JS = """
+# These use the injected window.gobblerClaude API when available, with fallbacks
+
+# Check if page API is available
+CHECK_API_JS = "typeof window.gobblerClaude !== 'undefined'"
+
+# Ask using the page API (send message and wait for response)
+ASK_JS = """
 (async () => {
-    const maxWait = %d;  // milliseconds for response
-    const query = %s;
-
-    // Find input - Claude uses contenteditable div with ProseMirror
-    const inputSelectors = [
-        'div[contenteditable="true"].ProseMirror',
-        'div[contenteditable="true"][data-placeholder]',
-        'div.ProseMirror[contenteditable="true"]',
-        'div[contenteditable="true"]',
-        'textarea[placeholder*="Reply"]'
-    ];
-    
-    let input = null;
-    for (const sel of inputSelectors) {
-        input = document.querySelector(sel);
-        if (input) break;
+    if (typeof window.gobblerClaude === 'undefined') {
+        return {success: false, error: "Gobbler Claude API not injected. Ensure the tab is in the Gobbler group."};
     }
-    
-    if (!input) {
-        return {success: false, error: "Could not find Claude input field"};
-    }
-
-    // Clear, focus, and set value
-    input.focus();
-    
-    if (input.getAttribute('contenteditable') === 'true') {
-        input.innerHTML = '';
-        const p = document.createElement('p');
-        p.textContent = query;
-        input.appendChild(p);
-        input.dispatchEvent(new InputEvent('input', {
-            bubbles: true,
-            cancelable: true,
-            inputType: 'insertText',
-            data: query
-        }));
-    } else {
-        input.value = query;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    
-    await new Promise(r => setTimeout(r, 300));
-
-    // Find and click send button
-    const buttonSelectors = [
-        'button[aria-label="Send Message"]',
-        'button[aria-label*="Send"]',
-        'button[type="submit"]'
-    ];
-    
-    let sendButton = null;
-    for (const sel of buttonSelectors) {
-        sendButton = document.querySelector(sel);
-        if (sendButton && !sendButton.disabled) break;
-        sendButton = null;
-    }
-    
-    if (!sendButton) {
-        // Try Enter key
-        input.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'Enter',
-            code: 'Enter',
-            keyCode: 13,
-            which: 13,
-            bubbles: true
-        }));
-    } else {
-        sendButton.click();
-    }
-
-    // Track initial response count before sending
-    const initialResponses = document.querySelectorAll('[data-is-streaming]');
-    const initialCount = initialResponses.length;
-    
-    // Use MutationObserver to wait for NEW response completion
-    return new Promise((resolve) => {
-        const startTime = Date.now();
-        let resolved = false;
-        
-        const getLastResponseText = () => {
-            const responses = document.querySelectorAll('[data-is-streaming]');
-            if (responses.length === 0) return '';
-            const lastResponse = responses[responses.length - 1];
-            
-            const fontResponse = lastResponse.querySelector('.font-claude-response');
-            if (!fontResponse) return lastResponse.textContent?.trim() || '';
-            
-            const childDivs = fontResponse.querySelectorAll(':scope > div');
-            for (let i = childDivs.length - 1; i >= 0; i--) {
-                const div = childDivs[i];
-                if (div.querySelector('button[class*="cursor-pointer"]')) continue;
-                const markdown = div.querySelector('.standard-markdown');
-                if (markdown) return markdown.textContent?.trim() || '';
-            }
-            return lastResponse.textContent?.trim() || '';
-        };
-        
-        const checkComplete = () => {
-            if (resolved) return false;
-            
-            // Get current responses
-            const responses = document.querySelectorAll('[data-is-streaming]');
-            
-            // Must have MORE responses than before (a new one appeared)
-            if (responses.length <= initialCount) return false;
-            
-            // Check if the newest response is done streaming
-            const lastResponse = responses[responses.length - 1];
-            if (lastResponse.getAttribute('data-is-streaming') === 'false') {
-                const text = getLastResponseText();
-                if (text && text.length > 0) {
-                    resolved = true;
-                    resolve({
-                        success: true,
-                        response: text,
-                        messageCount: responses.length,
-                        waitTime: Date.now() - startTime
-                    });
-                    return true;
-                }
-            }
-            return false;
-        };
-        
-        // Set up observer for new elements and attribute changes
-        const observer = new MutationObserver((mutations) => {
-            // Check on any mutation - new element added or streaming attribute changed
-            if (checkComplete()) {
-                observer.disconnect();
-            }
-        });
-        
-        // Observe for both new children and attribute changes
-        observer.observe(document.body, {
-            childList: true,
-            attributes: true,
-            attributeFilter: ['data-is-streaming'],
-            subtree: true
-        });
-        
-        // Timeout fallback
-        setTimeout(() => {
-            if (resolved) return;
-            observer.disconnect();
-            resolved = true;
-            const text = getLastResponseText();
-            const responses = document.querySelectorAll('[data-is-streaming]');
-            resolve({
-                success: text.length > 0 && responses.length > initialCount,
-                response: text || '',
-                partial: true,
-                waitTime: Date.now() - startTime
-            });
-        }, maxWait);
-    });
+    return await window.gobblerClaude.ask(%s, %d);
 })()
 """
 
+# Get conversation info using page API
 GET_INFO_JS = """
 (() => {
+    if (typeof window.gobblerClaude !== 'undefined') {
+        return window.gobblerClaude.getConversationInfo();
+    }
+    // Fallback
     const title = document.title || "Claude";
     const url = window.location.href;
     const conversationId = url.match(/\\/chat\\/([^/?]+)/)?.[1] || null;
-    
-    // Count messages
-    const userMessages = document.querySelectorAll('[data-testid="user-message"], [class*="user-message"], [class*="human-message"]').length;
-    const assistantMessages = document.querySelectorAll('[data-testid="assistant-message"], [class*="assistant-message"], [class*="claude-message"]').length;
-
-    return {
-        title: title,
-        conversationId: conversationId,
-        userMessages: userMessages,
-        assistantMessages: assistantMessages,
-        url: url
-    };
+    return { title, url, conversationId, isConversation: url.includes('/chat/') };
 })()
 """
 
-GET_LAST_RESPONSE_JS = r"""
-(() => {
-    // Claude uses data-is-streaming attribute on response containers
+# Get last response using page API
+GET_LAST_RESPONSE_JS = """
+(async () => {
+    if (typeof window.gobblerClaude !== 'undefined') {
+        return await window.gobblerClaude.getLastResponse();
+    }
+    // Fallback: Claude uses data-is-streaming attribute
     const messages = document.querySelectorAll('[data-is-streaming]');
-    if (messages.length === 0) return { error: 'No messages found' };
-
+    if (messages.length === 0) return { success: false, error: 'No messages found' };
     const lastMsg = messages[messages.length - 1];
-    
-    // The response structure is:
-    // [data-is-streaming] > .font-claude-response > div (thinking collapsible) + div (actual response)
-    // The actual response is in the last direct child div that contains .standard-markdown
-    const fontResponse = lastMsg.querySelector('.font-claude-response');
-    if (!fontResponse) {
-        return { totalMessages: messages.length, lastResponse: lastMsg.textContent?.trim() || '' };
-    }
-    
-    // Get direct child divs of font-claude-response
-    const childDivs = fontResponse.querySelectorAll(':scope > div');
-    let text = '';
-    
-    // The last div that's not the collapsible thinking section contains the response
-    for (let i = childDivs.length - 1; i >= 0; i--) {
-        const div = childDivs[i];
-        // Skip the thinking/collapsible section (has a button inside)
-        if (div.querySelector('button[class*="cursor-pointer"]')) {
-            continue;
-        }
-        // This should be the actual response
-        const markdown = div.querySelector('.standard-markdown');
-        if (markdown) {
-            text = markdown.textContent?.trim() || '';
-            break;
-        }
-    }
-    
-    // Fallback: get last p with response body class
-    if (!text) {
-        const paragraphs = lastMsg.querySelectorAll('p.font-claude-response-body');
-        if (paragraphs.length > 0) {
-            text = paragraphs[paragraphs.length - 1].textContent?.trim() || '';
-        }
-    }
-
-    return {
-        totalMessages: messages.length,
-        lastResponse: text
-    };
+    const text = lastMsg.textContent?.trim() || '';
+    return { success: true, response: text, totalMessages: messages.length };
 })()
 """
 
-GET_CHAT_HISTORY_JS = r"""
-((count) => {
-    const userMsgs = document.querySelectorAll('[data-testid="user-message"], [class*="user-message"], [class*="human-message"]');
-    const assistantMsgs = document.querySelectorAll('[data-testid="assistant-message"], [class*="assistant-message"], [class*="claude-message"]');
-    
-    if (userMsgs.length === 0 && assistantMsgs.length === 0) {
-        return { error: 'No messages found' };
+# Get chat history using page API
+GET_CHAT_HISTORY_JS = """
+(async () => {
+    if (typeof window.gobblerClaude !== 'undefined') {
+        const result = await window.gobblerClaude.getChatContent();
+        if (result.success) {
+            const count = %s;
+            const messages = result.messages || [];
+            const numMessages = count || messages.length;
+            const startIdx = Math.max(0, messages.length - numMessages);
+            const selected = messages.slice(startIdx);
+            return {
+                totalMessages: messages.length,
+                returned: selected.length,
+                messages: selected.map((m, i) => ({index: startIdx + i, role: m.role, text: m.content}))
+            };
+        }
+        return result;
     }
-
-    // Combine and sort by DOM position
-    const allMessages = [];
-    
-    userMsgs.forEach((msg, idx) => {
-        allMessages.push({
-            element: msg,
-            role: 'user',
-            text: msg.textContent?.trim() || ''
-        });
-    });
-    
-    assistantMsgs.forEach((msg, idx) => {
-        allMessages.push({
-            element: msg,
-            role: 'assistant', 
-            text: msg.textContent?.trim() || ''
-        });
-    });
-
-    // Sort by document position
-    allMessages.sort((a, b) => {
-        const pos = a.element.compareDocumentPosition(b.element);
-        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-        return 0;
-    });
-
-    const numMessages = count || allMessages.length;
-    const startIdx = Math.max(0, allMessages.length - numMessages);
-    const selectedMessages = allMessages.slice(startIdx);
-
-    const history = selectedMessages.map((msg, idx) => ({
-        index: startIdx + idx,
-        role: msg.role,
-        text: msg.text.slice(0, 10000)
-    }));
-
-    return {
-        totalMessages: allMessages.length,
-        returned: history.length,
-        messages: history
-    };
-})(%s)
+    return { error: 'Gobbler Claude API not available' };
+})()
 """
 
 
@@ -505,7 +288,7 @@ async def _query(message: str, tab_id: Optional[int], timeout: int) -> None:
     console.print(f"[dim]Sending to:[/dim] {tab_title}")
     console.print(f"[dim]Message:[/dim] {message}\n")
 
-    script = SEND_AND_WAIT_JS % (timeout * 1000, json.dumps(message))
+    script = ASK_JS % (json.dumps(message), timeout * 1000)
 
     with ProgressTracker("Waiting for Claude response"):
         result = await execute_script_in_tab(
@@ -588,15 +371,16 @@ async def _last(tab_id: Optional[int]) -> None:
             return
 
     if isinstance(data, dict):
-        if data.get("error"):
-            print_error(data["error"])
+        if not data.get("success", True):
+            print_error(data.get("error", "Unknown error"))
             raise typer.Exit(1)
 
-        console.print(
-            f"[dim]Total assistant messages:[/dim] {data.get('totalMessages', 'unknown')}\n"
-        )
+        # Handle both old format (lastResponse) and new format (response)
+        response_text = data.get("response") or data.get("lastResponse", "No response")
+        if data.get("totalMessages"):
+            console.print(f"[dim]Total messages:[/dim] {data.get('totalMessages')}\n")
         console.print("[bold]Last Response:[/bold]\n")
-        print(data.get("lastResponse", "No response"))
+        print(response_text)
     else:
         print(str(data))
 
