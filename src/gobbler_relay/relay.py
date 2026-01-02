@@ -254,8 +254,10 @@ async def send_command_to_extension(
     }
 
     try:
-        # Send to all connected extensions (usually just one)
-        for ws in websocket_connections:
+        # Send to only ONE extension (the first/most recent one)
+        # This prevents duplicate execution if multiple connections exist
+        if websocket_connections:
+            ws = next(iter(websocket_connections))
             await ws.send_json(message)
             logger.info(f"Sent command '{command}' to extension (id: {command_id})")
 

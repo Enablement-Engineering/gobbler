@@ -1,15 +1,15 @@
-// Claude.ai Page-Specific API
-// Injected automatically when a Claude.ai tab is added to the Gobbler group
+// ChatGPT Page-Specific API
+// Injected automatically when a ChatGPT tab is added to the Gobbler group
 
 (function() {
   'use strict';
 
   // Prevent double-injection
-  if (window.__gobblerClaudeInjected) {
-    console.log('[Gobbler] Claude API already injected');
+  if (window.__gobblerChatGPTInjected) {
+    console.log('[Gobbler] ChatGPT API already injected');
     return;
   }
-  window.__gobblerClaudeInjected = true;
+  window.__gobblerChatGPTInjected = true;
 
   // Helper: Wait for element with timeout
   function waitForElement(selector, timeout = 10000) {
@@ -45,27 +45,26 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Claude API object
-  const ClaudeAPI = {
+  // ChatGPT API object
+  const ChatGPTAPI = {
     // API version
     version: '1.0.0',
 
     // Check if we're on a conversation page
     isConversationPage() {
-      return window.location.pathname.includes('/chat/');
+      const url = window.location.href;
+      return url.includes('/c/') || url.includes('/g/') || url === 'https://chatgpt.com/' || url === 'https://chat.openai.com/';
     },
 
     // Get current conversation info
     getConversationInfo() {
-      // Try to get title from the page
-      const titleEl = document.querySelector('h1, [data-testid="conversation-title"], .conversation-title');
-      const title = titleEl?.textContent?.trim() || document.title.replace(' - Claude', '') || 'New Conversation';
+      const title = document.title.replace(' | ChatGPT', '').replace(' - ChatGPT', '') || 'New Conversation';
       const url = window.location.href;
-      const conversationId = url.match(/\/chat\/([^/?]+)/)?.[1] || null;
+      const conversationId = url.match(/\/c\/([^/?]+)/)?.[1] || url.match(/\/g\/([^/?]+)/)?.[1] || null;
 
-      // Count messages using the correct selectors
-      const userMessages = document.querySelectorAll('[data-testid][class*="font-user-message"]').length;
-      const assistantMessages = document.querySelectorAll('[data-is-streaming]').length;
+      // Count messages
+      const userMessages = document.querySelectorAll('[data-message-author-role="user"]').length;
+      const assistantMessages = document.querySelectorAll('[data-message-author-role="assistant"]').length;
 
       return {
         title,
@@ -79,18 +78,23 @@
 
     // Find the chat input element
     _findInput() {
-      // Claude.ai uses a contenteditable div or ProseMirror editor
       const selectors = [
-        // Claude.ai specific selectors
-        'div[contenteditable="true"].ProseMirror',
-        'div[contenteditable="true"][data-placeholder]',
+        // ChatGPT uses ProseMirror contenteditable div
+        '#prompt-textarea',
         'div.ProseMirror[contenteditable="true"]',
-        // Fallbacks
-        'div[contenteditable="true"]',
-        'textarea[placeholder*="message"]',
-        'textarea[placeholder*="Reply"]'
+        'div[contenteditable="true"][data-virtualkeyboard="true"]',
+        // Fallback textarea (hidden but may be present)
+        'textarea[name="prompt-textarea"]',
+        'textarea[placeholder*="Ask anything"]',
+        'textarea[placeholder*="Message"]'
       ];
 
+      for (const selector of selectors) {
+        const el = document.querySelector(selector);
+        if (el && el.offsetParent !== null) return el; // Check if visible
+      }
+      
+      // Return even hidden textarea as last resort
       for (const selector of selectors) {
         const el = document.querySelector(selector);
         if (el) return el;
@@ -101,28 +105,17 @@
     // Find the send button
     _findSendButton() {
       const selectors = [
-        // Claude.ai uses aria-label for the send button
-        'button[aria-label="Send Message"]',
+        // ChatGPT specific selectors
+        '#composer-submit-button',
+        'button[data-testid="send-button"]',
+        'button[aria-label="Send prompt"]',
         'button[aria-label*="Send"]',
-        'button[aria-label*="send"]',
-        // Look for button with send icon (arrow)
-        'button[type="submit"]',
-        'button.send-button'
+        'button.composer-submit-btn'
       ];
 
       for (const selector of selectors) {
         const btn = document.querySelector(selector);
         if (btn && !btn.disabled) return btn;
-      }
-
-      // Fallback: find button near input
-      const input = this._findInput();
-      if (input) {
-        const form = input.closest('form');
-        if (form) {
-          const btn = form.querySelector('button[type="button"]:last-of-type, button:last-of-type');
-          if (btn && !btn.disabled) return btn;
-        }
       }
 
       return null;
@@ -131,19 +124,16 @@
     // Get all messages in the conversation
     async getChatContent() {
       try {
-        // Claude.ai uses:
-        // - data-testid for user messages (with class containing font-user-message)
-        // - data-is-streaming for assistant messages
-        const userMessages = document.querySelectorAll('[data-testid][class*="font-user-message"]');
-        const assistantMessages = document.querySelectorAll('[data-is-streaming]');
+        const userMessages = document.querySelectorAll('[data-message-author-role="user"]');
+        const assistantMessages = document.querySelectorAll('[data-message-author-role="assistant"]');
 
         const content = [];
-        
-        // Get all messages with their DOM positions for proper ordering
         const allElements = [];
-        
+
         userMessages.forEach(msg => {
-          const text = msg.textContent?.trim() || '';
+          // Find the actual text content within the message
+          const textEl = msg.querySelector('.markdown, .whitespace-pre-wrap') || msg;
+          const text = textEl.textContent?.trim() || '';
           if (text) {
             allElements.push({
               element: msg,
@@ -154,7 +144,9 @@
         });
 
         assistantMessages.forEach(msg => {
-          const text = msg.textContent?.trim() || '';
+          // Find the markdown content
+          const textEl = msg.querySelector('.markdown') || msg;
+          const text = textEl.textContent?.trim() || '';
           if (text) {
             allElements.push({
               element: msg,
@@ -164,7 +156,7 @@
           }
         });
 
-        // Sort by DOM position using compareDocumentPosition
+        // Sort by DOM position
         allElements.sort((a, b) => {
           const position = a.element.compareDocumentPosition(b.element);
           if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
@@ -172,7 +164,7 @@
           return 0;
         });
 
-        // Build final content array without the element references
+        // Build final content array without element references
         allElements.forEach((item, index) => {
           content.push({
             index,
@@ -191,23 +183,50 @@
       }
     },
 
-    // Get the last assistant response
+    // Get the last assistant response (including images)
     async getLastResponse() {
       try {
-        // Claude.ai uses data-is-streaming attribute for assistant messages
-        const messages = document.querySelectorAll('[data-is-streaming]');
-        
+        const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
+
         if (messages.length === 0) {
           return { success: false, error: 'No assistant response found' };
         }
 
         const lastMsg = messages[messages.length - 1];
-        const text = lastMsg.textContent?.trim() || '';
-        const isStreaming = lastMsg.dataset.isStreaming === 'true';
+        const textEl = lastMsg.querySelector('.markdown') || lastMsg;
+        const text = textEl.textContent?.trim() || '';
 
-        return { 
-          success: true, 
+        // Check for generated images - search globally for "Generated image" alt tags
+        // These may be outside the assistant message container
+        const images = [];
+        const generatedImgs = document.querySelectorAll('img[alt="Generated image"]');
+        generatedImgs.forEach(img => {
+          if (img.src && !images.includes(img.src)) {
+            images.push(img.src);
+          }
+        });
+        
+        // Also check within the message for any estuary/oaiusercontent images
+        const directImgs = lastMsg.querySelectorAll('img[src*="backend-api/estuary"], img[src*="oaiusercontent"]');
+        directImgs.forEach(img => {
+          if (img.src && !images.includes(img.src)) {
+            images.push(img.src);
+          }
+        });
+        
+        // Deduplicate images
+        const uniqueImages = [...new Set(images)];
+
+        // Check if still streaming - look for stop button (most reliable)
+        const isStreaming = !!document.querySelector('button[data-testid="stop-button"]') ||
+                          !!document.querySelector('button[aria-label="Stop streaming"]') ||
+                          !!document.querySelector('button[aria-label="Stop generating"]');
+
+        return {
+          success: true,
           response: text,
+          images: uniqueImages,
+          hasImages: uniqueImages.length > 0,
           isStreaming,
           totalMessages: messages.length
         };
@@ -216,7 +235,7 @@
       }
     },
 
-    // Send a message to Claude
+    // Send a message to ChatGPT
     async sendMessage(message) {
       try {
         const input = this._findInput();
@@ -224,20 +243,21 @@
           return { success: false, error: 'Could not find chat input field' };
         }
 
-        // Clear and focus input
+        // Focus input
         input.focus();
-        
+        await delay(100);
+
         // For contenteditable divs (ProseMirror)
         if (input.getAttribute('contenteditable') === 'true') {
           // Clear existing content
           input.innerHTML = '';
           
-          // Create a paragraph with the text
+          // Insert text
           const p = document.createElement('p');
           p.textContent = message;
           input.appendChild(p);
           
-          // Dispatch input event
+          // Dispatch input event to trigger React state update
           input.dispatchEvent(new InputEvent('input', {
             bubbles: true,
             cancelable: true,
@@ -250,7 +270,8 @@
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
-        await delay(200);
+        // Wait for React to process
+        await delay(300);
 
         // Find and click send button
         const sendButton = this._findSendButton();
@@ -267,7 +288,9 @@
           return { success: true, method: 'enter-key' };
         }
 
+        // Simple click - the script ends here and does NOT interact further
         sendButton.click();
+        
         return { success: true, method: 'button-click' };
       } catch (error) {
         return { success: false, error: error.message };
@@ -275,73 +298,77 @@
     },
 
     // Wait for response to complete
-    // Claude.ai uses data-is-streaming="true"/"false" on assistant message containers
     async waitForResponse(timeout = 120000) {
       const startTime = Date.now();
-      let lastText = '';
-      let stableCount = 0;
-      const STABLE_THRESHOLD = 3; // 3 consecutive checks with same text = done
+      let wasStreaming = false;
 
-      // Claude.ai uses data-is-streaming attribute for assistant messages
       const getAssistantMessages = () => {
-        return document.querySelectorAll('[data-is-streaming]');
+        return document.querySelectorAll('[data-message-author-role="assistant"]');
       };
 
       const getLastMessageText = () => {
         const messages = getAssistantMessages();
         if (messages.length === 0) return '';
-        return messages[messages.length - 1].textContent?.trim() || '';
+        // Find the last message with actual content (skip empty pending messages)
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          const textEl = msg.querySelector('.markdown') || msg;
+          const text = textEl.textContent?.trim() || '';
+          if (text.length > 0) {
+            return text;
+          }
+        }
+        return '';
       };
 
       const isStillStreaming = () => {
-        const messages = getAssistantMessages();
-        if (messages.length === 0) return false;
-        const lastMsg = messages[messages.length - 1];
-        return lastMsg.dataset.isStreaming === 'true';
+        // Check for stop button (most reliable indicator of active generation)
+        const stopBtn = document.querySelector('button[data-testid="stop-button"]') ||
+                       document.querySelector('button[aria-label="Stop streaming"]') ||
+                       document.querySelector('button[aria-label="Stop generating"]');
+        return !!stopBtn;
       };
 
       const initialCount = getAssistantMessages().length;
 
       while (Date.now() - startTime < timeout) {
-        await delay(1000);
+        await delay(500); // Check more frequently
 
-        const messages = getAssistantMessages();
-        const currentCount = messages.length;
-        
-        // Wait for a new message to appear
-        if (currentCount <= initialCount) {
-          stableCount = 0;
+        const currentCount = getAssistantMessages().length;
+        const streaming = isStillStreaming();
+
+        // Track if we've seen streaming start
+        if (streaming) {
+          wasStreaming = true;
           continue;
         }
 
-        // Check if still streaming
-        if (isStillStreaming()) {
-          stableCount = 0;
-          lastText = getLastMessageText();
-          continue;
+        // If we were streaming and now stopped, response is complete
+        if (wasStreaming && !streaming) {
+          await delay(1500); // Wait for DOM to fully sync after streaming stops
+          let response = getLastMessageText();
+          // If still empty, wait a bit more and retry
+          if (!response) {
+            await delay(1000);
+            response = getLastMessageText();
+          }
+          return {
+            success: true,
+            response: response,
+            elapsed: Date.now() - startTime
+          };
         }
 
-        const currentText = getLastMessageText();
-
-        // Skip if still showing loading indicators
-        if (currentText.length < 20 || currentText.includes('Thinking')) {
-          stableCount = 0;
-          continue;
-        }
-
-        // Check stability (text hasn't changed and not streaming)
-        if (currentText === lastText && currentText.length > 0) {
-          stableCount++;
-          if (stableCount >= STABLE_THRESHOLD) {
+        // If a new message appeared and no streaming, it might be complete already
+        if (currentCount > initialCount && !streaming) {
+          const response = getLastMessageText();
+          if (response.length > 0) {
             return {
               success: true,
-              response: currentText,
+              response: response,
               elapsed: Date.now() - startTime
             };
           }
-        } else {
-          lastText = currentText;
-          stableCount = 1;
         }
       }
 
@@ -375,7 +402,7 @@
 
       // Wait for response
       const responseResult = await this.waitForResponse(timeout);
-      
+
       return {
         ...responseResult,
         messageSentVia: sendResult.method,
@@ -387,23 +414,27 @@
     getPageStructure() {
       const input = this._findInput();
       const sendButton = this._findSendButton();
-      
+
       return {
         hasInput: !!input,
         inputType: input?.tagName || null,
+        inputId: input?.id || null,
         inputEditable: input?.getAttribute('contenteditable') || null,
         hasSendButton: !!sendButton,
+        sendButtonId: sendButton?.id || null,
         sendButtonDisabled: sendButton?.disabled || null,
         url: window.location.href,
-        isConversation: this.isConversationPage()
+        isConversation: this.isConversationPage(),
+        userMessageCount: document.querySelectorAll('[data-message-author-role="user"]').length,
+        assistantMessageCount: document.querySelectorAll('[data-message-author-role="assistant"]').length
       };
     }
   };
 
   // Expose API globally
-  window.gobblerClaude = ClaudeAPI;
+  window.gobblerChatGPT = ChatGPTAPI;
 
-  console.log('[Gobbler] Claude API v' + ClaudeAPI.version + ' injected successfully');
-  console.log('[Gobbler] Available at window.gobblerClaude');
+  console.log('[Gobbler] ChatGPT API v' + ChatGPTAPI.version + ' injected successfully');
+  console.log('[Gobbler] Available at window.gobblerChatGPT');
   console.log('[Gobbler] Methods: ask, sendMessage, waitForResponse, getChatContent, getLastResponse, getConversationInfo');
 })();

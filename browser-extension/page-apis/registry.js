@@ -41,6 +41,30 @@ const PAGE_API_REGISTRY = [
     globalVar: 'window.gobblerClaude',
     methods: ['ask', 'sendMessage', 'getChatContent', 'getLastResponse']
   },
+  {
+    name: 'ChatGPT',
+    pattern: /^https:\/\/(chat\.openai\.com|chatgpt\.com)/,
+    apiFile: 'page-apis/chatgpt.js',
+    enabled: true,
+    injectionMarker: '__gobblerChatGPTInjected',
+    // UI metadata
+    domain: 'chatgpt.com',
+    description: 'Interact with ChatGPT conversations',
+    globalVar: 'window.gobblerChatGPT',
+    methods: ['ask', 'sendMessage', 'getChatContent', 'getLastResponse']
+  },
+  {
+    name: 'Gemini',
+    pattern: /^https:\/\/gemini\.google\.com/,
+    apiFile: 'page-apis/gemini.js',
+    enabled: true,
+    injectionMarker: '__gobblerGeminiInjected',
+    // UI metadata
+    domain: 'gemini.google.com',
+    description: 'Interact with Google Gemini conversations',
+    globalVar: 'window.gobblerGemini',
+    methods: ['ask', 'sendMessage', 'getChatContent', 'getLastResponse']
+  },
   // Future APIs can be added here:
   // {
   //   name: 'YouTube',

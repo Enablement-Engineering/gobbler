@@ -99,9 +99,11 @@ def cli() -> None:
     from gobbler_cli.commands import (
         batch,
         browser,
+        chatgpt,
         claude,
         convert,
         daemon,
+        gemini,
         jobs,
         notebooklm,
         relay,
@@ -115,6 +117,8 @@ def cli() -> None:
     app.add_typer(browser.app, name="browser", help="Browser extension automation")
     app.add_typer(notebooklm.app, name="notebooklm", help="NotebookLM integration")
     app.add_typer(claude.app, name="claude", help="Claude.ai integration")
+    app.add_typer(chatgpt.app, name="chatgpt", help="ChatGPT integration")
+    app.add_typer(gemini.app, name="gemini", help="Google Gemini integration")
     app.add_typer(relay.app, name="relay", help="Browser relay server management")
 
     # Also register convert commands at the top level for convenience

@@ -338,11 +338,22 @@ async function listGobblerTabs(params = {}) {
 
   let tabs = await chrome.tabs.query({ groupId: stored.gobblerGroupId });
 
-  // Apply filter if specified
-  if (params.filter === 'notebooklm') {
-    tabs = tabs.filter(t => t.url && t.url.includes('notebooklm.google.com'));
-  } else if (params.filter === 'claude') {
-    tabs = tabs.filter(t => t.url && t.url.includes('claude.ai'));
+  // Apply filter if specified - match against registered API patterns
+  if (params.filter) {
+    const filterLower = params.filter.toLowerCase();
+    
+    // Define URL patterns for each filter type
+    const filterPatterns = {
+      'notebooklm': (url) => url && url.includes('notebooklm.google.com'),
+      'claude': (url) => url && url.includes('claude.ai'),
+      'chatgpt': (url) => url && (url.includes('chatgpt.com') || url.includes('chat.openai.com')),
+      'gemini': (url) => url && url.includes('gemini.google.com')
+    };
+    
+    const matchFn = filterPatterns[filterLower];
+    if (matchFn) {
+      tabs = tabs.filter(t => matchFn(t.url));
+    }
   }
 
   const tabList = tabs.map(t => ({
@@ -535,8 +546,13 @@ async function getCurrentTabGroupStatus() {
 
 // WebSocket connection management
 function connectWebSocket() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    return;
+  // Close existing connection if any (even if not fully open)
+  if (ws) {
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      console.log('Closing existing WebSocket connection...');
+      ws.close();
+    }
+    ws = null;
   }
 
   console.log('Connecting to Gobbler server via WebSocket...');
