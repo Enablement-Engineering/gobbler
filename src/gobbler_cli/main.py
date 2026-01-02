@@ -96,7 +96,16 @@ def completion(
 def cli() -> None:
     """Entry point for the CLI."""
     # Import command modules here to register them
-    from gobbler_cli.commands import batch, browser, convert, daemon, jobs, notebooklm, relay
+    from gobbler_cli.commands import (
+        batch,
+        browser,
+        claude,
+        convert,
+        daemon,
+        jobs,
+        notebooklm,
+        relay,
+    )
 
     # Add command groups
     app.add_typer(convert.app, name="convert", help="Convert individual content items")
@@ -105,6 +114,7 @@ def cli() -> None:
     app.add_typer(jobs.app, name="jobs", help="Job management")
     app.add_typer(browser.app, name="browser", help="Browser extension automation")
     app.add_typer(notebooklm.app, name="notebooklm", help="NotebookLM integration")
+    app.add_typer(claude.app, name="claude", help="Claude.ai integration")
     app.add_typer(relay.app, name="relay", help="Browser relay server management")
 
     # Also register convert commands at the top level for convenience

@@ -29,6 +29,18 @@ const PAGE_API_REGISTRY = [
     globalVar: 'window.gobblerNotebookLM',
     methods: ['ask', 'sendMessage', 'getSources', 'getChatContent']
   },
+  {
+    name: 'Claude',
+    pattern: /^https:\/\/claude\.ai/,
+    apiFile: 'page-apis/claude.js',
+    enabled: true,
+    injectionMarker: '__gobblerClaudeInjected',
+    // UI metadata
+    domain: 'claude.ai',
+    description: 'Interact with Claude.ai conversations',
+    globalVar: 'window.gobblerClaude',
+    methods: ['ask', 'sendMessage', 'getChatContent', 'getLastResponse']
+  },
   // Future APIs can be added here:
   // {
   //   name: 'YouTube',

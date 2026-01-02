@@ -341,6 +341,8 @@ async function listGobblerTabs(params = {}) {
   // Apply filter if specified
   if (params.filter === 'notebooklm') {
     tabs = tabs.filter(t => t.url && t.url.includes('notebooklm.google.com'));
+  } else if (params.filter === 'claude') {
+    tabs = tabs.filter(t => t.url && t.url.includes('claude.ai'));
   }
 
   const tabList = tabs.map(t => ({
