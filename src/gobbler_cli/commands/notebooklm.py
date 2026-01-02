@@ -84,43 +84,58 @@ SEND_AND_WAIT_JS = """
 
     sendButton.click();
 
-    // Wait for response
+    // Wait for response with text stability check
     const startTime = Date.now();
+    let lastText = '';
+    let stableCount = 0;
+    const STABLE_THRESHOLD = 3;  // Need 3 consecutive stable checks (3 seconds)
+    
     while (Date.now() - startTime < maxWait) {
         await new Promise(r => setTimeout(r, 1000));
 
         const messages = document.querySelectorAll('chat-message');
+        
+        // Check if we have a new response (user message + assistant message)
         if (messages.length >= initialCount + 2) {
             const lastMsg = messages[messages.length - 1];
             const text = lastMsg?.innerText || '';
 
-            // Skip if still loading
+            // Skip if still showing loading text
             if (text.length < 50 && (text.includes('Finding') || text.includes('Searching') || text.includes('...'))) {
+                stableCount = 0;
+                lastText = '';
                 continue;
             }
 
-            // Wait a bit more to ensure response is complete
-            await new Promise(r => setTimeout(r, 2000));
-
-            // Get the text again in case it updated
-            const finalText = messages[messages.length - 1]?.innerText || text;
-
-            return {
-                success: true,
-                response: finalText,
-                messageCount: messages.length
-            };
+            // Check if text is stable (same as last check)
+            if (text.length > 0 && text === lastText) {
+                stableCount++;
+                // If stable for 3 consecutive seconds, response is complete
+                if (stableCount >= STABLE_THRESHOLD) {
+                    return {
+                        success: true,
+                        response: text,
+                        messageCount: messages.length,
+                        waitTime: Date.now() - startTime
+                    };
+                }
+            } else {
+                // Text changed, reset stability counter
+                lastText = text;
+                stableCount = 1;  // Start at 1 since we have valid text
+            }
         }
     }
 
-    // Return whatever we have
+    // Timeout reached - return whatever we have
     const finalMessages = document.querySelectorAll('chat-message');
     if (finalMessages.length > initialCount) {
         const text = finalMessages[finalMessages.length - 1]?.innerText || '';
         return {
             success: true,
             response: text,
-            partial: true
+            partial: true,
+            waitTime: Date.now() - startTime
         };
     }
 
