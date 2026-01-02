@@ -12,8 +12,9 @@ via the relay server's /command endpoint.
 Features smart detection to check if relay is already running.
 """
 
+import asyncio
 import socket
-from typing import Optional
+from typing import List, Optional
 
 import httpx
 
@@ -68,9 +69,49 @@ async def is_relay_running(
         return False
 
 
-async def get_connection_count(
-    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT
-) -> int:
+async def ensure_relay_running(
+    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 5.0
+) -> bool:
+    """
+    Ensure the relay server is running, starting it if necessary.
+
+    This function checks if the relay is healthy, and if not, starts
+    the relay daemon and waits for it to become available.
+
+    Args:
+        host: Relay host
+        port: Relay port
+        timeout: How long to wait for relay to become healthy after starting
+
+    Returns:
+        True if relay is running and healthy
+
+    Raises:
+        RuntimeError: If relay failed to start within the timeout period
+    """
+    # Check if relay is already running
+    if await is_relay_running(host, port):
+        return True
+
+    # Lazy import to avoid circular imports
+    from gobbler_relay.relay import start_relay_daemon
+
+    # Start the relay daemon
+    start_relay_daemon(host, port)
+
+    # Wait for relay to become healthy
+    start_time = asyncio.get_event_loop().time()
+    while (asyncio.get_event_loop().time() - start_time) < timeout:
+        await asyncio.sleep(0.25)
+        if await is_relay_running(host, port):
+            return True
+
+    raise RuntimeError(
+        f"Failed to start relay server within {timeout} seconds. Check if port {port} is available."
+    )
+
+
+async def get_connection_count(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
     """
     Get the number of connected browser extensions.
 
@@ -152,9 +193,7 @@ async def send_command(
 # Convenience functions for common commands
 
 
-async def check_connection(
-    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT
-) -> dict:
+async def check_connection(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> dict:
     """Check relay and extension connection status."""
     try:
         async with httpx.AsyncClient(timeout=5) as client:
@@ -165,22 +204,34 @@ async def check_connection(
         return {"status": "error", "message": "Relay not running"}
 
 
-async def navigate(
-    url: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT
-) -> dict:
+async def navigate(url: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> dict:
     """Navigate browser to URL."""
     return await send_command("navigate", {"url": url}, host=host, port=port)
 
 
 async def extract_page(
     selector: Optional[str] = None,
+    tab_id: Optional[int] = None,
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
 ) -> dict:
-    """Extract current page as markdown."""
+    """
+    Extract current page as markdown.
+
+    Args:
+        selector: Optional CSS selector to extract specific content
+        tab_id: Optional tab ID to extract from a specific tab
+        host: Relay host
+        port: Relay port
+
+    Returns:
+        Response from the browser extension with extracted content
+    """
     params = {}
     if selector:
         params["selector"] = selector
+    if tab_id is not None:
+        params["tabId"] = tab_id
     return await send_command("extract_page", params, host=host, port=port)
 
 
@@ -206,6 +257,25 @@ async def list_tabs(
     if filter_type:
         params["filter"] = filter_type
     return await send_command("list_gobbler_tabs", params, host=host, port=port)
+
+
+async def open_tabs(
+    urls: List[str],
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+) -> dict:
+    """
+    Open multiple URLs in new browser tabs.
+
+    Args:
+        urls: List of URLs to open
+        host: Relay host
+        port: Relay port
+
+    Returns:
+        Response from the browser extension
+    """
+    return await send_command("open_tabs", {"urls": urls}, host=host, port=port)
 
 
 async def execute_script_in_tab(
