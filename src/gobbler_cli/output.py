@@ -62,6 +62,81 @@ def write_json(
     write_output(json_str, output_path, OutputFormat.JSON)
 
 
+def format_json_success(
+    markdown: str,
+    metadata: dict[str, Any],
+    source: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Format a successful conversion result as JSON.
+
+    Args:
+        markdown: The converted markdown content
+        metadata: Metadata from the converter
+        source: Optional source identifier (URL, file path, etc.)
+
+    Returns:
+        Standardized JSON response dict
+    """
+    response: dict[str, Any] = {
+        "success": True,
+        "markdown": markdown,
+        "metadata": metadata,
+    }
+    if source:
+        response["metadata"]["source"] = source
+    return response
+
+
+def format_json_error(
+    error: str,
+    error_code: str = "CONVERSION_ERROR",
+    source: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Format an error result as JSON.
+
+    Args:
+        error: Error message
+        error_code: Error code identifier
+        source: Optional source identifier
+
+    Returns:
+        Standardized JSON error response dict
+    """
+    response: dict[str, Any] = {
+        "success": False,
+        "error": error,
+        "error_code": error_code,
+    }
+    if source:
+        response["source"] = source
+    return response
+
+
+def write_json_result(
+    result: dict[str, Any],
+    output_path: Optional[Path] = None,
+) -> None:
+    """
+    Write a JSON result to file or stdout without decoration.
+
+    Unlike write_output, this doesn't add any status messages.
+    Suitable for piping to other tools.
+
+    Args:
+        result: Dictionary to serialize as JSON
+        output_path: Optional file path to write to (stdout if None)
+    """
+    json_str = json.dumps(result, indent=2, ensure_ascii=False)
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json_str, encoding="utf-8")
+    else:
+        sys.stdout.write(json_str)
+        sys.stdout.write("\n")
+
+
 def print_error(message: str) -> None:
     """Print an error message to stderr."""
     error_console.print(f"[red]Error:[/red] {message}")

@@ -3,14 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from typing_extensions import Annotated
 
 from gobbler_cli.output import print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
+
+
+def _write_json_line(data: dict[str, Any]) -> None:
+    """Write a JSON line to stdout for streaming output."""
+    sys.stdout.write(json.dumps(data, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
 
 app = typer.Typer(help="Batch processing operations")
 
@@ -38,6 +47,10 @@ def youtube_playlist(
         str,
         typer.Option("--format", "-f", help="Output format (markdown/json)"),
     ] = "markdown",
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
+    ] = False,
 ) -> None:
     """
     Convert all videos in a YouTube playlist to markdown.
@@ -45,6 +58,7 @@ def youtube_playlist(
     Examples:
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./transcripts
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out --concurrency 5
+        gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out --json
     """
     asyncio.run(
         _batch_youtube_playlist(
@@ -54,6 +68,7 @@ def youtube_playlist(
             timestamps=timestamps,
             concurrency=concurrency,
             format=format,
+            json_output=json_output,
         )
     )
 
@@ -65,33 +80,205 @@ async def _batch_youtube_playlist(
     timestamps: bool,
     concurrency: int,
     format: str,
+    json_output: bool = False,
 ) -> None:
     """Async implementation of YouTube playlist batch processing."""
+    import time
+
+    import yt_dlp
+
+    from gobbler_core.converters.youtube import convert_youtube_to_markdown
+
+    # Use json_output param or check format
+    use_json = json_output or format == "json"
+    start_time = time.time()
+
     try:
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # TODO: Implement playlist extraction and batch processing
-        # This will require integration with the batch processing system
-        # For now, provide a placeholder implementation
-        print_info(
-            f"Batch processing YouTube playlist: {url}\n"
-            f"Output directory: {output_dir}\n"
-            f"Concurrency: {concurrency}"
-        )
+        # Extract playlist videos using yt-dlp
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": True,
+            "playlistend": 500,  # Max videos
+        }
 
-        # Import batch processing utilities when implemented
-        # from gobbler_core.batch import process_youtube_playlist
-        # results = await process_youtube_playlist(...)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
 
-        print_error(
-            "Batch processing not yet implemented. "
-            "This requires integration with the daemon/API layer."
-        )
-        raise typer.Exit(1)
+            if not info or "entries" not in info:
+                error_msg = "Invalid playlist URL or playlist is empty"
+                if use_json:
+                    _write_json_line({"success": False, "error": error_msg})
+                else:
+                    print_error(error_msg)
+                raise typer.Exit(1)
 
+            videos = []
+            for entry in info["entries"]:
+                if entry and "id" in entry:
+                    videos.append(
+                        {
+                            "video_id": entry["id"],
+                            "url": f"https://youtube.com/watch?v={entry['id']}",
+                            "title": entry.get("title", f"video_{entry['id']}"),
+                        }
+                    )
+
+        if not videos:
+            error_msg = "No videos found in playlist"
+            if use_json:
+                _write_json_line({"success": False, "error": error_msg})
+            else:
+                print_error(error_msg)
+            raise typer.Exit(1)
+
+        if use_json:
+            _write_json_line(
+                {
+                    "type": "batch_start",
+                    "total": len(videos),
+                    "concurrency": concurrency,
+                    "output_dir": str(output_dir),
+                }
+            )
+        else:
+            print_info(f"Found {len(videos)} videos in playlist")
+
+        # Process videos
+        successful = 0
+        failed = 0
+        skipped = 0
+        success_details: list[dict[str, Any]] = []
+        failures: list[dict[str, Any]] = []
+
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def process_video(
+            video: dict[str, Any],
+        ) -> tuple[dict[str, Any], bool, str, Optional[dict[str, Any]]]:
+            """Process a single video."""
+            async with semaphore:
+                # Sanitize filename
+                safe_title = "".join(
+                    c for c in video["title"] if c.isalnum() or c in (" ", "-", "_")
+                ).strip()
+                safe_title = safe_title.replace(" ", "_") or f"video_{video['video_id']}"
+                output_path = output_dir / f"{safe_title}.md"
+
+                # Skip if exists
+                if output_path.exists():
+                    return (video, True, "skipped", None)
+
+                try:
+                    markdown, metadata = await convert_youtube_to_markdown(
+                        video_url=video["url"],
+                        include_timestamps=timestamps,
+                        language=language,
+                    )
+
+                    # Write output
+                    output_path.write_text(markdown, encoding="utf-8")
+                    return (video, True, "success", {"output_file": str(output_path), **metadata})
+
+                except Exception as e:
+                    return (video, False, str(e), None)
+
+        # Create and run tasks
+        tasks = [process_video(v) for v in videos]
+
+        if use_json:
+            for coro in asyncio.as_completed(tasks):
+                video, success, message, metadata = await coro
+
+                if success:
+                    if message == "skipped":
+                        skipped += 1
+                        _write_json_line(
+                            {
+                                "type": "item_skipped",
+                                "source": video["url"],
+                                "title": video["title"],
+                            }
+                        )
+                    else:
+                        successful += 1
+                        success_details.append(
+                            {
+                                "source": video["url"],
+                                "output_file": metadata.get("output_file", "") if metadata else "",
+                            }
+                        )
+                        _write_json_line(
+                            {
+                                "type": "item_success",
+                                "source": video["url"],
+                                "title": video["title"],
+                            }
+                        )
+                else:
+                    failed += 1
+                    failures.append({"source": video["url"], "error": message})
+                    _write_json_line(
+                        {
+                            "type": "item_error",
+                            "source": video["url"],
+                            "error": message,
+                        }
+                    )
+
+            # Output final JSON summary
+            processing_time = time.time() - start_time
+            _write_json_line(
+                {
+                    "type": "batch_complete",
+                    "success": failed == 0,
+                    "total_items": len(videos),
+                    "successful": successful,
+                    "failed": failed,
+                    "skipped": skipped,
+                    "output_dir": str(output_dir),
+                    "processing_time_seconds": processing_time,
+                    "success_details": success_details,
+                    "failures": failures,
+                }
+            )
+        else:
+            # Progress bar mode
+            progress = create_progress()
+            with progress:
+                task = progress.add_task("Processing videos", total=len(videos))
+
+                for coro in asyncio.as_completed(tasks):
+                    video, success, message, metadata = await coro
+
+                    if success:
+                        if message == "skipped":
+                            skipped += 1
+                        else:
+                            successful += 1
+                    else:
+                        failed += 1
+                        print_error(f"Failed: {video['title']} - {message}")
+
+                    progress.update(task, advance=1)
+
+            print_success(f"Processed {successful} videos successfully")
+            if skipped > 0:
+                print_info(f"Skipped {skipped} existing files")
+            if failed > 0:
+                print_error(f"{failed} videos failed to process")
+                raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
     except Exception as e:
-        print_error(f"Failed to process YouTube playlist: {e}")
+        if use_json:
+            _write_json_line({"success": False, "error": str(e)})
+        else:
+            print_error(f"Failed to process YouTube playlist: {e}")
         raise typer.Exit(1)
 
 
@@ -118,6 +305,10 @@ def directory(
             help="File type to process (audio/document/auto-detect if not specified)",
         ),
     ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
+    ] = False,
 ) -> None:
     """
     Batch convert files from a directory.
@@ -125,6 +316,7 @@ def directory(
     Examples:
         gobbler batch directory ./recordings -o ./transcripts --pattern "*.mp3"
         gobbler batch directory ./docs -o ./markdown --pattern "*.pdf" --type document
+        gobbler batch directory ./docs -o ./markdown --json
     """
     asyncio.run(
         _batch_directory(
@@ -133,6 +325,7 @@ def directory(
             pattern=pattern,
             concurrency=concurrency,
             file_type=file_type,
+            json_output=json_output,
         )
     )
 
@@ -143,12 +336,22 @@ async def _batch_directory(
     pattern: str,
     concurrency: int,
     file_type: Optional[str],
+    json_output: bool = False,
 ) -> None:
     """Async implementation of directory batch processing."""
     try:
         # Validate input directory
         if not input_dir.exists() or not input_dir.is_dir():
-            raise ValueError(f"Input directory not found: {input_dir}")
+            error_msg = f"Input directory not found: {input_dir}"
+            if json_output:
+                _write_json_line(
+                    {
+                        "success": False,
+                        "error": error_msg,
+                        "error_code": "DIRECTORY_NOT_FOUND",
+                    }
+                )
+            raise ValueError(error_msg)
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -156,19 +359,38 @@ async def _batch_directory(
         # Find matching files
         files = list(input_dir.glob(pattern))
         if not files:
-            print_info(f"No files matching pattern '{pattern}' found in {input_dir}")
+            if json_output:
+                _write_json_line(
+                    {
+                        "type": "batch_complete",
+                        "success": True,
+                        "summary": {"total": 0, "successful": 0, "failed": 0, "skipped": 0},
+                        "message": f"No files matching pattern '{pattern}' found",
+                    }
+                )
+            else:
+                print_info(f"No files matching pattern '{pattern}' found in {input_dir}")
             return
 
-        print_info(f"Found {len(files)} files to process")
+        if json_output:
+            _write_json_line(
+                {
+                    "type": "batch_start",
+                    "total": len(files),
+                    "pattern": pattern,
+                    "input_dir": str(input_dir),
+                    "output_dir": str(output_dir),
+                }
+            )
+        else:
+            print_info(f"Found {len(files)} files to process")
 
-        # Process files with progress bar
-        progress = create_progress()
-        with progress:
-            task = progress.add_task("Processing files", total=len(files))
+        successful = 0
+        failed = 0
+        skipped = 0
 
-            successful = 0
-            failed = 0
-
+        if json_output:
+            # JSON output mode - no progress bar
             for file_path in files:
                 try:
                     # Determine file type
@@ -179,35 +401,115 @@ async def _batch_directory(
 
                     # Convert based on type
                     if detected_type == "audio":
-                        from gobbler_core.converters.audio import transcribe_audio
+                        from gobbler_core.converters.audio import convert_audio_to_markdown
 
-                        result = await transcribe_audio(str(file_path))
+                        result, metadata = await convert_audio_to_markdown(str(file_path))
                     elif detected_type == "document":
-                        from gobbler_core.converters.document import convert_document
+                        from gobbler_core.converters.document import convert_document_to_markdown
 
-                        result = await convert_document(str(file_path))
+                        result, metadata = await convert_document_to_markdown(str(file_path))
                     else:
-                        print_info(f"Skipping unknown file type: {file_path}")
-                        progress.update(task, advance=1)
+                        skipped += 1
+                        _write_json_line(
+                            {
+                                "type": "item_skipped",
+                                "file": str(file_path),
+                                "reason": "unknown_type",
+                            }
+                        )
                         continue
 
                     # Write output
                     output_path.write_text(result, encoding="utf-8")
                     successful += 1
+                    _write_json_line(
+                        {
+                            "type": "item_success",
+                            "file": str(file_path),
+                            "output": str(output_path),
+                            "metadata": metadata,
+                        }
+                    )
 
                 except Exception as e:
-                    print_error(f"Failed to process {file_path.name}: {e}")
                     failed += 1
+                    _write_json_line(
+                        {
+                            "type": "item_error",
+                            "file": str(file_path),
+                            "error": str(e),
+                        }
+                    )
 
-                progress.update(task, advance=1)
+            # Final summary
+            _write_json_line(
+                {
+                    "type": "batch_complete",
+                    "success": failed == 0,
+                    "summary": {
+                        "total": len(files),
+                        "successful": successful,
+                        "failed": failed,
+                        "skipped": skipped,
+                    },
+                }
+            )
+        else:
+            # Process files with progress bar
+            progress = create_progress()
+            with progress:
+                task = progress.add_task("Processing files", total=len(files))
 
-        # Print summary
-        print_success(f"Processed {successful} files successfully")
-        if failed > 0:
-            print_error(f"{failed} files failed to process")
+                for file_path in files:
+                    try:
+                        # Determine file type
+                        detected_type = file_type or _detect_file_type(file_path)
+
+                        # Generate output filename
+                        output_path = output_dir / f"{file_path.stem}.md"
+
+                        # Convert based on type
+                        if detected_type == "audio":
+                            from gobbler_core.converters.audio import convert_audio_to_markdown
+
+                            result, metadata = await convert_audio_to_markdown(str(file_path))
+                        elif detected_type == "document":
+                            from gobbler_core.converters.document import (
+                                convert_document_to_markdown,
+                            )
+
+                            result, metadata = await convert_document_to_markdown(str(file_path))
+                        else:
+                            print_info(f"Skipping unknown file type: {file_path}")
+                            progress.update(task, advance=1)
+                            continue
+
+                        # Write output
+                        output_path.write_text(result, encoding="utf-8")
+                        successful += 1
+
+                    except Exception as e:
+                        print_error(f"Failed to process {file_path.name}: {e}")
+                        failed += 1
+
+                    progress.update(task, advance=1)
+
+            # Print summary
+            print_success(f"Processed {successful} files successfully")
+            if failed > 0:
+                print_error(f"{failed} files failed to process")
 
     except Exception as e:
-        print_error(f"Failed to process directory: {e}")
+        if json_output:
+            _write_json_line(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "error_code": "BATCH_PROCESSING_ERROR",
+                }
+            )
+        else:
+            print_error(f"Failed to process directory: {e}")
         raise typer.Exit(1)
 
 
@@ -272,6 +574,10 @@ def webpages(
         bool,
         typer.Option("--queue", help="Queue the batch job instead of running inline"),
     ] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
+    ] = False,
 ) -> None:
     """
     Batch convert web pages to markdown.
@@ -284,6 +590,7 @@ def webpages(
         cat urls.txt | gobbler batch webpages -o ./output
         gobbler batch webpages urls.txt -o ./out --concurrency 5 --timeout 60
         gobbler batch webpages urls.txt -o ./out --queue
+        gobbler batch webpages urls.txt -o ./out --json
     """
     if queue:
         _queue_batch_webpages(
@@ -303,6 +610,7 @@ def webpages(
                 timeout=timeout,
                 selector=selector,
                 skip_existing=skip_existing,
+                json_output=json_output,
             )
         )
 
@@ -446,6 +754,7 @@ async def _batch_webpages(
     timeout: int,
     selector: Optional[str],
     skip_existing: bool,
+    json_output: bool = False,
 ) -> None:
     """Async implementation of batch webpage processing."""
     from gobbler_core.converters.webpage import convert_webpage_to_markdown
@@ -454,24 +763,44 @@ async def _batch_webpages(
         # Read URLs
         urls = _read_urls(input_file)
         if not urls:
-            print_error("No valid URLs found in input")
+            if json_output:
+                _write_json_line(
+                    {
+                        "success": False,
+                        "error": "No valid URLs found in input",
+                        "error_code": "NO_URLS_FOUND",
+                    }
+                )
+            else:
+                print_error("No valid URLs found in input")
             raise typer.Exit(1)
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        print_info(f"Processing {len(urls)} URLs with concurrency {concurrency}")
+        if json_output:
+            _write_json_line(
+                {
+                    "type": "batch_start",
+                    "total": len(urls),
+                    "concurrency": concurrency,
+                    "output_dir": str(output_dir),
+                }
+            )
+        else:
+            print_info(f"Processing {len(urls)} URLs with concurrency {concurrency}")
 
         # Track results
         successful = 0
         failed = 0
         skipped = 0
+        results: list[dict[str, Any]] = []
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(concurrency)
 
-        async def process_url(url: str) -> tuple[str, bool, str]:
-            """Process a single URL. Returns (url, success, message)."""
+        async def process_url(url: str) -> tuple[str, bool, str, Optional[dict[str, Any]]]:
+            """Process a single URL. Returns (url, success, message, metadata)."""
             async with semaphore:
                 # Generate output filename
                 filename = _sanitize_url_to_filename(url) + ".md"
@@ -479,7 +808,7 @@ async def _batch_webpages(
 
                 # Check if already exists
                 if skip_existing and output_path.exists():
-                    return (url, True, "skipped")
+                    return (url, True, "skipped", None)
 
                 try:
                     # Convert webpage to markdown
@@ -490,44 +819,105 @@ async def _batch_webpages(
 
                     # Write output
                     output_path.write_text(markdown_content, encoding="utf-8")
-                    return (url, True, "success")
+                    return (url, True, "success", metadata)
 
                 except Exception as e:
-                    return (url, False, str(e))
+                    return (url, False, str(e), None)
 
-        # Process all URLs with progress bar
-        progress = create_progress()
-        with progress:
-            task = progress.add_task("Converting webpages", total=len(urls))
-
-            # Create tasks for all URLs
+        if json_output:
+            # JSON output mode - no progress bar, stream JSON lines
             tasks = [process_url(url) for url in urls]
 
-            # Process with asyncio.as_completed for real-time progress
             for coro in asyncio.as_completed(tasks):
-                url, success, message = await coro
+                url, success, message, metadata = await coro
 
                 if success:
                     if message == "skipped":
                         skipped += 1
+                        _write_json_line(
+                            {
+                                "type": "item_skipped",
+                                "url": url,
+                                "reason": "already_exists",
+                            }
+                        )
                     else:
                         successful += 1
+                        _write_json_line(
+                            {
+                                "type": "item_success",
+                                "url": url,
+                                "metadata": metadata,
+                            }
+                        )
+                        results.append({"url": url, "success": True, "metadata": metadata})
                 else:
                     failed += 1
-                    print_error(f"Failed: {url} - {message}")
+                    _write_json_line(
+                        {
+                            "type": "item_error",
+                            "url": url,
+                            "error": message,
+                        }
+                    )
+                    results.append({"url": url, "success": False, "error": message})
 
-                progress.update(task, advance=1)
+            # Final summary
+            _write_json_line(
+                {
+                    "type": "batch_complete",
+                    "success": failed == 0,
+                    "summary": {
+                        "total": len(urls),
+                        "successful": successful,
+                        "failed": failed,
+                        "skipped": skipped,
+                    },
+                }
+            )
+        else:
+            # Normal progress bar mode
+            progress = create_progress()
+            with progress:
+                task = progress.add_task("Converting webpages", total=len(urls))
 
-        # Print summary
-        print_success(f"Converted {successful} webpages successfully")
-        if skipped > 0:
-            print_info(f"Skipped {skipped} existing files")
-        if failed > 0:
-            print_error(f"{failed} webpages failed to convert")
-            raise typer.Exit(1)
+                # Create tasks for all URLs
+                tasks = [process_url(url) for url in urls]
+
+                # Process with asyncio.as_completed for real-time progress
+                for coro in asyncio.as_completed(tasks):
+                    url, success, message, metadata = await coro
+
+                    if success:
+                        if message == "skipped":
+                            skipped += 1
+                        else:
+                            successful += 1
+                    else:
+                        failed += 1
+                        print_error(f"Failed: {url} - {message}")
+
+                    progress.update(task, advance=1)
+
+            # Print summary
+            print_success(f"Converted {successful} webpages successfully")
+            if skipped > 0:
+                print_info(f"Skipped {skipped} existing files")
+            if failed > 0:
+                print_error(f"{failed} webpages failed to convert")
+                raise typer.Exit(1)
 
     except typer.Exit:
         raise
     except Exception as e:
-        print_error(f"Failed to process webpages: {e}")
+        if json_output:
+            _write_json_line(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "error_code": "BATCH_PROCESSING_ERROR",
+                }
+            )
+        else:
+            print_error(f"Failed to process webpages: {e}")
         raise typer.Exit(1)

@@ -263,37 +263,88 @@ def extract(
         Optional[int],
         typer.Option("--tab", "-t", help="Specific tab ID (active tab if not specified)"),
     ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output as JSON with metadata"),
+    ] = False,
 ) -> None:
     """Extract a page as markdown."""
-    asyncio.run(_extract(selector, output, tab_id))
+    asyncio.run(_extract(selector, output, tab_id, json_output))
 
 
-async def _extract(selector: Optional[str], output: Optional[Path], tab_id: Optional[int]) -> None:
+async def _extract(
+    selector: Optional[str],
+    output: Optional[Path],
+    tab_id: Optional[int],
+    json_output: bool = False,
+) -> None:
     """Async implementation of extract."""
     from gobbler_relay.client import extract_page
 
     ok, auto_started, msg = await _check_relay_and_extension()
-    if auto_started:
+    if auto_started and not json_output:
         print_info("Relay server started automatically")
     if not ok:
-        print_error(msg)
+        if json_output:
+            json_result = {
+                "success": False,
+                "error": msg,
+                "error_code": "RELAY_CONNECTION_ERROR",
+            }
+            console.print_json(json.dumps(json_result))
+        else:
+            print_error(msg)
         raise typer.Exit(1)
 
     try:
         result = await extract_page(selector=selector, tab_id=tab_id)
 
         if not result.get("success"):
-            print_error(result.get("error", "Extraction failed"))
+            error_msg = result.get("error", "Extraction failed")
+            if json_output:
+                json_result = {
+                    "success": False,
+                    "error": error_msg,
+                    "error_code": "EXTRACTION_ERROR",
+                }
+                console.print_json(json.dumps(json_result))
+            else:
+                print_error(error_msg)
             raise typer.Exit(1)
 
         markdown = result.get("markdown", "")
-        write_output(markdown, output, OutputFormat.MARKDOWN)
+        metadata = {
+            "url": result.get("url", ""),
+            "title": result.get("title", ""),
+            "tab_id": result.get("tabId"),
+        }
 
-        if output:
-            print_success("Page extracted successfully")
+        if json_output:
+            json_result = {
+                "success": True,
+                "markdown": markdown,
+                "metadata": metadata,
+            }
+            if output:
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(json.dumps(json_result, indent=2), encoding="utf-8")
+            else:
+                console.print_json(json.dumps(json_result))
+        else:
+            write_output(markdown, output, OutputFormat.MARKDOWN)
+            if output:
+                print_success("Page extracted successfully")
 
     except RuntimeError as e:
-        print_error(str(e))
+        if json_output:
+            json_result = {
+                "success": False,
+                "error": str(e),
+                "error_code": "RUNTIME_ERROR",
+            }
+            console.print_json(json.dumps(json_result))
+        else:
+            print_error(str(e))
         raise typer.Exit(1)
 
 

@@ -11,9 +11,12 @@ from typing_extensions import Annotated
 
 from gobbler_cli.output import (
     OutputFormat,
+    format_json_error,
+    format_json_success,
     print_error,
     print_success,
     print_warning,
+    write_json_result,
     write_output,
 )
 from gobbler_cli.progress import ProgressTracker
@@ -79,12 +82,19 @@ async def _convert_youtube(
                 include_timestamps=timestamps,
             )
 
-        write_output(result, output, format)
-
-        if output:
-            print_success(f"YouTube video converted successfully")
+        if format == OutputFormat.JSON:
+            json_result = format_json_success(result, metadata, source=url)
+            write_json_result(json_result, output)
+        else:
+            write_output(result, output, format)
+            if output:
+                print_success("YouTube video converted successfully")
     except Exception as e:
-        print_error(f"Failed to convert YouTube video: {e}")
+        if format == OutputFormat.JSON:
+            json_result = format_json_error(str(e), "YOUTUBE_CONVERSION_ERROR", source=url)
+            write_json_result(json_result)
+        else:
+            print_error(f"Failed to convert YouTube video: {e}")
         raise typer.Exit(1)
 
 
@@ -141,6 +151,7 @@ async def _convert_audio(
     format: OutputFormat,
 ) -> None:
     """Async implementation of audio conversion."""
+    source = str(file_path)
     try:
         # Validate file exists
         if not file_path.exists():
@@ -151,7 +162,7 @@ async def _convert_audio(
 
         with ProgressTracker("Transcribing audio file"):
             # Note: timestamps option is not currently supported by the underlying converter
-            if timestamps:
+            if timestamps and format != OutputFormat.JSON:
                 print_warning("Timestamps option is not yet implemented in the audio converter")
 
             result, metadata = await convert_audio_to_markdown(
@@ -160,12 +171,19 @@ async def _convert_audio(
                 model=model,
             )
 
-        write_output(result, output, format)
-
-        if output:
-            print_success(f"Audio file transcribed successfully")
+        if format == OutputFormat.JSON:
+            json_result = format_json_success(result, metadata, source=source)
+            write_json_result(json_result, output)
+        else:
+            write_output(result, output, format)
+            if output:
+                print_success("Audio file transcribed successfully")
     except Exception as e:
-        print_error(f"Failed to transcribe audio: {e}")
+        if format == OutputFormat.JSON:
+            json_result = format_json_error(str(e), "AUDIO_CONVERSION_ERROR", source=source)
+            write_json_result(json_result)
+        else:
+            print_error(f"Failed to transcribe audio: {e}")
         raise typer.Exit(1)
 
 
@@ -210,6 +228,7 @@ async def _convert_document(
     format: OutputFormat,
 ) -> None:
     """Async implementation of document conversion."""
+    source = str(file_path)
     try:
         # Validate file exists
         if not file_path.exists():
@@ -224,12 +243,19 @@ async def _convert_document(
                 enable_ocr=ocr,
             )
 
-        write_output(result, output, format)
-
-        if output:
-            print_success(f"Document converted successfully")
+        if format == OutputFormat.JSON:
+            json_result = format_json_success(result, metadata, source=source)
+            write_json_result(json_result, output)
+        else:
+            write_output(result, output, format)
+            if output:
+                print_success("Document converted successfully")
     except Exception as e:
-        print_error(f"Failed to convert document: {e}")
+        if format == OutputFormat.JSON:
+            json_result = format_json_error(str(e), "DOCUMENT_CONVERSION_ERROR", source=source)
+            write_json_result(json_result)
+        else:
+            print_error(f"Failed to convert document: {e}")
         raise typer.Exit(1)
 
 
@@ -287,7 +313,7 @@ async def _convert_webpage(
         with ProgressTracker("Converting web page"):
             # Note: css_selector is not currently supported by the underlying converter
             # It uses the Gobbler service for extraction instead
-            if css_selector:
+            if css_selector and format != OutputFormat.JSON:
                 print_warning("CSS selector option is not yet implemented in the webpage converter")
 
             result, metadata = await convert_webpage_to_markdown(
@@ -295,10 +321,17 @@ async def _convert_webpage(
                 timeout=timeout,
             )
 
-        write_output(result, output, format)
-
-        if output:
-            print_success(f"Web page converted successfully")
+        if format == OutputFormat.JSON:
+            json_result = format_json_success(result, metadata, source=url)
+            write_json_result(json_result, output)
+        else:
+            write_output(result, output, format)
+            if output:
+                print_success("Web page converted successfully")
     except Exception as e:
-        print_error(f"Failed to convert web page: {e}")
+        if format == OutputFormat.JSON:
+            json_result = format_json_error(str(e), "WEBPAGE_CONVERSION_ERROR", source=url)
+            write_json_result(json_result)
+        else:
+            print_error(f"Failed to convert web page: {e}")
         raise typer.Exit(1)

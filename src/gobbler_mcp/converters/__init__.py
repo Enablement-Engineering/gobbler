@@ -1,11 +1,11 @@
 """Converter modules for MCP tools.
 
-Most converters live in gobbler_core for standalone use.
+All converters now live in gobbler_core for standalone use.
 This module re-exports them for backwards compatibility with
 existing imports from gobbler_mcp.converters.
 
 The webpage_selector converter remains here as it has MCP-specific
-dependencies (crawl sessions, etc.).
+dependencies (config, crawl sessions, etc.).
 """
 
 # Re-export core converters for backwards compatibility
