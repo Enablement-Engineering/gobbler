@@ -38,9 +38,7 @@ def main(
 def completion(
     shell: Annotated[
         str,
-        typer.Argument(
-            help="Shell to generate completion for (bash, zsh, fish, or powershell)"
-        ),
+        typer.Argument(help="Shell to generate completion for (bash, zsh, fish, or powershell)"),
     ] = "bash",
 ) -> None:
     """
@@ -65,18 +63,24 @@ def completion(
     try:
         if shell == "bash":
             from click.shell_completion import BashComplete
+
             complete = BashComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "zsh":
             from click.shell_completion import ZshComplete
+
             complete = ZshComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "fish":
             from click.shell_completion import FishComplete
+
             complete = FishComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "powershell":
-            typer.echo("PowerShell completion not supported in this version. Use --install-completion instead.", err=True)
+            typer.echo(
+                "PowerShell completion not supported in this version. Use --install-completion instead.",
+                err=True,
+            )
             raise typer.Exit(1)
         else:
             typer.echo(f"Unsupported shell: {shell}", err=True)
@@ -92,13 +96,16 @@ def completion(
 def cli() -> None:
     """Entry point for the CLI."""
     # Import command modules here to register them
-    from gobbler_cli.commands import batch, convert, daemon, jobs
+    from gobbler_cli.commands import batch, browser, convert, daemon, jobs, notebooklm, relay
 
     # Add command groups
     app.add_typer(convert.app, name="convert", help="Convert individual content items")
     app.add_typer(batch.app, name="batch", help="Batch processing operations")
     app.add_typer(daemon.app, name="daemon", help="Daemon management")
     app.add_typer(jobs.app, name="jobs", help="Job management")
+    app.add_typer(browser.app, name="browser", help="Browser extension automation")
+    app.add_typer(notebooklm.app, name="notebooklm", help="NotebookLM integration")
+    app.add_typer(relay.app, name="relay", help="Browser relay server management")
 
     # Also register convert commands at the top level for convenience
     # This allows both "gobbler youtube URL" and "gobbler convert youtube URL"
