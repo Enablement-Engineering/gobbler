@@ -413,15 +413,21 @@ async def _query(message: str, tab_id: Optional[int], timeout: int) -> None:
     if isinstance(data, dict):
         if data.get("success"):
             response = _clean_response(data.get("response", "No response"))
+
+            # Print full response without truncation
             console.print("[bold green]Response:[/bold green]\n")
-            console.print(response)
+            # Use print() for raw output to avoid any rich formatting issues
+            print(response)
+            print()  # Blank line after response
+
             if data.get("partial"):
-                print_warning("Response may be incomplete")
+                print_warning("Response may be incomplete (timeout reached)")
+                print_info("Use 'gobbler notebooklm last' to check for complete response")
         else:
             print_error(data.get("error", "Unknown error"))
             raise typer.Exit(1)
     else:
-        console.print(str(data))
+        print(str(data))
 
 
 @app.command()

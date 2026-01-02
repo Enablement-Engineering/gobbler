@@ -1,12 +1,26 @@
 ---
 name: notebooklm
 description: "Query Google NotebookLM notebooks via browser automation. Use when user wants to ask NotebookLM questions, get chat history, or interact with their research notebooks."
-version: 2.1.0
+version: 2.2.0
 ---
 
 # NotebookLM Integration
 
 Query NotebookLM notebooks through the Gobbler CLI. The browser extension connects to NotebookLM tabs and allows sending queries and retrieving responses.
+
+## CRITICAL: One Query at a Time
+
+**NotebookLM can only process ONE query at a time per notebook.** 
+
+- NEVER send multiple queries in parallel to the same notebook
+- ALWAYS wait for a response before sending the next query
+- If you need to query multiple topics, send them SEQUENTIALLY with 3-second delays
+
+**For parallel research:** Open multiple notebooks in separate tabs, then query each tab by its ID:
+```bash
+gobbler notebooklm query "Question for notebook 1" --tab 123456
+gobbler notebooklm query "Question for notebook 2" --tab 789012
+```
 
 ## Prerequisites
 
@@ -26,9 +40,9 @@ gobbler relay status
 gobbler notebooklm list
 
 # 3. Send a query and wait for response
-gobbler notebooklm query "Your question here"
+gobbler notebooklm query "Your question here" --timeout 120
 
-# 4. If response was truncated, get full last response
+# 4. Get the complete response (always do this)
 gobbler notebooklm last
 ```
 
@@ -99,7 +113,7 @@ gobbler notebooklm info
 
 ## Recommended Workflow for AI Agents
 
-When querying NotebookLM, follow this pattern:
+**IMPORTANT: Execute these steps SEQUENTIALLY, never in parallel.**
 
 ### Step 1: Verify Connection
 
@@ -122,7 +136,7 @@ gobbler notebooklm list
 
 Note the Tab ID if you have multiple notebooks open.
 
-### Step 3: Send Query
+### Step 3: Send Query (ONE AT A TIME)
 
 ```bash
 gobbler notebooklm query "Your question" --timeout 120
@@ -141,13 +155,31 @@ gobbler notebooklm last
 
 **Always run this** after a query to ensure you capture the complete response.
 
-### Step 5: Follow-up Questions
+### Step 5: Follow-up Questions (SEQUENTIAL ONLY)
 
-Wait 2-3 seconds between queries to avoid rate limiting:
+Wait 3 seconds, then send the next query:
 
 ```bash
-gobbler notebooklm query "Follow-up question" --timeout 90
+# Wait 3 seconds before next query
+gobbler notebooklm query "Follow-up question" --timeout 120
 gobbler notebooklm last
+```
+
+### Multiple Notebooks Pattern
+
+If you need to query multiple topics in parallel, use DIFFERENT notebooks:
+
+```bash
+# First, list all notebooks
+gobbler notebooklm list
+
+# Query different notebooks by tab ID (these CAN be parallel)
+gobbler notebooklm query "Question A" --tab 111111 --timeout 120
+gobbler notebooklm query "Question B" --tab 222222 --timeout 120
+
+# Then get responses
+gobbler notebooklm last --tab 111111
+gobbler notebooklm last --tab 222222
 ```
 
 ---
@@ -218,11 +250,13 @@ $ gobbler notebooklm last
 
 ## Tips for Effective Queries
 
-1. **Be specific** - "What does source X say about Y?" works better than vague questions
-2. **Reference sources** - NotebookLM responds better when you mention specific sources
-3. **Ask for citations** - Add "with citations" to get source references
-4. **One topic per query** - Break complex questions into focused queries
-5. **Use follow-ups** - Build on previous responses rather than asking everything at once
+1. **One query at a time** - NEVER send parallel queries to the same notebook
+2. **Be specific** - "What does source X say about Y?" works better than vague questions
+3. **Reference sources** - NotebookLM responds better when you mention specific sources
+4. **Ask for citations** - Add "with citations" to get source references
+5. **One topic per query** - Break complex questions into focused queries
+6. **Use follow-ups** - Build on previous responses rather than asking everything at once
+7. **Always get full response** - Run `gobbler notebooklm last` after every query
 
 ---
 
@@ -235,3 +269,12 @@ $ gobbler notebooklm last
 | Relay error | Relay running? | `gobbler relay start` |
 | Timeout | Question too complex? | Increase `--timeout` or simplify query |
 | Truncated | Terminal limit | Run `gobbler notebooklm last` |
+| Garbled response | Parallel queries sent? | STOP. Wait. Query ONE at a time. |
+| No response | Previous query still running? | Wait for it to complete, then retry |
+
+## Common Mistakes to Avoid
+
+1. **Sending multiple queries in parallel** - This will cause failures or garbled responses
+2. **Not waiting for response** - Always wait for query to complete before sending another
+3. **Not using `last` command** - Query output may be truncated; always verify with `last`
+4. **Short timeouts** - NotebookLM can take 60-120 seconds for complex queries
