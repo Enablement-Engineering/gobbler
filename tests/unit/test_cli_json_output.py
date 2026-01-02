@@ -1,0 +1,695 @@
+"""Unit tests for CLI JSON output functionality."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+from typer.testing import CliRunner
+
+from gobbler_cli.main import app
+from gobbler_cli.output import (
+    OutputFormat,
+    format_json_error,
+    format_json_success,
+    write_json_result,
+    write_output,
+)
+
+
+# =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def runner() -> CliRunner:
+    """Create a CLI test runner."""
+    return CliRunner()
+
+
+@pytest.fixture
+def cli_app():
+    """Create and configure the CLI app for testing."""
+    # Import command modules to register them
+    from gobbler_cli.commands import batch, convert, daemon, jobs
+
+    # Add command groups (may already be registered, but typer handles duplicates)
+    try:
+        app.add_typer(convert.app, name="convert", help="Convert individual content items")
+    except Exception:
+        pass
+    try:
+        app.add_typer(batch.app, name="batch", help="Batch processing operations")
+    except Exception:
+        pass
+    try:
+        app.add_typer(daemon.app, name="daemon", help="Daemon management")
+    except Exception:
+        pass
+    try:
+        app.add_typer(jobs.app, name="jobs", help="Job management")
+    except Exception:
+        pass
+
+    return app
+
+
+@pytest.fixture
+def sample_metadata() -> dict[str, Any]:
+    """Return sample metadata for testing."""
+    return {
+        "title": "Test Video",
+        "channel": "Test Channel",
+        "duration": 120,
+        "language": "en",
+        "word_count": 500,
+    }
+
+
+@pytest.fixture
+def temp_output_file(tmp_path: Path) -> Path:
+    """Create a temporary output file path."""
+    return tmp_path / "output.json"
+
+
+# =============================================================================
+# Tests for output.py helper functions
+# =============================================================================
+
+
+class TestFormatJsonSuccess:
+    """Tests for format_json_success() function."""
+
+    def test_basic_success_structure(self, sample_metadata: dict[str, Any]) -> None:
+        """Test that format_json_success returns correct basic structure."""
+        markdown = "# Test Content\n\nThis is test content."
+
+        result = format_json_success(markdown, sample_metadata)
+
+        assert result["success"] is True
+        assert result["markdown"] == markdown
+        assert "metadata" in result
+        assert result["metadata"]["title"] == "Test Video"
+        assert result["metadata"]["channel"] == "Test Channel"
+
+    def test_success_with_source(self, sample_metadata: dict[str, Any]) -> None:
+        """Test that source is added to metadata when provided."""
+        markdown = "# Test"
+        source = "https://youtube.com/watch?v=test123"
+
+        result = format_json_success(markdown, sample_metadata, source=source)
+
+        assert result["success"] is True
+        assert result["metadata"]["source"] == source
+
+    def test_success_without_source(self, sample_metadata: dict[str, Any]) -> None:
+        """Test that source is not in metadata when not provided."""
+        markdown = "# Test"
+
+        result = format_json_success(markdown, sample_metadata)
+
+        assert "source" not in result["metadata"]
+
+    def test_metadata_preserved(self) -> None:
+        """Test that all metadata fields are preserved."""
+        markdown = "# Test"
+        metadata = {
+            "title": "My Title",
+            "duration": 300,
+            "custom_field": "custom_value",
+            "nested": {"key": "value"},
+        }
+
+        result = format_json_success(markdown, metadata)
+
+        assert result["metadata"]["title"] == "My Title"
+        assert result["metadata"]["duration"] == 300
+        assert result["metadata"]["custom_field"] == "custom_value"
+        assert result["metadata"]["nested"]["key"] == "value"
+
+    def test_empty_metadata(self) -> None:
+        """Test handling of empty metadata."""
+        result = format_json_success("# Content", {})
+
+        assert result["success"] is True
+        assert result["metadata"] == {}
+
+    def test_empty_markdown(self, sample_metadata: dict[str, Any]) -> None:
+        """Test handling of empty markdown content."""
+        result = format_json_success("", sample_metadata)
+
+        assert result["success"] is True
+        assert result["markdown"] == ""
+
+
+class TestFormatJsonError:
+    """Tests for format_json_error() function."""
+
+    def test_basic_error_structure(self) -> None:
+        """Test that format_json_error returns correct basic structure."""
+        error_msg = "Something went wrong"
+
+        result = format_json_error(error_msg)
+
+        assert result["success"] is False
+        assert result["error"] == error_msg
+        assert result["error_code"] == "CONVERSION_ERROR"
+
+    def test_custom_error_code(self) -> None:
+        """Test that custom error codes are properly set."""
+        result = format_json_error(
+            "Video not found",
+            error_code="YOUTUBE_CONVERSION_ERROR",
+        )
+
+        assert result["error_code"] == "YOUTUBE_CONVERSION_ERROR"
+
+    def test_error_with_source(self) -> None:
+        """Test that source is included when provided."""
+        source = "https://example.com/video"
+
+        result = format_json_error(
+            "Network error",
+            error_code="NETWORK_ERROR",
+            source=source,
+        )
+
+        assert result["source"] == source
+
+    def test_error_without_source(self) -> None:
+        """Test that source is not included when not provided."""
+        result = format_json_error("Error message")
+
+        assert "source" not in result
+
+    def test_various_error_codes(self) -> None:
+        """Test handling of various error code types."""
+        error_codes = [
+            "YOUTUBE_CONVERSION_ERROR",
+            "AUDIO_CONVERSION_ERROR",
+            "DOCUMENT_CONVERSION_ERROR",
+            "WEBPAGE_CONVERSION_ERROR",
+            "BATCH_PROCESSING_ERROR",
+        ]
+
+        for code in error_codes:
+            result = format_json_error("Error", error_code=code)
+            assert result["error_code"] == code
+
+
+class TestWriteJsonResult:
+    """Tests for write_json_result() function."""
+
+    def test_write_to_stdout(self, capsys) -> None:
+        """Test that write_json_result writes to stdout when no path given."""
+        data = {"success": True, "markdown": "# Test"}
+
+        write_json_result(data)
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out.strip())
+        assert output["success"] is True
+        assert output["markdown"] == "# Test"
+
+    def test_write_to_file(self, temp_output_file: Path) -> None:
+        """Test that write_json_result writes to file correctly."""
+        data = {"success": True, "data": "test"}
+
+        write_json_result(data, temp_output_file)
+
+        assert temp_output_file.exists()
+        content = json.loads(temp_output_file.read_text())
+        assert content["success"] is True
+        assert content["data"] == "test"
+
+    def test_creates_parent_directories(self, tmp_path: Path) -> None:
+        """Test that parent directories are created if they don't exist."""
+        nested_path = tmp_path / "nested" / "dir" / "output.json"
+        data = {"key": "value"}
+
+        write_json_result(data, nested_path)
+
+        assert nested_path.exists()
+        assert json.loads(nested_path.read_text())["key"] == "value"
+
+    def test_json_formatting_with_indent(self, temp_output_file: Path) -> None:
+        """Test that JSON is formatted with proper indentation."""
+        data = {"nested": {"key": "value"}}
+
+        write_json_result(data, temp_output_file)
+
+        content = temp_output_file.read_text()
+        # Check that it's formatted (has newlines and indentation)
+        assert "\n" in content
+        assert "  " in content  # 2-space indent
+
+    def test_unicode_handling(self, temp_output_file: Path) -> None:
+        """Test that Unicode characters are preserved."""
+        data = {"title": "Test with unicode: \u00e9\u00e8\u00ea"}
+
+        write_json_result(data, temp_output_file)
+
+        content = temp_output_file.read_text(encoding="utf-8")
+        loaded = json.loads(content)
+        assert loaded["title"] == "Test with unicode: \u00e9\u00e8\u00ea"
+
+    def test_stdout_ends_with_newline(self, capsys) -> None:
+        """Test that stdout output ends with newline."""
+        write_json_result({"test": True})
+
+        captured = capsys.readouterr()
+        assert captured.out.endswith("\n")
+
+
+class TestWriteOutput:
+    """Tests for write_output() function."""
+
+    def test_write_to_stdout(self, capsys) -> None:
+        """Test that write_output writes content to stdout."""
+        content = "# Test Markdown"
+
+        write_output(content)
+
+        captured = capsys.readouterr()
+        assert "# Test Markdown" in captured.out
+
+    def test_write_to_file(self, tmp_path: Path) -> None:
+        """Test that write_output writes to file."""
+        output_path = tmp_path / "test.md"
+        content = "# Test Content"
+
+        write_output(content, output_path)
+
+        assert output_path.exists()
+        assert output_path.read_text() == content
+
+    def test_adds_newline_if_missing(self, capsys) -> None:
+        """Test that a newline is added if content doesn't end with one."""
+        content = "No newline at end"
+
+        write_output(content)
+
+        captured = capsys.readouterr()
+        assert captured.out.endswith("\n")
+
+
+# =============================================================================
+# Tests for CLI error handling (file not found cases - using convert subcommand)
+# =============================================================================
+
+
+class TestAudioJsonFileNotFound:
+    """Tests for audio command JSON output with file not found."""
+
+    def test_audio_json_file_not_found(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test audio conversion error when file doesn't exist."""
+        result = runner.invoke(
+            cli_app,
+            ["convert", "audio", "/nonexistent/file.mp3", "--format", "json"],
+        )
+
+        output = json.loads(result.output.strip())
+
+        assert output["success"] is False
+        assert output["error_code"] == "AUDIO_CONVERSION_ERROR"
+        assert "not found" in output["error"].lower() or "File not found" in output["error"]
+
+
+class TestDocumentJsonFileNotFound:
+    """Tests for document command JSON output with file not found."""
+
+    def test_document_json_file_not_found(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test document conversion error when file doesn't exist."""
+        result = runner.invoke(
+            cli_app,
+            ["convert", "document", "/nonexistent/file.pdf", "--format", "json"],
+        )
+
+        output = json.loads(result.output.strip())
+
+        assert output["success"] is False
+        assert output["error_code"] == "DOCUMENT_CONVERSION_ERROR"
+
+
+# =============================================================================
+# Tests for batch commands with JSON output
+# =============================================================================
+
+
+class TestBatchWebpagesJsonNoUrls:
+    """Tests for batch webpages with empty URLs file."""
+
+    def test_batch_webpages_no_urls_json(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test batch webpages with empty URLs file returns JSON error."""
+        # Create empty URLs file
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("# Just a comment\n\n")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        output = json.loads(result.output.strip())
+        assert output["success"] is False
+        assert output["error_code"] == "NO_URLS_FOUND"
+
+
+class TestBatchDirectoryJsonError:
+    """Tests for batch directory with nonexistent input."""
+
+    def test_batch_directory_json_error(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test batch directory error with JSON output."""
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "directory",
+                "/nonexistent/input",
+                "--output",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        # Parse JSON lines - the error may be followed by batch_complete
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        error_line = next((line for line in lines if line.get("success") is False), None)
+
+        assert error_line is not None
+        assert error_line["success"] is False
+        assert error_line["error_code"] == "DIRECTORY_NOT_FOUND"
+
+
+class TestBatchWebpagesWithMock:
+    """Tests for batch webpages with mocked converter."""
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_json_lines(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test batch webpages outputs JSON lines."""
+        # Create URLs file
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com/page1\nhttps://example.com/page2\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_convert(*args, **kwargs):
+            return (
+                "# Page\n\nContent",
+                {"title": "Page"},
+            )
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+
+        # Check for proper JSON line structure
+        start_msg = next((line for line in lines if line.get("type") == "batch_start"), None)
+        assert start_msg is not None
+        assert start_msg["total"] == 2
+
+        complete_msg = next((line for line in lines if line.get("type") == "batch_complete"), None)
+        assert complete_msg is not None
+        assert complete_msg["success"] is True
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_item_success_message(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that successful items output item_success message."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_convert(*args, **kwargs):
+            return ("# Content", {"title": "Example"})
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        success_msg = next((line for line in lines if line.get("type") == "item_success"), None)
+
+        assert success_msg is not None
+        assert success_msg["url"] == "https://example.com"
+        assert "metadata" in success_msg
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_item_error_message(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that failed items output item_error message."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://failing-url.test\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_error(*args, **kwargs):
+            raise Exception("Connection failed")
+
+        mock_convert.side_effect = mock_async_error
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        error_msg = next((line for line in lines if line.get("type") == "item_error"), None)
+
+        assert error_msg is not None
+        assert error_msg["url"] == "https://failing-url.test"
+        assert "error" in error_msg
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_item_skipped_message(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that skipped items output item_skipped message."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\n")
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Create existing file so it gets skipped
+        existing_file = output_dir / "example.com.md"
+        existing_file.write_text("# Existing content")
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+                "--skip-existing",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        skip_msg = next((line for line in lines if line.get("type") == "item_skipped"), None)
+
+        assert skip_msg is not None
+        assert skip_msg["reason"] == "already_exists"
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_complete_summary_structure(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that batch_complete message contains correct summary."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com/1\nhttps://example.com/2\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_convert(*args, **kwargs):
+            return ("# Content", {"title": "Page"})
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        complete_msg = next((line for line in lines if line.get("type") == "batch_complete"), None)
+
+        assert complete_msg is not None
+        assert complete_msg["success"] is True
+        assert complete_msg["summary"]["total"] == 2
+        assert complete_msg["summary"]["successful"] == 2
+        assert complete_msg["summary"]["failed"] == 0
+        assert complete_msg["summary"]["skipped"] == 0
+
+
+# =============================================================================
+# Tests for OutputFormat enum
+# =============================================================================
+
+
+class TestOutputFormat:
+    """Tests for OutputFormat enum."""
+
+    def test_output_format_values(self) -> None:
+        """Test that OutputFormat has expected values."""
+        assert OutputFormat.MARKDOWN.value == "markdown"
+        assert OutputFormat.JSON.value == "json"
+        assert OutputFormat.TABLE.value == "table"
+
+    def test_output_format_is_string_enum(self) -> None:
+        """Test that OutputFormat can be used as string."""
+        # OutputFormat is a str enum so the value is the string
+        assert OutputFormat.JSON.value == "json"
+        assert OutputFormat.MARKDOWN.value == "markdown"
+
+
+# =============================================================================
+# Tests for JSON output structure validation
+# =============================================================================
+
+
+class TestJsonOutputStructure:
+    """Tests for validating JSON output structure follows the contract."""
+
+    def test_success_response_has_required_fields(self) -> None:
+        """Test that success responses have all required fields."""
+        result = format_json_success("# Content", {"key": "value"})
+
+        # Required fields for success
+        assert "success" in result
+        assert "markdown" in result
+        assert "metadata" in result
+        assert result["success"] is True
+
+    def test_error_response_has_required_fields(self) -> None:
+        """Test that error responses have all required fields."""
+        result = format_json_error("Error message", "ERROR_CODE")
+
+        # Required fields for error
+        assert "success" in result
+        assert "error" in result
+        assert "error_code" in result
+        assert result["success"] is False
+
+    def test_success_metadata_can_contain_source(self) -> None:
+        """Test that success metadata includes source when provided."""
+        result = format_json_success("# Content", {}, source="https://example.com")
+
+        assert result["metadata"]["source"] == "https://example.com"
+
+    def test_error_can_contain_source(self) -> None:
+        """Test that error response includes source when provided."""
+        result = format_json_error("Error", "ERROR_CODE", source="https://example.com")
+
+        assert result["source"] == "https://example.com"
+
+    def test_json_is_serializable(self) -> None:
+        """Test that both success and error results can be serialized to JSON."""
+        success = format_json_success("# Content", {"nested": {"key": "value"}})
+        error = format_json_error("Error", "ERROR_CODE", source="test")
+
+        # Should not raise
+        json.dumps(success)
+        json.dumps(error)
+
+    def test_special_characters_in_markdown(self) -> None:
+        """Test that special characters in markdown are preserved."""
+        markdown = "# Test\n\n\"quotes\" and 'apostrophes'\n\nUnicode: \u00e9\u00e8"
+        result = format_json_success(markdown, {})
+
+        # Serialize and deserialize
+        serialized = json.dumps(result)
+        deserialized = json.loads(serialized)
+
+        assert deserialized["markdown"] == markdown
