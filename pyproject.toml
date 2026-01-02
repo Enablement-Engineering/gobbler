@@ -94,6 +94,8 @@ gobbler = "gobbler_cli.main:cli"
 gobbler-daemon = "gobbler_daemon:main"
 gobbler-api = "gobbler_api:main"
 gobbler-mcp = "gobbler_mcp.__main__:main"
+# Queue worker
+gobbler-worker = "gobbler_queue.worker:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -108,6 +110,7 @@ packages = [
     "src/gobbler_cli",
     "src/gobbler_mcp",
     "src/gobbler_relay",
+    "src/gobbler_queue",
 ]
 
 [tool.pytest.ini_options]
@@ -210,6 +213,7 @@ known-first-party = [
     "gobbler_cli",
     "gobbler_mcp",
     "gobbler_relay",
+    "gobbler_queue",
 ]
 combine-as-imports = true
 
@@ -222,6 +226,7 @@ source = [
     "src/gobbler_cli",
     "src/gobbler_mcp",
     "src/gobbler_relay",
+    "src/gobbler_queue",
 ]
 branch = true
 parallel = true
