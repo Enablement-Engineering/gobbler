@@ -29,12 +29,6 @@ from ..converters import (
     convert_youtube_to_markdown,
 )
 from ..utils import save_markdown_file, validate_output_path, get_metrics_callback
-from ..utils.queue import (
-    estimate_task_duration,
-    format_job_response,
-    get_queue,
-    should_queue_task,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -481,7 +475,6 @@ def register_tools(mcp: FastMCP):
         model: str = "small",
         language: str = "auto",
         output_file: Optional[str] = None,
-        auto_queue: bool = False,
     ) -> str:
         """
         Transcribe audio and video files to text using OpenAI Whisper.
@@ -495,51 +488,19 @@ def register_tools(mcp: FastMCP):
             model: Whisper model size - larger = more accurate but slower (default: 'small', options: tiny, base, small, medium, large)
             language: Audio language code (ISO 639-1) or 'auto' for automatic detection (default: 'auto')
             output_file: Optional absolute path to save markdown file (includes frontmatter)
-            auto_queue: Automatically queue task if estimated duration > 1:45 (default: False)
 
         Returns:
             Markdown text with YAML frontmatter if output_file not provided,
             or success message with file path if output_file provided.
-            If queued: Returns job_id and estimated completion time.
         """
         try:
-            import os
             from pathlib import Path
 
             # Validate file exists first
             if not Path(file_path).exists():
                 return f"Error: File not found: {file_path}"
 
-            # Get file size for fallback estimation
-            file_size_mb = os.path.getsize(file_path) / 1024 / 1024
-
-            # Check if should queue (now uses duration-based estimation)
-            if should_queue_task(
-                "transcribe_audio",
-                auto_queue,
-                file_path=file_path,
-                model=model,
-                file_size_mb=file_size_mb,
-            ):
-                # Queue the task
-                queue = get_queue("transcription")
-                job = queue.enqueue(
-                    _transcribe_audio_task,
-                    file_path=file_path,
-                    model=model,
-                    language=language,
-                    output_file=output_file,
-                    job_timeout="30m",
-                )
-                return format_job_response(
-                    job,
-                    "transcribe_audio",
-                    file_path=file_path,
-                    model=model,
-                    file_size_mb=file_size_mb,
-                )
-
-            # Execute synchronously
+            # Execute transcription
             return await _transcribe_audio_task(file_path, model, language, output_file)
 
         except ValueError as e:

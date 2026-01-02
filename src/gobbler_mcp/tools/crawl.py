@@ -13,7 +13,6 @@ from typing import Optional
 from fastmcp import FastMCP
 
 from ..utils import save_markdown_file, validate_output_path
-from ..utils.queue import format_job_response, get_queue, should_queue_task
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +232,9 @@ def register_tools(mcp: FastMCP):
                 for i, page in enumerate(pages):
                     # Create safe filename from URL
                     url_path = page["url"].replace("https://", "").replace("http://", "")
-                    safe_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in url_path)
+                    safe_name = "".join(
+                        c if c.isalnum() or c in ("-", "_") else "_" for c in url_path
+                    )
                     safe_name = safe_name[:100]  # Limit length
 
                     file_path = output_path / f"{i:03d}_{safe_name}.md"
@@ -298,34 +299,34 @@ def register_tools(mcp: FastMCP):
 
         # Get video info first to get title
         ydl_opts_info = {
-            'quiet': True,
-            'no_warnings': True,
+            "quiet": True,
+            "no_warnings": True,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            title = info.get('title', 'video')
+            title = info.get("title", "video")
             # Sanitize title for filename
-            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
-            safe_title = safe_title.replace(' ', '_')
+            safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).strip()
+            safe_title = safe_title.replace(" ", "_")
 
         # Configure download options
         quality_format = {
-            'best': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            '1080p': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
-            '720p': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
-            '480p': 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best',
-            '360p': 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best',
+            "best": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "1080p": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
+            "720p": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best",
+            "480p": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best",
+            "360p": "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best",
         }
 
-        selected_format = quality_format.get(quality, quality_format['best'])
+        selected_format = quality_format.get(quality, quality_format["best"])
 
         ydl_opts = {
-            'format': selected_format,
-            'outtmpl': str(output_path / f'{safe_title}.%(ext)s'),
-            'merge_output_format': format,
-            'quiet': False,
-            'no_warnings': False,
+            "format": selected_format,
+            "outtmpl": str(output_path / f"{safe_title}.%(ext)s"),
+            "merge_output_format": format,
+            "quiet": False,
+            "no_warnings": False,
         }
 
         # Download video
@@ -333,10 +334,12 @@ def register_tools(mcp: FastMCP):
             ydl.download([video_url])
 
         # Find the downloaded file
-        output_file = output_path / f'{safe_title}.{format}'
+        output_file = output_path / f"{safe_title}.{format}"
         if output_file.exists():
             file_size_mb = output_file.stat().st_size / 1024 / 1024
-            return f"Video downloaded successfully to: {output_file}\nFile size: {file_size_mb:.1f} MB"
+            return (
+                f"Video downloaded successfully to: {output_file}\nFile size: {file_size_mb:.1f} MB"
+            )
         else:
             return f"Download completed but file not found at expected location: {output_file}"
 
@@ -346,7 +349,6 @@ def register_tools(mcp: FastMCP):
         output_dir: str,
         quality: str = "best",
         format: str = "mp4",
-        auto_queue: bool = False,
     ) -> str:
         """
         Download YouTube video to local file.
@@ -359,30 +361,17 @@ def register_tools(mcp: FastMCP):
             output_dir: Directory to save the downloaded video (must be absolute path)
             quality: Video quality - 'best', '1080p', '720p', '480p', '360p' (default: 'best')
             format: Output format - 'mp4', 'webm', 'mkv' (default: 'mp4')
-            auto_queue: Automatically queue task if estimated duration > 1:45 (default: False)
 
         Returns:
             Success message with path to downloaded file.
-            If queued: Returns job_id and estimated completion time.
         """
         try:
-            # Check if should queue
-            if should_queue_task("download_youtube", auto_queue, quality=quality):
-                # Queue the task
-                queue = get_queue("download")
-                job = queue.enqueue(
-                    _download_youtube_video_task,
-                    video_url=video_url,
-                    output_dir=output_dir,
-                    quality=quality,
-                    format=format,
-                    job_timeout="20m",
-                )
-                return format_job_response(job, "download_youtube", quality=quality)
-
             # Execute synchronously (run in thread to avoid blocking)
             import asyncio
-            return await asyncio.to_thread(_download_youtube_video_task, video_url, output_dir, quality, format)
+
+            return await asyncio.to_thread(
+                _download_youtube_video_task, video_url, output_dir, quality, format
+            )
 
         except Exception as e:
             logger.error(f"Unexpected error in download_youtube_video: {e}", exc_info=True)

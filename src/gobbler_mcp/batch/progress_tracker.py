@@ -1,19 +1,22 @@
-"""Progress tracking for batch operations using Redis."""
+"""Progress tracking for batch operations.
 
-import json
+This is a simplified progress tracker that logs progress instead of using Redis.
+The actual progress tracking for CLI batch operations is handled by the
+gobbler_queue system with SQLite storage.
+"""
+
 import logging
-from datetime import datetime
 from typing import Optional
-
-import redis
-
-from ..config import get_config
 
 logger = logging.getLogger(__name__)
 
 
 class ProgressTracker:
-    """Track batch operation progress in Redis."""
+    """Track batch operation progress via logging.
+
+    This is a simplified implementation that replaced the Redis-based tracker.
+    For persistent progress tracking, use the gobbler_queue system.
+    """
 
     def __init__(self, batch_id: str):
         """
@@ -23,35 +26,13 @@ class ProgressTracker:
             batch_id: Unique identifier for batch operation
         """
         self.batch_id = batch_id
-        self.redis_key = f"batch:progress:{batch_id}"
-        self._redis: Optional[redis.Redis] = None
-
-    @property
-    def redis(self) -> redis.Redis:
-        """
-        Get or create Redis connection with retry logic.
-
-        Returns:
-            Redis connection instance
-        """
-        if self._redis is None:
-            config = get_config()
-            redis_config = config.data.get("redis", {})
-            host = redis_config.get("host", "localhost")
-            port = redis_config.get("port", 6380)
-            db = redis_config.get("db", 0)
-
-            self._redis = redis.Redis(
-                host=host,
-                port=port,
-                db=db,
-                decode_responses=True,
-                socket_connect_timeout=5,
-                socket_timeout=5,
-                retry_on_timeout=True,
-                health_check_interval=30,
-            )
-        return self._redis
+        self.total_items = 0
+        self.processed = 0
+        self.successful = 0
+        self.failed = 0
+        self.skipped = 0
+        self.current_item: Optional[str] = None
+        self.status = "pending"
 
     async def initialize(self, total_items: int, operation_type: str = "batch") -> None:
         """
@@ -61,29 +42,9 @@ class ProgressTracker:
             total_items: Total number of items in batch
             operation_type: Type of operation (e.g., 'youtube_playlist', 'webpage_batch')
         """
-        data = {
-            "batch_id": self.batch_id,
-            "operation_type": operation_type,
-            "total_items": total_items,
-            "processed": 0,
-            "successful": 0,
-            "failed": 0,
-            "skipped": 0,
-            "current_item": None,
-            "started_at": datetime.utcnow().isoformat(),
-            "status": "running",
-            "errors": [],
-        }
-
-        try:
-            self.redis.setex(
-                self.redis_key,
-                3600 * 24,  # Expire after 24 hours
-                json.dumps(data),
-            )
-            logger.info(f"Initialized progress tracking for batch {self.batch_id}")
-        except redis.RedisError as e:
-            logger.warning(f"Failed to initialize progress tracking: {e}")
+        self.total_items = total_items
+        self.status = "running"
+        logger.info(f"Batch {self.batch_id}: Starting {operation_type} with {total_items} items")
 
     async def update_current_item(self, item: str) -> None:
         """
@@ -92,35 +53,16 @@ class ProgressTracker:
         Args:
             item: Identifier or name of current item
         """
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if not data_str:
-                logger.warning(f"Batch {self.batch_id} not found in Redis")
-                return
-
-            data = json.loads(data_str)
-            data["current_item"] = item
-            data["processed"] = data.get("processed", 0) + 1
-
-            self.redis.setex(self.redis_key, 3600 * 24, json.dumps(data))
-        except redis.RedisError as e:
-            logger.warning(f"Failed to update current item: {e}")
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse progress data: {e}")
+        self.current_item = item
+        self.processed += 1
+        logger.debug(
+            f"Batch {self.batch_id}: Processing item {self.processed}/{self.total_items}: {item}"
+        )
 
     async def increment_success(self) -> None:
         """Increment success counter."""
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if not data_str:
-                return
-
-            data = json.loads(data_str)
-            data["successful"] = data.get("successful", 0) + 1
-
-            self.redis.setex(self.redis_key, 3600 * 24, json.dumps(data))
-        except (redis.RedisError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to increment success counter: {e}")
+        self.successful += 1
+        logger.debug(f"Batch {self.batch_id}: Success ({self.successful}/{self.processed})")
 
     async def increment_failure(self, error: str, item: Optional[str] = None) -> None:
         """
@@ -130,30 +72,9 @@ class ProgressTracker:
             error: Error message
             item: Optional item identifier that failed
         """
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if not data_str:
-                return
-
-            data = json.loads(data_str)
-            data["failed"] = data.get("failed", 0) + 1
-
-            error_entry = {
-                "error": error,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-            if item:
-                error_entry["item"] = item
-
-            data["errors"].append(error_entry)
-
-            # Keep only last 100 errors to prevent unbounded growth
-            if len(data["errors"]) > 100:
-                data["errors"] = data["errors"][-100:]
-
-            self.redis.setex(self.redis_key, 3600 * 24, json.dumps(data))
-        except (redis.RedisError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to increment failure counter: {e}")
+        self.failed += 1
+        item_str = f" for {item}" if item else ""
+        logger.warning(f"Batch {self.batch_id}: Failed{item_str}: {error}")
 
     async def increment_skipped(self, reason: str, item: Optional[str] = None) -> None:
         """
@@ -163,33 +84,17 @@ class ProgressTracker:
             reason: Reason for skipping
             item: Optional item identifier that was skipped
         """
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if not data_str:
-                return
-
-            data = json.loads(data_str)
-            data["skipped"] = data.get("skipped", 0) + 1
-
-            self.redis.setex(self.redis_key, 3600 * 24, json.dumps(data))
-        except (redis.RedisError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to increment skipped counter: {e}")
+        self.skipped += 1
+        item_str = f" {item}" if item else ""
+        logger.debug(f"Batch {self.batch_id}: Skipped{item_str}: {reason}")
 
     async def mark_complete(self) -> None:
         """Mark batch as complete."""
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if not data_str:
-                return
-
-            data = json.loads(data_str)
-            data["status"] = "completed"
-            data["completed_at"] = datetime.utcnow().isoformat()
-
-            self.redis.setex(self.redis_key, 3600 * 24, json.dumps(data))
-            logger.info(f"Marked batch {self.batch_id} as complete")
-        except (redis.RedisError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to mark batch complete: {e}")
+        self.status = "completed"
+        logger.info(
+            f"Batch {self.batch_id}: Completed - "
+            f"{self.successful} successful, {self.failed} failed, {self.skipped} skipped"
+        )
 
     async def mark_failed(self, error: str) -> None:
         """
@@ -198,42 +103,26 @@ class ProgressTracker:
         Args:
             error: Error message describing why batch failed
         """
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if data_str:
-                data = json.loads(data_str)
-            else:
-                # Create minimal data if not exists
-                data = {
-                    "batch_id": self.batch_id,
-                    "started_at": datetime.utcnow().isoformat(),
-                }
+        self.status = "failed"
+        logger.error(f"Batch {self.batch_id}: Failed - {error}")
 
-            data["status"] = "failed"
-            data["failed_at"] = datetime.utcnow().isoformat()
-            data["error"] = error
-
-            self.redis.setex(self.redis_key, 3600 * 24, json.dumps(data))
-            logger.error(f"Marked batch {self.batch_id} as failed: {error}")
-        except (redis.RedisError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to mark batch as failed: {e}")
-
-    async def get_progress(self) -> Optional[dict]:
+    async def get_progress(self) -> dict:
         """
         Get current progress.
 
         Returns:
-            Progress data dictionary, or None if not found
+            Progress data dictionary
         """
-        try:
-            data_str = self.redis.get(self.redis_key)
-            if not data_str:
-                return None
-
-            return json.loads(data_str)
-        except (redis.RedisError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to get progress: {e}")
-            return None
+        return {
+            "batch_id": self.batch_id,
+            "status": self.status,
+            "total_items": self.total_items,
+            "processed": self.processed,
+            "successful": self.successful,
+            "failed": self.failed,
+            "skipped": self.skipped,
+            "current_item": self.current_item,
+        }
 
     def format_progress_report(self, progress: dict) -> str:
         """
@@ -254,19 +143,18 @@ class ProgressTracker:
         successful = progress.get("successful", 0)
         failed = progress.get("failed", 0)
         skipped = progress.get("skipped", 0)
-        current = progress.get("current_item", "N/A")
 
         # Status icon
         status_icon = {
             "running": "🔄",
             "completed": "✅",
             "failed": "❌",
+            "pending": "⏳",
         }.get(status, "❓")
 
         lines = [
             f"# Batch Progress Report\n",
             f"**Batch ID:** {progress.get('batch_id')}",
-            f"**Operation:** {progress.get('operation_type', 'unknown')}",
             f"**Status:** {status_icon} {status.upper()}\n",
             "## Progress",
             f"- **Processed:** {processed}/{total}",
@@ -275,33 +163,8 @@ class ProgressTracker:
             f"- **Skipped:** {skipped}",
         ]
 
-        if status == "running":
-            lines.append(f"- **Current Item:** {current}")
-
-            # Calculate percentage
-            if total > 0:
-                percent = (processed / total) * 100
-                lines.append(f"- **Progress:** {percent:.1f}%")
-
-        # Show recent errors if any
-        errors = progress.get("errors", [])
-        if errors:
-            lines.append("\n## Recent Errors")
-            for error_entry in errors[-5:]:  # Show last 5 errors
-                error_msg = error_entry.get("error", "Unknown error")
-                item = error_entry.get("item", "")
-                if item:
-                    lines.append(f"- {item}: {error_msg}")
-                else:
-                    lines.append(f"- {error_msg}")
-
-        # Timing info
-        started_at = progress.get("started_at")
-        if started_at:
-            lines.append(f"\n**Started:** {started_at}")
-
-        completed_at = progress.get("completed_at")
-        if completed_at:
-            lines.append(f"**Completed:** {completed_at}")
+        if status == "running" and total > 0:
+            percent = (processed / total) * 100
+            lines.append(f"- **Progress:** {percent:.1f}%")
 
         return "\n".join(lines)
