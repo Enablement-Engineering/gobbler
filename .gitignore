@@ -76,3 +76,4 @@ tests/fixtures/*queued*.md
 skills/**/__pycache__/
 skills/**/*.pyc
 .ai/
+site/
