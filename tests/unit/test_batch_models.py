@@ -1,6 +1,5 @@
 """Unit tests for batch models."""
 
-
 from gobbler_mcp.batch.models import BatchItem, BatchResult, BatchSummary
 
 

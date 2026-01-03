@@ -67,7 +67,8 @@ async def _extract_audio(video_path: str) -> str:
                 "-y",
                 temp_path,
             ],
-            check=False, capture_output=True,
+            check=False,
+            capture_output=True,
             text=True,
             timeout=3600,  # 60 minute timeout for extraction (handles very large files)
         )

@@ -45,9 +45,13 @@ class TestMaxDepth:
     @pytest.mark.asyncio
     async def test_max_depth_limits_crawl(self, crawler, mock_convert_webpage):
         """Test that max_depth limits crawl depth."""
-        with patch(
-            "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+        with (
+            patch(
+                "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector",
+                mock_convert_webpage,
+            ),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
             pages, summary = await crawler.crawl_site(
                 start_url="https://example.com",
                 max_depth=0,
@@ -63,9 +67,13 @@ class TestMaxDepth:
     @pytest.mark.asyncio
     async def test_max_depth_capped_at_5(self, crawler, mock_convert_webpage):
         """Test that max_depth is capped at 5."""
-        with patch(
-            "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+        with (
+            patch(
+                "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector",
+                mock_convert_webpage,
+            ),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
             # Request depth 10, should be capped to 5
             pages, summary = await crawler.crawl_site(
                 start_url="https://example.com",
@@ -84,9 +92,13 @@ class TestMaxPages:
     @pytest.mark.asyncio
     async def test_max_pages_limits_crawl(self, crawler, mock_convert_webpage):
         """Test that max_pages limits number of pages crawled."""
-        with patch(
-            "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+        with (
+            patch(
+                "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector",
+                mock_convert_webpage,
+            ),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
             pages, summary = await crawler.crawl_site(
                 start_url="https://example.com",
                 max_depth=5,
@@ -510,9 +522,13 @@ class TestSummary:
     @pytest.mark.asyncio
     async def test_summary_contains_expected_fields(self, crawler, mock_convert_webpage):
         """Test that summary contains all expected fields."""
-        with patch(
-            "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+        with (
+            patch(
+                "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector",
+                mock_convert_webpage,
+            ),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
             pages, summary = await crawler.crawl_site(
                 start_url="https://example.com",
                 max_depth=0,
