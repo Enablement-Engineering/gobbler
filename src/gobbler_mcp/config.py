@@ -15,6 +15,28 @@ class Config:
 
     # Default configuration
     DEFAULTS: ClassVar[dict[str, Any]] = {
+        # Provider configuration - allows swapping implementations
+        "providers": {
+            "transcription": {
+                "default": "whisper-local",
+                "whisper-local": {
+                    "model": "small",
+                },
+            },
+            "document": {
+                "default": "docling",
+                "docling": {
+                    "ocr": True,
+                },
+            },
+            "webpage": {
+                "default": "crawl4ai",
+                "crawl4ai": {
+                    "timeout": 30,
+                },
+            },
+        },
+        # Legacy settings (kept for backwards compatibility)
         "whisper": {
             "model": "small",
             "language": "auto",
@@ -156,6 +178,49 @@ class Config:
         host = self.get(f"services.{service}.host", "localhost")
         port = self.get(f"services.{service}.port")
         return f"http://{host}:{port}"
+
+    def get_provider_name(self, category: str) -> str:
+        """Get the default provider name for a category.
+
+        Args:
+            category: Provider category (transcription, document, webpage)
+
+        Returns:
+            Provider name (e.g., "whisper-local", "docling", "crawl4ai")
+        """
+        return self.get(f"providers.{category}.default", self._default_provider(category))
+
+    def get_provider_config(self, category: str, provider_name: str | None = None) -> dict:
+        """Get configuration for a specific provider.
+
+        Args:
+            category: Provider category (transcription, document, webpage)
+            provider_name: Provider name, or None to use default
+
+        Returns:
+            Provider configuration dictionary
+        """
+        if provider_name is None:
+            provider_name = self.get_provider_name(category)
+
+        return self.get(f"providers.{category}.{provider_name}", {})
+
+    @staticmethod
+    def _default_provider(category: str) -> str:
+        """Get the default provider name for a category.
+
+        Args:
+            category: Provider category
+
+        Returns:
+            Default provider name
+        """
+        defaults = {
+            "transcription": "whisper-local",
+            "document": "docling",
+            "webpage": "crawl4ai",
+        }
+        return defaults.get(category, "")
 
     def reload(self) -> None:
         """Reload configuration from file (thread-safe).

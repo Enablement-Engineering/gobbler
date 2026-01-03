@@ -1,6 +1,49 @@
 # Gobbler MCP Server Configuration
 # Copy this file to ~/.config/gobbler/config.yml and customize as needed
 
+# =============================================================================
+# Provider Configuration
+# =============================================================================
+# Gobbler uses a pluggable provider architecture. Each capability (transcription,
+# document conversion, web scraping) can use different backend implementations.
+# Configure which provider to use and its settings here.
+
+providers:
+  # Audio/video transcription providers
+  transcription:
+    # Default provider to use (currently only whisper-local available)
+    default: whisper-local
+
+    # Local Whisper (faster-whisper) configuration
+    whisper-local:
+      # Model size: tiny, base, small, medium, large
+      # Larger models are more accurate but slower and use more memory
+      model: small
+
+  # Document conversion providers (PDF, DOCX, PPTX, XLSX)
+  document:
+    # Default provider to use (currently only docling available)
+    default: docling
+
+    # Docling Docker service configuration
+    docling:
+      # Enable OCR for scanned documents
+      ocr: true
+
+  # Web page scraping providers
+  webpage:
+    # Default provider to use (currently only crawl4ai available)
+    default: crawl4ai
+
+    # Crawl4AI Docker service configuration
+    crawl4ai:
+      # Default request timeout in seconds
+      timeout: 30
+
+# =============================================================================
+# Legacy Settings (kept for backwards compatibility)
+# =============================================================================
+
 # Whisper transcription settings
 whisper:
   # Model size: tiny, base, small, medium, large
