@@ -37,13 +37,15 @@ class TestConfigLoading:
         assert config.data["whisper"]["model"] == "small"
         assert config.data["services"]["crawl4ai"]["port"] == 11235
 
-    @patch("builtins.open", new_callable=mock_open, read_data="whisper:\n  model: large\n")
     @patch("gobbler_mcp.config.Path")
-    def test_config_merges_user_config(self, mock_path_class, mock_file):  # noqa: ARG002
+    def test_config_merges_user_config(self, mock_path_class):
         """Test that user config is merged over defaults."""
         mock_path = MagicMock()
         mock_path.exists.return_value = True
         mock_path_class.home.return_value = Path("/home/user")
+
+        # Mock Path.open() to return a file-like object with YAML content
+        mock_path.open = mock_open(read_data="whisper:\n  model: large\n")
 
         config = Config(config_path=mock_path)
 
