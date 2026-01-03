@@ -4,43 +4,152 @@
 
 # Gobbler
 
-> *Universal Content Conversion to Markdown*
+> **Universal Content Conversion to Markdown for AI**
 
-Gobbler converts various content types—YouTube videos, web pages, documents, and audio/video files—into clean, structured markdown with rich metadata.
+Gobbler transforms any content—YouTube videos, web pages, documents, audio files, even live browser sessions—into clean, structured markdown that AI systems can immediately reason about.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-## Features
+## The Problem
 
-- **YouTube Transcripts** - Extract official transcripts with video metadata
-- **Web Scraping** - Convert any webpage to markdown (JavaScript-rendered content supported)
-- **Document Conversion** - PDF, DOCX, PPTX, XLSX to markdown with OCR support
-- **Audio/Video Transcription** - Fast transcription using Whisper
-- **Browser Automation** - Control browser via extension for live page extraction
-- **Clean Output** - YAML frontmatter + structured markdown
+AI assistants work best with markdown. But content exists in countless formats—PDFs, videos, web pages behind logins, audio recordings. Getting that content into a format AI can use requires:
+
+- Different tools for each content type
+- Custom scripts to extract and format
+- Lost metadata and inconsistent output
+- No unified way for AI agents to access content
+
+**Gobbler solves this.** One tool, one output format, multiple access patterns.
+
+## The Solution
+
+```bash
+# Every content type → Same pattern → Same output format
+gobbler youtube "https://youtube.com/watch?v=..." -o transcript.md
+gobbler document report.pdf -o report.md
+gobbler audio meeting.mp3 -o meeting.md
+gobbler webpage "https://docs.example.com" -o docs.md
+```
+
+Every conversion produces **markdown with YAML frontmatter**:
+
+```markdown
+---
+source: https://youtube.com/watch?v=VIDEO_ID
+type: youtube_transcript
+title: "Video Title"
+duration: 847
+word_count: 2341
+converted_at: 2025-01-03T10:30:00Z
+---
+
+# Video Title
+
+Content here, ready for AI consumption...
+```
 
 ## Quick Start
 
 ```bash
 # Install
 git clone https://github.com/dylanisaac/gobbler.git
-cd gobbler
-uv sync
+cd gobbler && uv sync
 
-# Start services
+# Start services (for web/document conversion)
 docker compose up -d
 
 # Convert content
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md
-gobbler document report.pdf --no-ocr -o report.md
-gobbler audio recording.mp3 -o transcript.md
-gobbler webpage "https://example.com" -o page.md
+gobbler youtube "https://youtube.com/watch?v=dQw4w9WgXcQ"
+gobbler document paper.pdf --no-ocr -o paper.md
+gobbler audio interview.mp3 --model small -o interview.md
+```
+
+## Three Ways to Use Gobbler
+
+### 1. CLI (For Humans & Scripts)
+
+```bash
+gobbler youtube URL              # YouTube transcripts
+gobbler audio FILE               # Audio/video transcription
+gobbler document FILE            # PDF, DOCX, PPTX, XLSX
+gobbler webpage URL              # Web pages (JS-rendered)
+gobbler batch youtube-playlist URL  # Batch processing
+```
+
+### 2. Skills (For AI Agents)
+
+Skills are markdown instruction files that teach AI agents how to use Gobbler. They provide **progressive disclosure**—AI only loads what it needs:
+
+```
+skills/
+├── gobbler-youtube/     # YouTube transcription
+├── gobbler-audio/       # Audio/video transcription
+├── gobbler-document/    # Document conversion
+├── gobbler-webpage/     # Web scraping
+├── gobbler-browser/     # Browser automation
+├── gobbler-notebooklm/  # NotebookLM integration
+├── gobbler-chatgpt/     # ChatGPT via browser
+├── gobbler-claude/      # Claude.ai via browser
+└── gobbler-gemini/      # Gemini via browser
+```
+
+Each skill contains a `SKILL.md` with:
+- YAML frontmatter for AI discovery (~100 tokens)
+- Quick workflow for common tasks (~200 tokens)
+- Full documentation for edge cases (~500+ tokens)
+
+### 3. MCP Protocol (For Claude Desktop/Code)
+
+```bash
+# Add to Claude Code
+claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
+
+# Or configure Claude Desktop (~/.config/claude/claude_desktop_config.json)
+{
+  "mcpServers": {
+    "gobbler-mcp": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
+    }
+  }
+}
+```
+
+## Features
+
+### Content Conversion
+
+| Type | Command | Backend |
+|------|---------|---------|
+| YouTube | `gobbler youtube URL` | youtube-transcript-api |
+| Audio/Video | `gobbler audio FILE` | faster-whisper (local) |
+| Documents | `gobbler document FILE` | Docling (Docker) |
+| Web Pages | `gobbler webpage URL` | Crawl4AI (Docker) |
+
+### Browser Automation
+
+Control browsers via the Gobbler extension for authenticated content:
+
+```bash
+gobbler browser extract          # Extract current page
+gobbler notebooklm query "..."   # Query NotebookLM
+gobbler chatgpt query "..."      # Send to ChatGPT
+gobbler claude query "..."       # Send to Claude.ai
+gobbler gemini query "..."       # Send to Gemini
+```
+
+### Batch Processing
+
+```bash
+gobbler batch youtube-playlist "https://youtube.com/playlist?list=..."
+gobbler batch directory ./documents --pattern "*.pdf"
+gobbler batch webpages urls.txt --output-dir ./pages
 ```
 
 ## Architecture
 
-Gobbler provides **four ways to access the same conversion engine**:
+Gobbler follows a **CLI-first architecture**. All interfaces wrap the same CLI:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -48,115 +157,44 @@ Gobbler provides **four ways to access the same conversion engine**:
 └──────────────┬──────────────┬──────────────┬───────────────┘
                │              │              │
       ┌────────▼────┐  ┌──────▼─────┐  ┌─────▼─────┐
-      │  gobbler    │  │ gobbler_sdk │  │  MCP      │
-      │    CLI      │  │   Python   │  │ Protocol  │
+      │   Skills    │  │  gobbler   │  │    MCP    │
+      │ (AI Agents) │  │    CLI     │  │  Protocol │
       └────────┬────┘  └──────┬─────┘  └─────┬─────┘
-               │              │              │
+               │       calls  │              │ wraps
                └──────────────┼──────────────┘
-                              │
-                    ┌─────────▼─────────┐
-                    │   REST API        │
-                    │   Port 4600       │
-                    └─────────┬─────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-   ┌────▼────┐          ┌─────▼─────┐         ┌────▼────┐
-   │ Whisper │          │  Docling  │         │ Crawl4AI│
-   │ (Audio) │          │  (Docs)   │         │  (Web)  │
-   └─────────┘          └───────────┘         └─────────┘
+                              ▼
+                    ┌─────────────────┐
+                    │  gobbler_core   │
+                    │  (Converters)   │
+                    └────────┬────────┘
+                             │
+         ┌───────────────────┼───────────────────┐
+         ▼                   ▼                   ▼
+    ┌─────────┐        ┌───────────┐       ┌─────────┐
+    │ Whisper │        │  Docling  │       │Crawl4AI │
+    │ (local) │        │ (Docker)  │       │(Docker) │
+    └─────────┘        └───────────┘       └─────────┘
 ```
 
-### Interface Options
-
-| Interface | Best For | Example |
-|-----------|----------|---------|
-| **CLI** | Shell scripts, quick tasks | `gobbler youtube URL -o file.md` |
-| **Python SDK** | Python applications | `client.convert.youtube(url)` |
-| **REST API** | Any HTTP client | `curl http://localhost:4600/convert/youtube` |
-| **MCP** | Claude Desktop/Code | Built-in tool discovery |
-
-## CLI Usage
-
-```bash
-# YouTube
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID"
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md --timestamps
-
-# Documents (use --no-ocr for digital PDFs, --ocr for scanned)
-gobbler document report.pdf -o output.md
-gobbler document report.pdf --no-ocr -o output.md
-gobbler document scanned.pdf --ocr -o output.md
-
-# Audio/Video
-gobbler audio recording.mp3 -o transcript.md
-gobbler audio lecture.mp4 --model medium -o lecture.md
-
-# Web pages
-gobbler webpage "https://example.com" -o page.md
-```
-
-## Python SDK
-
-```python
-from gobbler_sdk import GobblerClient
-
-client = GobblerClient()
-
-# YouTube
-result = client.convert.youtube("https://youtube.com/watch?v=VIDEO_ID")
-print(result.markdown)
-
-# Document
-result = client.convert.document("/path/to/report.pdf", enable_ocr=False)
-print(result.markdown)
-
-# Audio
-result = client.convert.audio("/path/to/recording.mp3", model="small")
-print(result.markdown)
-
-# Webpage
-result = client.convert.webpage("https://example.com")
-print(result.markdown)
-```
-
-## REST API
-
-```bash
-# YouTube
-curl -X POST http://localhost:4600/convert/youtube \
-  -H "Content-Type: application/json" \
-  -d '{"video_url": "https://youtube.com/watch?v=VIDEO_ID"}'
-
-# Document
-curl -X POST http://localhost:4600/convert/document \
-  -H "Content-Type: application/json" \
-  -d '{"file_path": "/path/to/report.pdf", "enable_ocr": false}'
-
-# Audio
-curl -X POST http://localhost:4600/convert/audio \
-  -H "Content-Type: application/json" \
-  -d '{"file_path": "/path/to/recording.mp3", "model": "small"}'
-
-# Webpage
-curl -X POST http://localhost:4600/convert/webpage \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com"}'
-```
+**Why CLI-first?**
+- Single implementation to maintain
+- Users can run the same commands AI runs
+- Easy to test and debug
+- Shell scripts can orchestrate complex workflows
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.11+
-- Docker Desktop
-- uv (Python package manager)
-- ffmpeg (for audio processing)
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Docker Desktop (for web/document conversion)
+- ffmpeg (for audio extraction from video)
 
 ### Install
 
 ```bash
-# Install uv if needed
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Clone and install
@@ -169,87 +207,24 @@ docker compose up -d
 
 # Verify
 gobbler --version
-curl http://localhost:5001/health  # Docling
-curl http://localhost:11235/health # Crawl4AI
 ```
 
-### Claude Code Integration
+### What Works Without Docker
 
-```bash
-# Install as MCP server
-claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
-```
+- **YouTube transcripts** - Uses YouTube's API directly
+- **Audio transcription** - Uses local Whisper model
 
-### Claude Desktop Integration
+### What Needs Docker
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "gobbler-mcp": {
-      "command": "uv",
-      "args": ["--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
-    }
-  }
-}
-```
-
-## Daemon Management
-
-```bash
-# Start daemon (background)
-gobbler daemon start
-
-# Start in foreground (for debugging)
-gobbler daemon start --foreground
-
-# Check status
-gobbler daemon status
-
-# View logs
-gobbler daemon logs
-gobbler daemon logs --follow
-
-# Stop
-gobbler daemon stop
-
-# Restart
-gobbler daemon restart
-```
-
-## Docker Services
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| `gobbler-docling` | 5001 | PDF, DOCX, PPTX, XLSX conversion |
-| `gobbler-crawl4ai` | 11235 | Web page scraping |
-| `gobbler-redis` | 6380 | Job queue backend |
-
-```bash
-# Start all
-docker compose up -d
-
-# Check status
-docker compose ps
-
-# View logs
-docker logs gobbler-docling --tail 50
-docker logs gobbler-crawl4ai --tail 50
-
-# Restart a service
-docker compose restart docling
-```
+- **Document conversion** - Docling service (port 5001)
+- **Web scraping** - Crawl4AI service (port 11235)
+- **Job queue** - Redis (port 6380)
 
 ## Configuration
 
 Config file: `~/.config/gobbler/config.yaml`
 
 ```yaml
-api:
-  port: 4600
-  host: "0.0.0.0"
-
 services:
   docling: "http://localhost:5001"
   crawl4ai: "http://localhost:11235"
@@ -260,33 +235,7 @@ storage:
 
 logging:
   level: "INFO"
-  file: "~/.config/gobbler/gobbler.log"
 ```
-
-## Auto-Start on Login (macOS)
-
-Create `~/Library/LaunchAgents/com.gobbler.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.gobbler</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>-c</string>
-        <string>cd /path/to/gobbler && docker compose up -d && sleep 10 && gobbler daemon start</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-```
-
-Load: `launchctl load ~/Library/LaunchAgents/com.gobbler.plist`
 
 ## Troubleshooting
 
@@ -301,57 +250,47 @@ gobbler document file.pdf --no-ocr -o output.md
 
 ```bash
 docker compose up -d
-curl http://localhost:5001/health  # Docling
-curl http://localhost:11235/health # Crawl4AI
+docker compose ps
+curl http://localhost:5001/health   # Docling
+curl http://localhost:11235/health  # Crawl4AI
 ```
 
-### CLI not found
+### YouTube "IP blocked"
 
 ```bash
-# Run via uv
-uv run gobbler --version
-
-# Or install globally
-uv tool install .
+# Set up TranscriptAPI.com for reliable access
+export TRANSCRIPTAPI_KEY=your_key
+gobbler youtube "URL"
 ```
 
-See [skills/gobbler-setup/SKILL.md](skills/gobbler-setup/SKILL.md) for complete troubleshooting guide.
-
-## Example Output
-
-```markdown
----
-source: https://youtube.com/watch?v=VIDEO_ID
-type: youtube_transcript
-title: "Video Title"
-channel: "Channel Name"
-duration: 213
-language: en
-word_count: 1547
-converted_at: 2025-12-21T15:32:11Z
----
-
-# Video Title
-
-Transcript content here...
-```
+See [gobbler-setup skill](skills/gobbler-setup/SKILL.md) for complete troubleshooting.
 
 ## Project Structure
 
 ```
 gobbler/
 ├── src/
-│   ├── gobbler_cli/       # CLI interface
-│   ├── gobbler_api/       # REST API server
-│   ├── gobbler_sdk/       # Python client library
-│   ├── gobbler_daemon/    # Background daemon
-│   ├── gobbler_core/      # Shared converters
-│   ├── gobbler_mcp/       # MCP server
-│   └── gobbler_relay/     # Browser extension relay
-├── skills/                # Claude Code skills
-├── docker-compose.yml     # Docker services
-└── pyproject.toml         # Python config
+│   ├── gobbler_cli/       # CLI interface (typer)
+│   ├── gobbler_core/      # Converters & utilities
+│   ├── gobbler_mcp/       # MCP protocol server
+│   ├── gobbler_relay/     # Browser extension bridge
+│   └── gobbler_queue/     # Background job queue
+├── skills/                # AI agent instruction files
+├── browser-extension/     # Chrome/Firefox extension
+└── docker-compose.yml     # External services
 ```
+
+## Philosophy
+
+**"Markdown is the lingua franca of human-AI communication."**
+
+Gobbler exists because:
+1. AI works best with structured text
+2. Content exists in many formats
+3. Converting content shouldn't require expertise in each format
+4. AI agents need reliable, documented procedures—not just raw tools
+
+We provide **excellent operating procedures** wrapped around excellent tools. Each skill doesn't just expose commands—it teaches AI agents *how to succeed*.
 
 ## License
 
@@ -359,7 +298,8 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Acknowledgments
 
-- [Crawl4AI](https://github.com/unclecode/crawl4ai) for web scraping
-- [Docling](https://github.com/DS4SD/docling) for document conversion
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) for transcription
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube
+Built on the shoulders of giants:
+- [Crawl4AI](https://github.com/unclecode/crawl4ai) - Web scraping
+- [Docling](https://github.com/DS4SD/docling) - Document conversion
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) - Audio transcription
+- [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) - YouTube transcripts

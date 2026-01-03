@@ -24,9 +24,6 @@ gobbler daemon logs --follow
 ### Using curl
 
 ```bash
-# Check Gobbler API (port 4600)
-curl http://localhost:4600/health
-
 # Check Docling (port 5001)
 curl http://localhost:5001/health
 
@@ -70,18 +67,6 @@ gobbler daemon stop
 
 # Restart daemon
 gobbler daemon restart
-```
-
-## Python SDK Health Check
-
-```python
-from gobbler_sdk import GobblerClient
-
-client = GobblerClient()
-
-# Check API health
-health = client.health()
-print(health)  # {'status': 'healthy', 'services': {...}}
 ```
 
 ## Notes

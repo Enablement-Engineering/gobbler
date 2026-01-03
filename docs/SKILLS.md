@@ -13,7 +13,7 @@ Gobbler provides two complementary interfaces to the same backend services. Choo
 | Quick discovery/exploration | **Skills** | ~100 token context cost vs ~4,500 |
 | Heavy batch operations (>10 items) | **MCP Tools** | Server-side processing with progress tracking |
 | Browser automation workflows | **Skills** (gobbler-browser) | Interactive guidance for multi-step tasks |
-| NotebookLM interaction | **Skills** (notebooklm) | Complex workflows with decision points |
+| NotebookLM interaction | **Skills** (gobbler-notebooklm) | Complex workflows with decision points |
 | Single file conversion | **Either** | Equivalent functionality, choose based on context |
 | Background queue jobs | **MCP Tools** | Server manages job state and auto-queue |
 | Frequent operations (5+) | **MCP Tools** | Amortized context cost becomes lower |
@@ -62,7 +62,11 @@ Gobbler provides two complementary interfaces to the same backend services. Choo
 | `gobbler-document` | PDF/DOCX/PPTX/XLSX conversion | Docling Docker (port 5001) |
 | `gobbler-audio` | Audio/video transcription | faster-whisper, ffmpeg |
 | `gobbler-browser` | Browser control via extension | WebSocket (port 4625) |
-| `notebooklm` | NotebookLM interaction via browser | Browser extension + WebSocket |
+| `gobbler-notebooklm` | NotebookLM interaction via browser | Browser extension + WebSocket |
+| `gobbler-chatgpt` | ChatGPT interaction via browser | Browser extension + WebSocket |
+| `gobbler-claude` | Claude.ai interaction via browser | Browser extension + WebSocket |
+| `gobbler-gemini` | Google Gemini interaction via browser | Browser extension + WebSocket |
+| `gobbler-setup` | Installation, configuration, and troubleshooting | Pure Python |
 | `gobbler-utils` | Shared utilities | Pure Python |
 
 ## Architecture with Claude Desktop/Code
@@ -362,7 +366,7 @@ uv run browser_api.py execute "document.title"
 
 ---
 
-### notebooklm
+### gobbler-notebooklm
 
 Interact with NotebookLM via browser automation.
 
@@ -376,7 +380,7 @@ Interact with NotebookLM via browser automation.
 
 **Usage:**
 ```bash
-cd skills/notebooklm/scripts
+cd skills/gobbler-notebooklm/scripts
 
 # List available NotebookLM tabs
 uv run notebooklm.py list
@@ -390,6 +394,105 @@ uv run notebooklm.py query "What are the key points in this document?"
 # Query specific tab with custom timeout
 uv run notebooklm.py query "Summarize the main arguments" --tab-id 12345 --timeout 120
 ```
+
+---
+
+### gobbler-chatgpt
+
+Interact with ChatGPT conversations via browser automation.
+
+**Requires:**
+- Gobbler browser extension installed
+- MCP server running (provides WebSocket server on port 4625)
+- ChatGPT tab in the Gobbler tab group
+
+**Usage:**
+```bash
+# List ChatGPT tabs
+gobbler chatgpt list
+
+# Send message and wait for response
+gobbler chatgpt query "Your message here" --timeout 150
+
+# Get last response
+gobbler chatgpt last
+
+# Get chat history
+gobbler chatgpt history --count 10
+```
+
+---
+
+### gobbler-claude
+
+Interact with Claude.ai conversations via browser automation.
+
+**Requires:**
+- Gobbler browser extension installed
+- MCP server running (provides WebSocket server on port 4625)
+- Claude.ai tab in the Gobbler tab group
+
+**Usage:**
+```bash
+# List Claude tabs
+gobbler claude list
+
+# Send message and wait for response
+gobbler claude query "Your message here" --timeout 150
+
+# Get last response
+gobbler claude last
+
+# Get chat history
+gobbler claude history --count 10
+```
+
+---
+
+### gobbler-gemini
+
+Interact with Google Gemini conversations via browser automation.
+
+**Requires:**
+- Gobbler browser extension installed
+- MCP server running (provides WebSocket server on port 4625)
+- Gemini tab in the Gobbler tab group
+- Signed into Google account
+
+**Usage:**
+```bash
+# List Gemini tabs
+gobbler gemini list
+
+# Send message and wait for response
+gobbler gemini query "Your message here" --timeout 150
+
+# Get last response
+gobbler gemini last
+
+# Get chat history
+gobbler gemini history --count 10
+```
+
+---
+
+### gobbler-setup
+
+Install, configure, and troubleshoot Gobbler.
+
+**Usage:**
+```bash
+# Quick health check
+gobbler --version
+gobbler daemon status
+docker ps --filter "name=gobbler"
+
+# Check individual services
+curl -s http://localhost:5001/health
+curl -s http://localhost:11235/health
+```
+
+See the full [gobbler-setup SKILL.md](../skills/gobbler-setup/SKILL.md) for complete installation and troubleshooting guide.
 
 ---
 

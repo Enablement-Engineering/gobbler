@@ -43,32 +43,7 @@ gobbler document /path/to/document.pdf --no-ocr -o output.md
 gobbler convert document /path/to/document.pdf -o output.md
 ```
 
-## Python SDK
 
-```python
-from gobbler_sdk import GobblerClient
-
-client = GobblerClient()
-
-# Convert document
-result = client.convert.document(
-    "/path/to/document.pdf",
-    enable_ocr=False  # Set True for scanned docs
-)
-print(result.markdown)
-print(result.metadata)  # pages, word_count, format, etc.
-```
-
-## REST API
-
-```bash
-curl -X POST http://localhost:4600/convert/document \
-  -H "Content-Type: application/json" \
-  -d '{
-    "file_path": "/path/to/document.pdf",
-    "enable_ocr": false
-  }'
-```
 
 ## Prerequisites
 

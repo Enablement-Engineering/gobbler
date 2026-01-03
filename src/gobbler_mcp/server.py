@@ -12,7 +12,7 @@ from fastmcp import FastMCP
 from .config import get_config
 from .logging_config import setup_logging
 from .metrics_server import get_metrics_server
-from .utils.health import ServiceHealth
+from gobbler_core.utils.health import ServiceHealth
 
 # Import tool modules for registration
 from .tools import conversion, batch, browser, queue, crawl

@@ -47,34 +47,7 @@ gobbler audio /path/to/recording.m4a -o transcript.md
 gobbler convert audio /path/to/recording.mp3 --model small -o transcript.md
 ```
 
-## Python SDK
 
-```python
-from gobbler_sdk import GobblerClient
-
-client = GobblerClient()
-
-# Transcribe audio
-result = client.convert.audio(
-    "/path/to/audio.mp3",
-    model="small",
-    language="en"
-)
-print(result.markdown)
-print(result.metadata)  # duration, word_count, etc.
-```
-
-## REST API
-
-```bash
-curl -X POST http://localhost:4600/convert/audio \
-  -H "Content-Type: application/json" \
-  -d '{
-    "file_path": "/path/to/audio.mp3",
-    "model": "small",
-    "language": "en"
-  }'
-```
 
 ## Tips
 

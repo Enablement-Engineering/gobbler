@@ -70,7 +70,7 @@ start:
 	@make start-docker
 	@echo ""
 	@echo "🔧 Starting RQ worker in background..."
-	@nohup uv run python -m gobbler_mcp.worker > gobbler_worker.log 2>&1 & echo $$! > .worker.pid
+	@nohup uv run python -m gobbler_queue.worker > gobbler_worker.log 2>&1 & echo $$! > .worker.pid
 	@sleep 2
 	@if ps -p $$(cat .worker.pid) > /dev/null 2>&1; then \
 		echo "✅ Worker started (PID: $$(cat .worker.pid))"; \
@@ -148,7 +148,7 @@ worker:
 	@echo "   Processing queues: default, transcription, download"
 	@echo "   Press Ctrl+C to stop"
 	@echo ""
-	uv run python -m gobbler_mcp.worker
+	uv run python -m gobbler_queue.worker
 
 # Stop any running RQ workers
 # Attempts to kill both background workers (started by 'make start')
@@ -159,7 +159,7 @@ worker-stop:
 		kill $$(cat .worker.pid) 2>/dev/null && echo "✅ Worker stopped (PID: $$(cat .worker.pid))" || echo "⚠️  Worker already stopped"; \
 		rm -f .worker.pid; \
 	else \
-		pkill -f "gobbler_mcp.worker" && echo "✅ Workers stopped" || echo "⚠️  No workers running"; \
+		pkill -f "gobbler_queue.worker" && echo "✅ Workers stopped" || echo "⚠️  No workers running"; \
 	fi
 
 # ============================================================================

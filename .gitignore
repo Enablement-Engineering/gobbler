@@ -75,3 +75,4 @@ tests/fixtures/*queued*.md
 # Skill caches
 skills/**/__pycache__/
 skills/**/*.pyc
+.ai/

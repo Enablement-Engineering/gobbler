@@ -25,7 +25,6 @@ gobbler daemon status
 docker ps --filter "name=gobbler" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # Check individual services
-curl -s http://localhost:4600/health && echo " ← API OK"
 curl -s http://localhost:5001/health && echo " ← Docling OK"
 curl -s http://localhost:11235/health && echo " ← Crawl4AI OK"
 redis-cli -p 6380 ping && echo " ← Redis OK"
@@ -101,20 +100,14 @@ gobbler webpage "https://example.com"
 ### Default Configuration
 
 ```yaml
-# API settings
-api:
-  port: 4600
-  host: "0.0.0.0"
-
 # Service URLs
 services:
   docling: "http://localhost:5001"
   crawl4ai: "http://localhost:11235"
-  whisper: "http://localhost:8000"
 
 # Storage
 storage:
-  type: "sqlite"  # or "redis"
+  type: "sqlite"
   path: "~/.config/gobbler/jobs.db"
 
 # Logging
@@ -127,7 +120,6 @@ logging:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GOBBLER_API_PORT` | API server port | 4600 |
 | `GOBBLER_LOG_LEVEL` | Logging level | INFO |
 | `TRANSCRIPTAPI_KEY` | TranscriptAPI.com key | - |
 
@@ -272,7 +264,6 @@ echo -e "\n[Services]"
 docker ps --filter "name=gobbler" --format "{{.Names}}: {{.Status}}" 2>/dev/null
 
 echo -e "\n[Health Checks]"
-curl -s http://localhost:4600/health 2>/dev/null && echo " ← API" || echo "API: FAILED"
 curl -s http://localhost:5001/health 2>/dev/null && echo " ← Docling" || echo "Docling: FAILED"
 curl -s http://localhost:11235/health 2>/dev/null && echo " ← Crawl4AI" || echo "Crawl4AI: FAILED"
 

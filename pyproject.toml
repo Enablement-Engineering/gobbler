@@ -85,7 +85,6 @@ dev = [
 # Main CLI
 gobbler = "gobbler_cli.main:cli"
 # Individual services
-gobbler-daemon = "gobbler_daemon:main"
 gobbler-mcp = "gobbler_mcp.__main__:main"
 # Queue worker
 gobbler-worker = "gobbler_queue.worker:main"
@@ -97,8 +96,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = [
     "src/gobbler_core",
-    "src/gobbler_daemon",
-    "src/gobbler_sdk",
     "src/gobbler_cli",
     "src/gobbler_mcp",
     "src/gobbler_relay",
@@ -199,8 +196,6 @@ convention = "google"
 [tool.ruff.lint.isort]
 known-first-party = [
     "gobbler_core",
-    "gobbler_daemon",
-    "gobbler_sdk",
     "gobbler_cli",
     "gobbler_mcp",
     "gobbler_relay",
@@ -211,8 +206,6 @@ combine-as-imports = true
 [tool.coverage.run]
 source = [
     "src/gobbler_core",
-    "src/gobbler_daemon",
-    "src/gobbler_sdk",
     "src/gobbler_cli",
     "src/gobbler_mcp",
     "src/gobbler_relay",

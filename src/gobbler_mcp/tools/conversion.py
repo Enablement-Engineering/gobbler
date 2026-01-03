@@ -1,36 +1,62 @@
-"""Single-file conversion tools.
+"""Thin CLI wrappers for MCP conversion tools.
 
-Tools for converting individual files/URLs to markdown:
-- transcribe_youtube: YouTube video transcript extraction
-- fetch_webpage: Basic webpage to markdown conversion
-- fetch_webpage_with_selector: Advanced webpage extraction with selectors
-- convert_document: Document (PDF, DOCX, etc.) to markdown
-- transcribe_audio: Audio/video file transcription
+These tools delegate to the gobbler CLI for actual implementation,
+keeping the MCP server lightweight and avoiding code duplication.
+
+Tools:
+- transcribe_youtube: YouTube video transcript extraction via CLI
+- fetch_webpage: Basic webpage to markdown conversion via CLI
+- fetch_webpage_with_selector: Advanced webpage extraction (uses existing converter)
+- convert_document: Document conversion via CLI
+- transcribe_audio: Audio/video transcription via CLI
 """
 
 import logging
+import subprocess
 from typing import Optional
 
 import httpx
 from fastmcp import FastMCP
-from youtube_transcript_api import (
-    NoTranscriptFound,
-    TranscriptsDisabled,
-    VideoUnavailable,
-)
 
 from ..constants import MIN_TIMEOUT, MAX_TIMEOUT
-from ..config import get_config
-from ..converters import (
-    convert_audio_to_markdown,
-    convert_document_to_markdown,
-    convert_webpage_to_markdown,
-    convert_webpage_with_selector,
-    convert_youtube_to_markdown,
-)
-from ..utils import save_markdown_file, validate_output_path, get_metrics_callback
+
+# Import the selector converter directly since CLI doesn't fully support it yet
+from ..converters import convert_webpage_with_selector
+from ..utils import save_markdown_file, validate_output_path
 
 logger = logging.getLogger(__name__)
+
+
+def _run_cli(cmd: list[str], timeout: int = 300) -> tuple[bool, str]:
+    """
+    Run a CLI command and return success status and output.
+
+    Args:
+        cmd: Command list to execute
+        timeout: Timeout in seconds (default: 5 minutes)
+
+    Returns:
+        Tuple of (success, output) where output is stdout on success or stderr on failure
+    """
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            return (
+                False,
+                result.stderr.strip() or f"Command failed with exit code {result.returncode}",
+            )
+        return True, result.stdout
+    except subprocess.TimeoutExpired:
+        return False, f"Command timed out after {timeout} seconds"
+    except FileNotFoundError:
+        return False, "gobbler CLI not found. Ensure it's installed and in PATH."
+    except Exception as e:
+        return False, f"Failed to run command: {str(e)}"
 
 
 def register_tools(mcp: FastMCP):
@@ -60,70 +86,19 @@ def register_tools(mcp: FastMCP):
             Markdown text with YAML frontmatter if output_file not provided,
             or success message with file path if output_file provided
         """
-        try:
-            # Convert to markdown
-            markdown, metadata = await convert_youtube_to_markdown(
-                video_url=video_url,
-                include_timestamps=include_timestamps,
-                language=language,
-            )
+        cmd = ["gobbler", "youtube", video_url]
 
-            # Handle output
-            if output_file:
-                import os
-                from pathlib import Path
+        if include_timestamps:
+            cmd.append("--timestamps")
+        if language != "auto":
+            cmd.extend(["--language", language])
+        if output_file:
+            cmd.extend(["-o", output_file])
 
-                output_path = Path(output_file)
-
-                # If output_file is a directory or doesn't have .md extension, use video title
-                if output_path.is_dir() or not output_file.endswith(".md"):
-                    # Get title from metadata and sanitize for filename
-                    title = metadata.get("title", f"video_{metadata['video_id']}")
-                    # Remove invalid filename characters
-                    safe_title = "".join(
-                        c for c in title if c.isalnum() or c in (" ", "-", "_")
-                    ).strip()
-                    safe_title = safe_title.replace(" ", "_")
-
-                    # Construct the full path
-                    if output_path.is_dir():
-                        output_file = str(output_path / f"{safe_title}.md")
-                    else:
-                        # It's a directory path provided as string
-                        output_file = os.path.join(output_file, f"{safe_title}.md")
-
-                # Validate output path
-                error = validate_output_path(output_file)
-                if error:
-                    return f"Error: {error}"
-
-                # Save to file
-                success = await save_markdown_file(output_file, markdown)
-                if success:
-                    return f"Transcript saved to: {output_file}"
-                else:
-                    return f"Failed to write file: Permission denied for {output_file}"
-            else:
-                # Return markdown directly
-                return markdown
-
-        except ValueError as e:
-            return str(e)
-        except VideoUnavailable:
-            return "Video not found: The video may be private, deleted, or the URL is incorrect."
-        except TranscriptsDisabled:
-            return (
-                "No transcript available for this video. The video may not have captions, "
-                "or they may be disabled. To transcribe anyway, use transcribe_audio with the video file."
-            )
-        except NoTranscriptFound as e:
-            return (
-                f"Transcript not available in language '{language}'. {str(e)}. "
-                "Use language='auto' for default."
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error in transcribe_youtube: {e}", exc_info=True)
-            return f"Failed to extract transcript: {str(e)}"
+        success, output = _run_cli(cmd)
+        if not success:
+            return f"Error: {output}"
+        return output
 
     @mcp.tool()
     async def fetch_webpage(
@@ -149,78 +124,22 @@ def register_tools(mcp: FastMCP):
             Markdown text with YAML frontmatter if output_file not provided,
             or success message with file path if output_file provided
         """
-        try:
-            # Validate timeout
-            if timeout < MIN_TIMEOUT or timeout > MAX_TIMEOUT:
-                return f"Error: timeout must be between {MIN_TIMEOUT} and {MAX_TIMEOUT} seconds"
+        # Validate timeout
+        if timeout < MIN_TIMEOUT or timeout > MAX_TIMEOUT:
+            return f"Error: timeout must be between {MIN_TIMEOUT} and {MAX_TIMEOUT} seconds"
 
-            # Convert to markdown
-            markdown, metadata = await convert_webpage_to_markdown(
-                url=url,
-                include_images=include_images,
-                timeout=timeout,
-            )
+        cmd = ["gobbler", "webpage", url]
 
-            # Handle output
-            if output_file:
-                error = validate_output_path(output_file)
-                if error:
-                    return f"Error: {error}"
+        if not include_images:
+            cmd.append("--no-images")
+        cmd.extend(["--timeout", str(timeout)])
+        if output_file:
+            cmd.extend(["-o", output_file])
 
-                success = await save_markdown_file(output_file, markdown)
-                if success:
-                    return f"Web page saved to: {output_file}"
-                else:
-                    return f"Failed to write file: Permission denied for {output_file}"
-            else:
-                return markdown
-
-        except httpx.ConnectError:
-            return (
-                "❌ Crawl4AI service unavailable.\n\n"
-                "What went wrong:\n"
-                "   The Crawl4AI Docker container is not running or not reachable.\n\n"
-                "Why this happened:\n"
-                "   • Docker services may not be started\n"
-                "   • Container crashed or failed to start\n"
-                "   • Port 11235 is blocked or in use\n\n"
-                "How to fix:\n"
-                "   1. Start services: `make start-docker`\n"
-                "   2. Check status: `make status`\n"
-                "   3. View logs: `make logs`\n\n"
-                "Note: YouTube transcription still works without Docker!"
-            )
-        except httpx.TimeoutException:
-            return (
-                f"⏱️  Connection timeout after {timeout} seconds.\n\n"
-                "What went wrong:\n"
-                f"   Failed to fetch {url} within {timeout} seconds.\n\n"
-                "Why this happened:\n"
-                "   • Target server is slow or unresponsive\n"
-                "   • Network connectivity issues\n"
-                "   • URL may be inaccessible\n\n"
-                "How to fix:\n"
-                "   • Increase timeout: Use timeout parameter (max 120 seconds)\n"
-                "   • Check URL is accessible in browser\n"
-                "   • Try again later if server is overloaded"
-            )
-        except httpx.HTTPStatusError as e:
-            status_code = e.response.status_code
-            if status_code == 404:
-                return f"HTTP 404: Page not found at {url}"
-            elif status_code >= 500:
-                return f"HTTP {status_code}: Server error at {url}. The target server may be experiencing issues."
-            else:
-                return f"HTTP {status_code}: Failed to fetch {url}"
-        except RuntimeError as e:
-            error_msg = str(e)
-            if "not yet implemented" in error_msg:
-                return error_msg
-            # Crawl4AI errors
-            return f"Crawl4AI error: {error_msg}"
-        except Exception as e:
-            logger.error(f"Unexpected error in fetch_webpage: {e}", exc_info=True)
-            return f"Failed to convert web page: {str(e)}"
+        success, output = _run_cli(cmd, timeout=timeout + 30)  # Extra buffer for CLI overhead
+        if not success:
+            return f"Error: {output}"
+        return output
 
     @mcp.tool()
     async def fetch_webpage_with_selector(
@@ -273,6 +192,7 @@ def register_tools(mcp: FastMCP):
             Extract with links:
             "Extract content from https://blog.example.com with selector '.post' and extract all links"
         """
+        # Keep existing implementation since CLI doesn't fully support all options yet
         try:
             # Validate timeout
             if timeout < MIN_TIMEOUT or timeout > MAX_TIMEOUT:
@@ -330,13 +250,13 @@ def register_tools(mcp: FastMCP):
             return str(e)
         except httpx.ConnectError:
             return (
-                "❌ Crawl4AI service unavailable.\n\n"
+                "Crawl4AI service unavailable.\n\n"
                 "What went wrong:\n"
                 "   The Crawl4AI Docker container is not running or not reachable.\n\n"
                 "Why this happened:\n"
-                "   • Docker services may not be started\n"
-                "   • Container crashed or failed to start\n"
-                "   • Port 11235 is blocked or in use\n\n"
+                "   - Docker services may not be started\n"
+                "   - Container crashed or failed to start\n"
+                "   - Port 11235 is blocked or in use\n\n"
                 "How to fix:\n"
                 "   1. Start services: `make start-docker`\n"
                 "   2. Check status: `make status`\n"
@@ -388,86 +308,20 @@ def register_tools(mcp: FastMCP):
             Markdown text with YAML frontmatter if output_file not provided,
             or success message with file path if output_file provided
         """
-        try:
-            # Get infrastructure dependencies
-            config = get_config()
-            service_url = config.get_service_url("docling")
-            metrics_callback = get_metrics_callback()
+        cmd = ["gobbler", "document", file_path]
 
-            # Convert to markdown
-            markdown, metadata = await convert_document_to_markdown(
-                file_path=file_path,
-                enable_ocr=enable_ocr,
-                service_url=service_url,
-                metrics_callback=metrics_callback,
-            )
-
-            # Handle output
-            if output_file:
-                error = validate_output_path(output_file)
-                if error:
-                    return f"Error: {error}"
-
-                success = await save_markdown_file(output_file, markdown)
-                if success:
-                    return f"Document saved to: {output_file}"
-                else:
-                    return f"Failed to write file: Permission denied for {output_file}"
-            else:
-                return markdown
-
-        except ValueError as e:
-            # File validation errors
-            return str(e)
-        except RuntimeError as e:
-            # Service unavailable or not implemented
-            if "not yet implemented" in str(e):
-                return str(e)
-            return (
-                "❌ Docling service unavailable.\n\n"
-                "What went wrong:\n"
-                "   The Docling Docker container is not running or not reachable.\n\n"
-                "Why this happened:\n"
-                "   • Docker services may not be started\n"
-                "   • Container crashed or failed to start\n"
-                "   • Port 5001 is blocked or in use\n\n"
-                "How to fix:\n"
-                "   1. Start services: `make start-docker`\n"
-                "   2. Check status: `make status`\n"
-                "   3. View logs: `docker logs gobbler-docling`\n\n"
-                "Note: This only affects document conversion (PDF, DOCX, etc.)"
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error in convert_document: {e}", exc_info=True)
-            return f"Failed to convert document: {str(e)}"
-
-    async def _transcribe_audio_task(
-        file_path: str,
-        model: str = "small",
-        language: str = "auto",
-        output_file: Optional[str] = None,
-    ) -> str:
-        """Internal transcription function for both sync and queue execution."""
-        # Convert to markdown
-        markdown, metadata = await convert_audio_to_markdown(
-            file_path=file_path,
-            model=model,
-            language=language,
-        )
-
-        # Handle output
-        if output_file:
-            error = validate_output_path(output_file)
-            if error:
-                return f"Error: {error}"
-
-            success = await save_markdown_file(output_file, markdown)
-            if success:
-                return f"Transcript saved to: {output_file}"
-            else:
-                return f"Failed to write file: Permission denied for {output_file}"
+        if enable_ocr:
+            cmd.append("--ocr")
         else:
-            return markdown
+            cmd.append("--no-ocr")
+        if output_file:
+            cmd.extend(["-o", output_file])
+
+        # Document conversion can be slow, especially with OCR
+        success, output = _run_cli(cmd, timeout=600)
+        if not success:
+            return f"Error: {output}"
+        return output
 
     @mcp.tool()
     async def transcribe_audio(
@@ -491,24 +345,19 @@ def register_tools(mcp: FastMCP):
 
         Returns:
             Markdown text with YAML frontmatter if output_file not provided,
-            or success message with file path if output_file provided.
+            or success message with file path if output_file provided
         """
-        try:
-            from pathlib import Path
+        cmd = ["gobbler", "audio", file_path]
 
-            # Validate file exists first
-            if not Path(file_path).exists():
-                return f"Error: File not found: {file_path}"
+        if model != "small":
+            cmd.extend(["--model", model])
+        if language != "auto":
+            cmd.extend(["--language", language])
+        if output_file:
+            cmd.extend(["-o", output_file])
 
-            # Execute transcription
-            return await _transcribe_audio_task(file_path, model, language, output_file)
-
-        except ValueError as e:
-            # File validation errors
-            return str(e)
-        except RuntimeError as e:
-            # Transcription errors
-            return str(e)
-        except Exception as e:
-            logger.error(f"Unexpected error in transcribe_audio: {e}", exc_info=True)
-            return f"Failed to transcribe audio: {str(e)}"
+        # Audio transcription can take a long time depending on file size and model
+        success, output = _run_cli(cmd, timeout=1800)  # 30 minute timeout
+        if not success:
+            return f"Error: {output}"
+        return output

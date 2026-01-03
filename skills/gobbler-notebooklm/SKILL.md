@@ -1,5 +1,5 @@
 ---
-name: notebooklm
+name: gobbler-notebooklm
 description: "Query Google NotebookLM notebooks via browser automation. Use when user wants to ask NotebookLM questions, get chat history, or interact with their research notebooks."
 version: 2.3.0
 ---

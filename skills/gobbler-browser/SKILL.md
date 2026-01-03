@@ -105,7 +105,7 @@ gobbler browser exec "await fetch('/api').then(r => r.json())" --timeout 30
 ## Related Integrations
 
 For site-specific automation, see:
-- [notebooklm skill](../notebooklm/SKILL.md) - Query NotebookLM notebooks
+- [gobbler-notebooklm skill](../gobbler-notebooklm/SKILL.md) - Query NotebookLM notebooks
 - [gobbler-claude skill](../gobbler-claude/SKILL.md) - Chat with Claude.ai
 
 ---

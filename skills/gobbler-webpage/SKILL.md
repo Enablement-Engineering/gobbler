@@ -36,48 +36,7 @@ gobbler webpage "https://example.com" --selector "article.main-content" -o artic
 gobbler convert webpage "https://example.com" -o page.md
 ```
 
-## Python SDK
 
-```python
-from gobbler_sdk import GobblerClient
-
-client = GobblerClient()
-
-# Fetch webpage
-result = client.convert.webpage(
-    "https://example.com",
-    include_images=True,
-    timeout=30
-)
-print(result.markdown)
-print(result.metadata)  # url, title, word_count, etc.
-```
-
-## REST API
-
-```bash
-curl -X POST http://localhost:4600/convert/webpage \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "include_images": true,
-    "timeout": 30
-  }'
-```
-
-## Advanced Options (via API)
-
-```bash
-# With CSS selector extraction
-curl -X POST http://localhost:4600/convert/webpage \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "css_selector": "article.content",
-    "extract_links": true,
-    "bypass_cache": true
-  }'
-```
 
 ## Prerequisites
 
