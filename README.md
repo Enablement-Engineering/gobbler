@@ -218,7 +218,6 @@ gobbler --version
 
 - **Document conversion** - Docling service (port 5001)
 - **Web scraping** - Crawl4AI service (port 11235)
-- **Job queue** - Redis (port 6380)
 
 ## Configuration
 

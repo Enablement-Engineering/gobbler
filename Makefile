@@ -11,7 +11,7 @@ help:
 	@echo "  make verify         - Verify installation and check system health"
 	@echo ""
 	@echo "🐳 Docker Services:"
-	@echo "  make start-docker   - Start Docker services only (Crawl4AI, Docling, Redis)"
+	@echo "  make start-docker   - Start Docker services only (Crawl4AI, Docling)"
 	@echo "  make stop           - Stop all Docker services"
 	@echo "  make restart        - Restart all Docker services"
 	@echo "  make logs           - View logs from all services"
@@ -63,7 +63,7 @@ dev:
 
 # Start all services: Docker containers + background RQ worker
 # This is your one-stop command to get Gobbler fully operational
-# Runs: Crawl4AI, Docling, Redis, and RQ worker in background
+# Runs: Crawl4AI, Docling, and background worker
 start:
 	@echo "🚀 Starting Gobbler (Docker services + RQ worker)..."
 	@echo ""
@@ -81,8 +81,8 @@ start:
 	@echo ""
 	@echo "🎉 Gobbler is ready! Use 'make worker-stop' to stop the worker."
 
-# Start only Docker services (Crawl4AI, Docling, Redis)
-# Use this if you want to manage the RQ worker separately
+# Start only Docker services (Crawl4AI, Docling)
+# Use this if you want to manage the worker separately
 # The services will run in background (detached mode)
 start-docker:
 	@echo "🐳 Starting Docker services..."
@@ -91,15 +91,13 @@ start-docker:
 	@echo "✅ Services starting..."
 	@echo "   - Crawl4AI: http://localhost:11235"
 	@echo "   - Docling:  http://localhost:5001"
-	@echo "   - Redis:    localhost:6380"
 	@echo ""
 	@echo "⏳ Waiting for services to be ready (this may take 30-60 seconds)..."
 	@sleep 5
 	@make status
 
 # Stop all Docker services
-# This will gracefully shut down Crawl4AI, Docling, and Redis containers
-# Data in Redis will be lost unless persisted
+# This will gracefully shut down Crawl4AI and Docling containers
 stop:
 	@echo "🛑 Stopping Docker services..."
 	docker-compose down
@@ -132,8 +130,6 @@ status:
 	@curl -sf http://localhost:11235/health > /dev/null && echo "✅ Healthy" || echo "❌ Unavailable"
 	@echo -n "   Docling:  "
 	@curl -sf http://localhost:5001/health > /dev/null && echo "✅ Healthy" || echo "❌ Unavailable"
-	@echo -n "   Redis:    "
-	@docker exec gobbler-redis redis-cli ping > /dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unavailable"
 
 # ============================================================================
 # Worker Management Targets
@@ -342,8 +338,6 @@ verify:
 			curl -sf http://localhost:11235/health > /dev/null 2>&1 && echo "✅ Healthy (http://localhost:11235)" || echo "❌ Unavailable (start with: make start-docker)"; \
 			echo -n "✓ Docling service: "; \
 			curl -sf http://localhost:5001/health > /dev/null 2>&1 && echo "✅ Healthy (http://localhost:5001)" || echo "❌ Unavailable (start with: make start-docker)"; \
-			echo -n "✓ Redis service: "; \
-			docker exec gobbler-redis redis-cli ping > /dev/null 2>&1 && echo "✅ Healthy (localhost:6380)" || echo "❌ Unavailable (start with: make start-docker)"; \
 		else \
 			echo "✓ Docker daemon: ❌ Not running"; \
 			echo "   Fix: Start Docker Desktop or docker service"; \
@@ -413,12 +407,6 @@ diagnose:
 				echo "   Solution: Run 'make start-docker' to start services"; \
 				echo ""; \
 			fi; \
-			if ! docker exec gobbler-redis redis-cli ping > /dev/null 2>&1; then \
-				echo "⚠️  WARNING: Redis service unavailable"; \
-				echo "   Impact: Background job queue will not work"; \
-				echo "   Solution: Run 'make start-docker' to start services"; \
-				echo ""; \
-			fi; \
 		fi; \
 	else \
 		echo "ℹ️  INFO: Docker not installed"; \
@@ -460,17 +448,6 @@ diagnose:
 			echo "   Troubleshooting:"; \
 			echo "   1. Check if container is running: docker ps | grep docling"; \
 			echo "   2. Check container logs: docker logs gobbler-docling"; \
-			echo "   3. Try restarting: make restart"; \
-		fi; \
-		echo ""; \
-		echo -n "Testing Redis (localhost:6380)... "; \
-		if docker exec gobbler-redis redis-cli ping > /dev/null 2>&1; then \
-			echo "✅ OK"; \
-		else \
-			echo "❌ FAILED"; \
-			echo "   Troubleshooting:"; \
-			echo "   1. Check if container is running: docker ps | grep redis"; \
-			echo "   2. Check container logs: docker logs gobbler-redis"; \
 			echo "   3. Try restarting: make restart"; \
 		fi; \
 		echo ""; \

@@ -28,32 +28,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Redis - Queue backend for long-running tasks
-  redis:
-    image: redis:7-alpine
-    container_name: gobbler-redis
-    ports:
-      - "6380:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-          cpus: '0.5'
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   # Docling - Document conversion (PDF, DOCX, PPTX, XLSX)
   docling:
     image: quay.io/docling-project/docling-serve:latest
@@ -83,9 +57,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  redis-data:
 
 networks:
   default:
