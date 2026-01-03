@@ -4,12 +4,12 @@ This module defines the core data structures used by the job queue,
 including job status, types, and the Job dataclass with serialization support.
 """
 
+import json
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
-import json
-import uuid
+from typing import Any
 
 
 class JobStatus(str, Enum):
@@ -63,19 +63,19 @@ class Job:
     args: dict[str, Any] = field(default_factory=dict)
     progress: int = 0
     progress_message: str = ""
-    result: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    worker_pid: Optional[int] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    worker_pid: int | None = None
 
     @classmethod
     def create(
         cls,
         job_type: JobType,
         command: str,
-        args: Optional[dict[str, Any]] = None,
+        args: dict[str, Any] | None = None,
     ) -> "Job":
         """Create a new job with a generated UUID.
 
@@ -109,7 +109,7 @@ class Job:
         )
 
     @property
-    def duration(self) -> Optional[timedelta]:
+    def duration(self) -> timedelta | None:
         """Calculate the duration of the job.
 
         Returns:
@@ -209,7 +209,7 @@ class JobSummary:
     progress: int
     progress_message: str
     created_at: datetime
-    error: Optional[str] = None
+    error: str | None = None
 
     @classmethod
     def from_job(cls, job: Job) -> "JobSummary":
@@ -253,7 +253,7 @@ class JobSummary:
         }
 
 
-def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
+def _parse_datetime(value: str | None) -> datetime | None:
     """Parse an ISO format datetime string.
 
     Args:

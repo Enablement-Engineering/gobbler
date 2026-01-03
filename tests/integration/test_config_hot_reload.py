@@ -1,11 +1,9 @@
 """Integration tests for config hot-reload functionality."""
 
-import tempfile
 import threading
 import time
 from pathlib import Path
 
-import pytest
 import yaml
 
 from gobbler_mcp.config import Config

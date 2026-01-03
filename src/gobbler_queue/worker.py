@@ -10,13 +10,10 @@ import os
 import re
 import signal
 import subprocess
-import sys
 import time
-from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from .database import Database
-from .models import Job, JobStatus
+from .models import Job
 
 if TYPE_CHECKING:
     from .manager import JobManager
@@ -67,8 +64,8 @@ class Worker:
 
         self.poll_interval = poll_interval
         self.running = False
-        self.current_process: Optional[subprocess.Popen] = None
-        self._current_job_id: Optional[str] = None
+        self.current_process: subprocess.Popen | None = None
+        self._current_job_id: str | None = None
         self._stop_after_current = False
 
     def start(self) -> None:
@@ -152,7 +149,7 @@ class Worker:
 
         return True
 
-    def _claim_next_job(self) -> Optional[Job]:
+    def _claim_next_job(self) -> Job | None:
         """Claim the next pending job for processing.
 
         Atomically sets the job status to 'running' and records

@@ -26,17 +26,17 @@ To run the background worker:
 
 from .database import Database
 from .manager import JobManager
-from .models import Job, JobStatus, JobType, JobSummary
+from .models import Job, JobStatus, JobSummary, JobType
 from .worker import Worker
 
 __version__ = "0.1.0"
 
 __all__ = [
     "Database",
-    "JobManager",
     "Job",
+    "JobManager",
     "JobStatus",
-    "JobType",
     "JobSummary",
+    "JobType",
     "Worker",
 ]

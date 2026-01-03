@@ -4,8 +4,6 @@ import json
 import logging
 from io import StringIO
 
-import pytest
-
 from gobbler_mcp.logging_config import (
     StructuredFormatter,
     get_logger_with_context,

@@ -13,12 +13,11 @@ Tools:
 
 import logging
 import subprocess
-from typing import Optional
 
 import httpx
 from fastmcp import FastMCP
 
-from ..constants import MIN_TIMEOUT, MAX_TIMEOUT
+from ..constants import MAX_TIMEOUT, MIN_TIMEOUT
 
 # Import the selector converter directly since CLI doesn't fully support it yet
 from ..converters import convert_webpage_with_selector
@@ -28,8 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def _run_cli(cmd: list[str], timeout: int = 300) -> tuple[bool, str]:
-    """
-    Run a CLI command and return success status and output.
+    """Run a CLI command and return success status and output.
 
     Args:
         cmd: Command list to execute
@@ -42,7 +40,7 @@ def _run_cli(cmd: list[str], timeout: int = 300) -> tuple[bool, str]:
         # cmd is built from hardcoded "gobbler" binary with validated user arguments
         result = subprocess.run(  # noqa: S603  # nosec B603
             cmd,
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=timeout,
         )
@@ -57,7 +55,7 @@ def _run_cli(cmd: list[str], timeout: int = 300) -> tuple[bool, str]:
     except FileNotFoundError:
         return False, "gobbler CLI not found. Ensure it's installed and in PATH."
     except Exception as e:
-        return False, f"Failed to run command: {str(e)}"
+        return False, f"Failed to run command: {e!s}"
 
 
 def register_tools(mcp: FastMCP):
@@ -68,10 +66,9 @@ def register_tools(mcp: FastMCP):
         video_url: str,
         include_timestamps: bool = False,
         language: str = "auto",
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
     ) -> str:
-        """
-        Extract YouTube video transcript and convert to clean markdown format.
+        """Extract YouTube video transcript and convert to clean markdown format.
 
         Uses official YouTube transcript API for fast, accurate results. Works without
         Docker containers. Returns markdown with YAML frontmatter containing metadata
@@ -106,10 +103,9 @@ def register_tools(mcp: FastMCP):
         url: str,
         include_images: bool = True,
         timeout: int = 30,
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
     ) -> str:
-        """
-        Convert web page content to clean markdown format.
+        """Convert web page content to clean markdown format.
 
         Fetches HTML via Crawl4AI and converts to structured markdown, preserving
         document structure, headings, links, code blocks, and basic formatting. Handles
@@ -145,17 +141,16 @@ def register_tools(mcp: FastMCP):
     @mcp.tool()
     async def fetch_webpage_with_selector(
         url: str,
-        css_selector: Optional[str] = None,
-        xpath: Optional[str] = None,
+        css_selector: str | None = None,
+        xpath: str | None = None,
         include_images: bool = True,
         extract_links: bool = False,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
         bypass_cache: bool = False,
         timeout: int = 30,
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
     ) -> str:
-        """
-        Extract specific content from webpage using CSS or XPath selectors.
+        """Extract specific content from webpage using CSS or XPath selectors.
 
         Extends basic webpage conversion with targeted content extraction. Use CSS selectors
         (e.g., "article.main", "div#content") or XPath expressions to extract specific sections.
@@ -232,19 +227,17 @@ def register_tools(mcp: FastMCP):
                             f"({links_info['internal_count']} internal, {links_info['external_count']} external)"
                         )
                     return f"Web page with selector saved to: {output_file}"
-                else:
-                    return f"Failed to write file: Permission denied for {output_file}"
-            else:
-                # Add link summary if links were extracted
-                result = markdown
-                if extract_links and metadata.get("links"):
-                    links_info = metadata["links"]
-                    link_summary = (
-                        f"\n\n---\n\n**Links Extracted**: {links_info['total_count']} total "
-                        f"({links_info['internal_count']} internal, {links_info['external_count']} external)"
-                    )
-                    result += link_summary
-                return result
+                return f"Failed to write file: Permission denied for {output_file}"
+            # Add link summary if links were extracted
+            result = markdown
+            if extract_links and metadata.get("links"):
+                links_info = metadata["links"]
+                link_summary = (
+                    f"\n\n---\n\n**Links Extracted**: {links_info['total_count']} total "
+                    f"({links_info['internal_count']} internal, {links_info['external_count']} external)"
+                )
+                result += link_summary
+            return result
 
         except ValueError as e:
             # Validation errors
@@ -274,10 +267,9 @@ def register_tools(mcp: FastMCP):
             status_code = e.response.status_code
             if status_code == 404:
                 return f"HTTP 404: Page not found at {url}"
-            elif status_code >= 500:
+            if status_code >= 500:
                 return f"HTTP {status_code}: Server error at {url}. The target server may be experiencing issues."
-            else:
-                return f"HTTP {status_code}: Failed to fetch {url}"
+            return f"HTTP {status_code}: Failed to fetch {url}"
         except RuntimeError as e:
             error_msg = str(e)
             if "not yet implemented" in error_msg:
@@ -286,16 +278,15 @@ def register_tools(mcp: FastMCP):
             return f"Crawl4AI error: {error_msg}"
         except Exception as e:
             logger.error(f"Unexpected error in fetch_webpage_with_selector: {e}", exc_info=True)
-            return f"Failed to convert web page with selector: {str(e)}"
+            return f"Failed to convert web page with selector: {e!s}"
 
     @mcp.tool()
     async def convert_document(
         file_path: str,
         enable_ocr: bool = True,
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
     ) -> str:
-        """
-        Convert document files (PDF, DOCX, PPTX, XLSX) to clean markdown format.
+        """Convert document files (PDF, DOCX, PPTX, XLSX) to clean markdown format.
 
         Preserves structure including tables, headings, lists, and code blocks. Supports
         OCR for scanned documents. Requires Docling Docker container.
@@ -329,10 +320,9 @@ def register_tools(mcp: FastMCP):
         file_path: str,
         model: str = "small",
         language: str = "auto",
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
     ) -> str:
-        """
-        Transcribe audio and video files to text using OpenAI Whisper.
+        """Transcribe audio and video files to text using OpenAI Whisper.
 
         Supports multiple audio/video formats with automatic format detection via ffmpeg.
         Configurable model size for speed/accuracy tradeoff. Uses faster-whisper with

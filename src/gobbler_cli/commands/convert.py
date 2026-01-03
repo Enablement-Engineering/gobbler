@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import (
     OutputFormat,
@@ -28,7 +27,7 @@ app = typer.Typer(help="Convert individual content items to markdown")
 def youtube(
     url: Annotated[str, typer.Argument(help="YouTube video URL")],
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
     ] = None,
     language: Annotated[
@@ -44,8 +43,7 @@ def youtube(
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
 ) -> None:
-    """
-    Convert a YouTube video to markdown.
+    """Convert a YouTube video to markdown.
 
     Examples:
         gobbler youtube https://youtube.com/watch?v=ABC123
@@ -65,7 +63,7 @@ def youtube(
 
 async def _convert_youtube(
     url: str,
-    output: Optional[Path],
+    output: Path | None,
     language: str,
     timestamps: bool,
     format: OutputFormat,
@@ -102,11 +100,11 @@ async def _convert_youtube(
 def audio(
     file_path: Annotated[Path, typer.Argument(help="Audio file path")],
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
     ] = None,
     language: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--language", "-l", help="Audio language (auto-detect if not specified)"),
     ] = None,
     model: Annotated[
@@ -122,8 +120,7 @@ def audio(
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
 ) -> None:
-    """
-    Transcribe an audio file to markdown.
+    """Transcribe an audio file to markdown.
 
     Examples:
         gobbler audio recording.mp3
@@ -144,8 +141,8 @@ def audio(
 
 async def _convert_audio(
     file_path: Path,
-    output: Optional[Path],
-    language: Optional[str],
+    output: Path | None,
+    language: str | None,
     model: str,
     timestamps: bool,
     format: OutputFormat,
@@ -191,7 +188,7 @@ async def _convert_audio(
 def document(
     file_path: Annotated[Path, typer.Argument(help="Document file path")],
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
     ] = None,
     ocr: Annotated[
@@ -203,8 +200,7 @@ def document(
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
 ) -> None:
-    """
-    Convert a document (PDF, DOCX, etc.) to markdown.
+    """Convert a document (PDF, DOCX, etc.) to markdown.
 
     Examples:
         gobbler document report.pdf
@@ -223,7 +219,7 @@ def document(
 
 async def _convert_document(
     file_path: Path,
-    output: Optional[Path],
+    output: Path | None,
     ocr: bool,
     format: OutputFormat,
 ) -> None:
@@ -263,11 +259,11 @@ async def _convert_document(
 def webpage(
     url: Annotated[str, typer.Argument(help="Web page URL")],
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
     ] = None,
     css_selector: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
     ] = None,
     timeout: Annotated[
@@ -279,8 +275,7 @@ def webpage(
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
 ) -> None:
-    """
-    Convert a web page to markdown.
+    """Convert a web page to markdown.
 
     Examples:
         gobbler webpage https://example.com
@@ -300,8 +295,8 @@ def webpage(
 
 async def _convert_webpage(
     url: str,
-    output: Optional[Path],
-    css_selector: Optional[str],
+    output: Path | None,
+    css_selector: str | None,
     timeout: int,
     format: OutputFormat,
 ) -> None:

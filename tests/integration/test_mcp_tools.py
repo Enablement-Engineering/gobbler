@@ -10,19 +10,16 @@ This simulates what the MCP tools do internally.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Add src to path so we can import gobbler_mcp
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 
 async def test_browser_tools():
     """Test browser extension tools."""
-    from gobbler_mcp.http_server import (
-        websocket_connections,
-        send_command_to_extension
-    )
+    from gobbler_mcp.http_server import send_command_to_extension, websocket_connections
 
     print("=" * 60)
     print("Testing Gobbler Browser Extension Tools")
@@ -46,9 +43,7 @@ async def test_browser_tools():
     print("\n2. Listing tabs in Gobbler group...")
     try:
         result = await send_command_to_extension(
-            command="list_gobbler_tabs",
-            params={},
-            timeout=10.0
+            command="list_gobbler_tabs", params={}, timeout=10.0
         )
 
         if result.get("success"):
@@ -70,16 +65,12 @@ async def test_browser_tools():
     # Test 3: Extract current page (if there's an active tab)
     print("\n3. Extracting current page content...")
     try:
-        result = await send_command_to_extension(
-            command="extract_page",
-            params={},
-            timeout=30.0
-        )
+        result = await send_command_to_extension(command="extract_page", params={}, timeout=30.0)
 
         if result.get("success"):
             markdown = result.get("markdown", "")
             print(f"   ✓ Extracted {len(markdown)} characters")
-            print(f"   Preview (first 200 chars):")
+            print("   Preview (first 200 chars):")
             print(f"   {markdown[:200]}...")
         else:
             error = result.get("error", "Unknown error")
@@ -92,9 +83,7 @@ async def test_browser_tools():
     print("\n4. Executing JavaScript in active tab...")
     try:
         result = await send_command_to_extension(
-            command="execute_script",
-            params={"script": "document.title"},
-            timeout=10.0
+            command="execute_script", params={"script": "document.title"}, timeout=10.0
         )
 
         if result.get("success"):

@@ -1,7 +1,6 @@
 """Health check utilities for containerized services."""
 
 import logging
-from typing import Dict, Optional
 
 import httpx
 
@@ -12,14 +11,13 @@ class ServiceHealth:
     """Service health checker."""
 
     def __init__(self, timeout: float = 5.0) -> None:
-        """
-        Initialize health checker.
+        """Initialize health checker.
 
         Args:
             timeout: Request timeout in seconds
         """
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "ServiceHealth":
         """Enter async context manager."""
@@ -32,8 +30,7 @@ class ServiceHealth:
             await self._client.aclose()
 
     async def check_service(self, service_url: str, service_name: str) -> bool:
-        """
-        Check if a service is available.
+        """Check if a service is available.
 
         Args:
             service_url: Base URL of service
@@ -52,9 +49,7 @@ class ServiceHealth:
             if is_healthy:
                 logger.debug(f"{service_name} service is healthy")
             else:
-                logger.warning(
-                    f"{service_name} service returned status {response.status_code}"
-                )
+                logger.warning(f"{service_name} service returned status {response.status_code}")
             return is_healthy
         except httpx.ConnectError:
             logger.warning(f"{service_name} service is not reachable at {service_url}")
@@ -66,11 +61,8 @@ class ServiceHealth:
             logger.error(f"Unexpected error checking {service_name} health: {e}")
             return False
 
-    async def check_all_services(
-        self, service_urls: Dict[str, str]
-    ) -> Dict[str, bool]:
-        """
-        Check health of all services.
+    async def check_all_services(self, service_urls: dict[str, str]) -> dict[str, bool]:
+        """Check health of all services.
 
         Args:
             service_urls: Dictionary mapping service names to URLs
@@ -85,8 +77,7 @@ class ServiceHealth:
 
 
 def get_service_unavailable_error(service_name: str) -> str:
-    """
-    Get formatted error message for unavailable service.
+    """Get formatted error message for unavailable service.
 
     Args:
         service_name: Name of the service

@@ -1,10 +1,10 @@
 """Unit tests for crawl tools."""
 
 import importlib.util
-import json
 import sys
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 def _import_crawl_module():

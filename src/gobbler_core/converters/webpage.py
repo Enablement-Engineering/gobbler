@@ -3,7 +3,7 @@
 import logging
 import re
 import time
-from typing import Callable, Dict, Optional, Tuple
+from collections.abc import Callable
 
 import httpx
 
@@ -19,11 +19,10 @@ async def convert_webpage_to_markdown(
     timeout: int = 30,
     service_url: str = "http://localhost:11235",
     api_token: str = "gobbler-local-token",
-    metrics_callback: Optional[Callable[[str, int], None]] = None,
-    logger_instance: Optional[logging.Logger] = None,
-) -> Tuple[str, Dict]:
-    """
-    Convert web page to markdown using Crawl4AI service.
+    metrics_callback: Callable[[str, int], None] | None = None,
+    logger_instance: logging.Logger | None = None,
+) -> tuple[str, dict]:
+    """Convert web page to markdown using Crawl4AI service.
 
     Makes HTTP POST request to Crawl4AI Docker container to scrape and convert
     web page content to clean markdown format. Handles JavaScript rendering,
@@ -52,38 +51,28 @@ async def convert_webpage_to_markdown(
 
     log.info(
         "Starting webpage conversion",
-        extra={"extra_fields": {"url": url, "include_images": include_images, "timeout": timeout}}
+        extra={"extra_fields": {"url": url, "include_images": include_images, "timeout": timeout}},
     )
     start_time = time.time()
 
     # Prepare Crawl4AI request
     crawl_request = {
         "urls": [url],
-        "browser_config": {
-            "type": "BrowserConfig",
-            "params": {"headless": True}
-        },
+        "browser_config": {"type": "BrowserConfig", "params": {"headless": True}},
         "crawler_config": {
             "type": "CrawlerRunConfig",
-            "params": {
-                "stream": False,
-                "cache_mode": "bypass"
-            }
-        }
+            "params": {"stream": False, "cache_mode": "bypass"},
+        },
     }
 
     # Prepare headers with auth token
-    headers = {
-        "Authorization": f"Bearer {api_token}"
-    }
+    headers = {"Authorization": f"Bearer {api_token}"}
 
     try:
         async with RetryableHTTPClient(timeout=timeout) as client:
             # Submit crawl request
             response = await client.post(
-                f"{service_url}/crawl",
-                json=crawl_request,
-                headers=headers
+                f"{service_url}/crawl", json=crawl_request, headers=headers
             )
             response.raise_for_status()
             task_data = response.json()
@@ -100,14 +89,12 @@ async def convert_webpage_to_markdown(
 
             while elapsed < max_wait:
                 import asyncio
+
                 await asyncio.sleep(wait_interval)
                 elapsed += wait_interval
 
                 # Check task status
-                status_response = await client.get(
-                    f"{service_url}/task/{task_id}",
-                    headers=headers
-                )
+                status_response = await client.get(f"{service_url}/task/{task_id}", headers=headers)
                 status_response.raise_for_status()
                 task_status = status_response.json()
 
@@ -119,19 +106,23 @@ async def convert_webpage_to_markdown(
 
                     result = results[0]
                     break
-                elif task_status.get("status") == "failed":
+                if task_status.get("status") == "failed":
                     error = task_status.get("error", "Unknown error")
                     raise RuntimeError(f"Crawl4AI task failed: {error}")
 
             else:
                 # Timeout waiting for task
-                raise httpx.TimeoutException(f"Crawl task did not complete within {timeout} seconds")
+                raise httpx.TimeoutException(
+                    f"Crawl task did not complete within {timeout} seconds"
+                )
 
             # Get markdown content - try different possible field structures
             markdown_content = None
             if isinstance(result.get("markdown"), dict):
                 # Prefer fit_markdown if available, fallback to raw_markdown
-                markdown_content = result["markdown"].get("fit_markdown") or result["markdown"].get("raw_markdown")
+                markdown_content = result["markdown"].get("fit_markdown") or result["markdown"].get(
+                    "raw_markdown"
+                )
             elif isinstance(result.get("markdown"), str):
                 markdown_content = result["markdown"]
 
@@ -144,7 +135,7 @@ async def convert_webpage_to_markdown(
             # Strip images if requested
             if not include_images:
                 # Remove markdown image syntax: ![alt](url)
-                markdown_content = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', r'\1', markdown_content)
+                markdown_content = re.sub(r"!\[([^\]]*)\]\([^\)]+\)", r"\1", markdown_content)
 
             conversion_time_ms = int((time.time() - start_time) * 1000)
             word_count = count_words(markdown_content)
@@ -174,7 +165,7 @@ async def convert_webpage_to_markdown(
 
             log.info(
                 "Webpage conversion completed",
-                extra={"extra_fields": {"url": url, "word_count": word_count, "title": page_title}}
+                extra={"extra_fields": {"url": url, "word_count": word_count, "title": page_title}},
             )
             return full_markdown, metadata
 

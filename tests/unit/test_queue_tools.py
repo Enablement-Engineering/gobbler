@@ -6,7 +6,7 @@ All tests run without requiring actual database or queue system.
 
 import sys
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,11 +39,11 @@ def create_mock_job(
     job_type: JobType = JobType.YOUTUBE,
     progress: int = 0,
     progress_message: str = "",
-    result: Optional[Any] = None,
-    error: Optional[str] = None,
-    created_at: Optional[datetime] = None,
-    started_at: Optional[datetime] = None,
-    completed_at: Optional[datetime] = None,
+    result: Any | None = None,
+    error: str | None = None,
+    created_at: datetime | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
 ) -> Job:
     """Create a mock Job instance with specified attributes."""
     return Job(
@@ -68,8 +68,8 @@ def create_mock_job_summary(
     job_type: JobType = JobType.YOUTUBE,
     progress: int = 0,
     progress_message: str = "",
-    error: Optional[str] = None,
-    created_at: Optional[datetime] = None,
+    error: str | None = None,
+    created_at: datetime | None = None,
 ) -> JobSummary:
     """Create a mock JobSummary instance with specified attributes."""
     return JobSummary(

@@ -3,8 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["httpx>=0.27.0"]
 # ///
-"""
-HTTP client for Gobbler browser relay.
+"""HTTP client for Gobbler browser relay.
 
 Used by skills/scripts to communicate with the browser extension
 via the relay server's /command endpoint.
@@ -14,7 +13,6 @@ Features smart detection to check if relay is already running.
 
 import asyncio
 import socket
-from typing import List, Optional
 
 import httpx
 
@@ -28,8 +26,7 @@ def get_relay_url(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> str:
 
 
 def is_port_in_use(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST) -> bool:
-    """
-    Check if a port is in use (relay might be running).
+    """Check if a port is in use (relay might be running).
 
     Args:
         port: Port to check
@@ -50,8 +47,7 @@ def is_port_in_use(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST) -> bool:
 async def is_relay_running(
     host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 2.0
 ) -> bool:
-    """
-    Check if the relay server is running and healthy.
+    """Check if the relay server is running and healthy.
 
     Args:
         host: Relay host
@@ -72,8 +68,7 @@ async def is_relay_running(
 async def ensure_relay_running(
     host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 5.0
 ) -> bool:
-    """
-    Ensure the relay server is running, starting it if necessary.
+    """Ensure the relay server is running, starting it if necessary.
 
     This function checks if the relay is healthy, and if not, starts
     the relay daemon and waits for it to become available.
@@ -112,8 +107,7 @@ async def ensure_relay_running(
 
 
 async def get_connection_count(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
-    """
-    Get the number of connected browser extensions.
+    """Get the number of connected browser extensions.
 
     Args:
         host: Relay host
@@ -137,13 +131,12 @@ async def get_connection_count(host: str = DEFAULT_HOST, port: int = DEFAULT_POR
 
 async def send_command(
     command: str,
-    params: Optional[dict] = None,
+    params: dict | None = None,
     timeout: float = 30.0,
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
 ) -> dict:
-    """
-    Send a command to the browser extension via the relay.
+    """Send a command to the browser extension via the relay.
 
     Args:
         command: Command name (e.g., "navigate", "execute_script", "extract_page")
@@ -210,13 +203,12 @@ async def navigate(url: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT)
 
 
 async def extract_page(
-    selector: Optional[str] = None,
-    tab_id: Optional[int] = None,
+    selector: str | None = None,
+    tab_id: int | None = None,
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
 ) -> dict:
-    """
-    Extract current page as markdown.
+    """Extract current page as markdown.
 
     Args:
         selector: Optional CSS selector to extract specific content
@@ -248,7 +240,7 @@ async def execute_script(
 
 
 async def list_tabs(
-    filter_type: Optional[str] = None,
+    filter_type: str | None = None,
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
 ) -> dict:
@@ -260,12 +252,11 @@ async def list_tabs(
 
 
 async def open_tabs(
-    urls: List[str],
+    urls: list[str],
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
 ) -> dict:
-    """
-    Open multiple URLs in new browser tabs.
+    """Open multiple URLs in new browser tabs.
 
     Args:
         urls: List of URLs to open

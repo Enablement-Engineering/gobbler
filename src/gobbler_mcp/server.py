@@ -9,13 +9,14 @@ from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 
+from gobbler_core.utils.health import ServiceHealth
+
 from .config import get_config
 from .logging_config import setup_logging
 from .metrics_server import get_metrics_server
-from gobbler_core.utils.health import ServiceHealth
 
 # Import tool modules for registration
-from .tools import conversion, batch, browser, queue, crawl
+from .tools import batch, browser, conversion, crawl, queue
 
 # Configure logging using structured logging setup
 logging.basicConfig(
@@ -28,8 +29,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastMCP):  # type: ignore
-    """
-    Application lifespan manager.
+    """Application lifespan manager.
 
     Handles initialization and cleanup of resources.
     """
@@ -91,7 +91,7 @@ async def lifespan(app: FastMCP):  # type: ignore
     relay_enabled = config.get("http_server.enabled", True)
     if relay_enabled:
         try:
-            from gobbler_relay import ensure_relay_running, DEFAULT_HOST, DEFAULT_PORT
+            from gobbler_relay import DEFAULT_HOST, DEFAULT_PORT, ensure_relay_running
 
             relay_host = config.get("http_server.host", DEFAULT_HOST)
             relay_port = config.get("http_server.port", DEFAULT_PORT)

@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Callable, Dict, Optional, Tuple
+from collections.abc import Callable
 
 from gobbler_core.utils.file_handler import get_file_extension, validate_input_path
 from gobbler_core.utils.frontmatter import count_words, create_document_frontmatter
@@ -17,11 +17,10 @@ async def convert_document_to_markdown(
     file_path: str,
     enable_ocr: bool = True,
     service_url: str = "http://localhost:5001",
-    metrics_callback: Optional[Callable[[str, int], None]] = None,
-    logger_instance: Optional[logging.Logger] = None,
-) -> Tuple[str, Dict]:
-    """
-    Convert document to markdown using Docling service.
+    metrics_callback: Callable[[str, int], None] | None = None,
+    logger_instance: logging.Logger | None = None,
+) -> tuple[str, dict]:
+    """Convert document to markdown using Docling service.
 
     Makes HTTP POST request to the Docling service running in Docker,
     uploading the file for conversion. Supports PDF, DOCX, PPTX, XLSX
@@ -117,8 +116,8 @@ async def convert_document_to_markdown(
 
     if result.get("status") == "skipped":
         raise RuntimeError(
-            f"Document conversion was skipped. The file may be corrupted or "
-            f"use an unsupported format variation."
+            "Document conversion was skipped. The file may be corrupted or "
+            "use an unsupported format variation."
         )
 
     document_data = result.get("document", {})

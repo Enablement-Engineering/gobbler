@@ -3,7 +3,6 @@
 import logging
 import re
 from pathlib import Path
-from typing import List, Optional
 
 from ..converters.webpage import convert_webpage_to_markdown
 from ..utils import save_markdown_file
@@ -14,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def sanitize_filename(text: str, max_length: int = 200) -> str:
-    """
-    Sanitize text for use as filename.
+    """Sanitize text for use as filename.
 
     Args:
         text: Text to sanitize
@@ -37,8 +35,7 @@ def sanitize_filename(text: str, max_length: int = 200) -> str:
 
 
 def generate_filename_from_url(url: str) -> str:
-    """
-    Generate filename from URL when title is not available.
+    """Generate filename from URL when title is not available.
 
     Args:
         url: Web page URL
@@ -62,16 +59,15 @@ def generate_filename_from_url(url: str) -> str:
 
 
 async def process_webpage_batch(
-    urls: List[str],
+    urls: list[str],
     output_dir: str,
     include_images: bool = True,
     timeout: int = 30,
     concurrency: int = 5,
     skip_existing: bool = True,
-    batch_id: Optional[str] = None,
+    batch_id: str | None = None,
 ) -> BatchSummary:
-    """
-    Process multiple web pages in batch.
+    """Process multiple web pages in batch.
 
     Args:
         urls: List of URLs to process
@@ -133,12 +129,11 @@ async def process_webpage_batch(
                         error="skipped",
                         metadata={"reason": "File already exists"},
                     )
-                else:
-                    # Add numeric suffix
-                    counter = 1
-                    while output_file.exists():
-                        output_file = output_path / f"{filename}_{counter}.md"
-                        counter += 1
+                # Add numeric suffix
+                counter = 1
+                while output_file.exists():
+                    output_file = output_path / f"{filename}_{counter}.md"
+                    counter += 1
 
             # Save to file
             success = await save_markdown_file(str(output_file), markdown)
@@ -182,8 +177,6 @@ async def process_webpage_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(
-        f"Batch complete: {summary.successful}/{summary.total_items} successful"
-    )
+    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
 
     return summary

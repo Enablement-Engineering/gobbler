@@ -8,7 +8,6 @@ Tools for crawling websites and managing browser sessions:
 
 import json
 import logging
-from typing import Optional
 
 from fastmcp import FastMCP
 
@@ -23,12 +22,11 @@ def register_tools(mcp: FastMCP):
     @mcp.tool()
     async def create_crawl_session(
         session_id: str,
-        cookies: Optional[str] = None,
-        local_storage: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        cookies: str | None = None,
+        local_storage: str | None = None,
+        user_agent: str | None = None,
     ) -> str:
-        """
-        Create reusable browser session for authenticated crawling.
+        """Create reusable browser session for authenticated crawling.
 
         Browser sessions persist cookies and localStorage to disk, allowing authenticated
         content access across multiple crawl operations. Sessions are stored in
@@ -131,24 +129,23 @@ def register_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Failed to create session: {e}", exc_info=True)
-            return f"Failed to create session: {str(e)}"
+            return f"Failed to create session: {e!s}"
 
     @mcp.tool()
     async def crawl_site(
         start_url: str,
         max_depth: int = 2,
         max_pages: int = 50,
-        url_include_pattern: Optional[str] = None,
-        url_exclude_pattern: Optional[str] = None,
-        css_selector: Optional[str] = None,
+        url_include_pattern: str | None = None,
+        url_exclude_pattern: str | None = None,
+        css_selector: str | None = None,
         respect_robots_txt: bool = True,
         crawl_delay: float = 1.0,
         concurrency: int = 3,
-        session_id: Optional[str] = None,
-        output_dir: Optional[str] = None,
+        session_id: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
-        """
-        Recursively crawl website and extract content with link graph generation.
+        """Recursively crawl website and extract content with link graph generation.
 
         Performs breadth-first crawl of a website, extracting content from each page and
         building a link graph showing relationships between pages. Supports depth control,
@@ -223,7 +220,6 @@ def register_tools(mcp: FastMCP):
 
             # Save pages to output_dir if specified
             if output_dir:
-                import os
                 from pathlib import Path
 
                 output_path = Path(output_dir)
@@ -277,7 +273,7 @@ def register_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Failed to crawl site: {e}", exc_info=True)
-            return f"Failed to crawl site: {str(e)}"
+            return f"Failed to crawl site: {e!s}"
 
     def _download_youtube_video_task(
         video_url: str,
@@ -286,8 +282,9 @@ def register_tools(mcp: FastMCP):
         format: str = "mp4",
     ) -> str:
         """Internal download function for both sync and queue execution."""
-        import yt_dlp
         from pathlib import Path
+
+        import yt_dlp
 
         # Validate output directory
         output_path = Path(output_dir)
@@ -340,8 +337,7 @@ def register_tools(mcp: FastMCP):
             return (
                 f"Video downloaded successfully to: {output_file}\nFile size: {file_size_mb:.1f} MB"
             )
-        else:
-            return f"Download completed but file not found at expected location: {output_file}"
+        return f"Download completed but file not found at expected location: {output_file}"
 
     @mcp.tool()
     async def download_youtube_video(
@@ -350,8 +346,7 @@ def register_tools(mcp: FastMCP):
         quality: str = "best",
         format: str = "mp4",
     ) -> str:
-        """
-        Download YouTube video to local file.
+        """Download YouTube video to local file.
 
         Downloads video using yt-dlp with configurable quality and format.
         Automatically sanitizes filenames and creates output directory if needed.
@@ -375,4 +370,4 @@ def register_tools(mcp: FastMCP):
 
         except Exception as e:
             logger.error(f"Unexpected error in download_youtube_video: {e}", exc_info=True)
-            return f"Failed to download video: {str(e)}"
+            return f"Failed to download video: {e!s}"

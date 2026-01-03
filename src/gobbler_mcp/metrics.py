@@ -1,7 +1,6 @@
 """Prometheus metrics definitions and tracking for Gobbler MCP server."""
 
 import time
-from typing import Optional
 
 import psutil
 from prometheus_client import (
@@ -148,14 +147,13 @@ class ConversionTracker:
     """Context manager for tracking conversion operations."""
 
     def __init__(self, converter_type: str):
-        """
-        Initialize conversion tracker.
+        """Initialize conversion tracker.
 
         Args:
             converter_type: Type of converter (youtube, audio, webpage, document)
         """
         self.converter_type = converter_type
-        self.start_time: Optional[float] = None
+        self.start_time: float | None = None
 
     def __enter__(self) -> "ConversionTracker":
         """Start tracking conversion."""
@@ -164,12 +162,11 @@ class ConversionTracker:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[object],
+        exc_type: type | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
     ) -> None:
-        """
-        Stop tracking and record metrics.
+        """Stop tracking and record metrics.
 
         Args:
             exc_type: Exception type if error occurred
@@ -194,8 +191,7 @@ class ConversionTracker:
 
 
 def track_conversion(converter_type: str) -> ConversionTracker:
-    """
-    Create context manager for tracking conversions.
+    """Create context manager for tracking conversions.
 
     Args:
         converter_type: Type of converter (youtube, audio, webpage, document)
@@ -253,8 +249,7 @@ def update_queue_metrics() -> None:
 
 
 def get_metrics() -> tuple[bytes, str]:
-    """
-    Get Prometheus metrics in text format.
+    """Get Prometheus metrics in text format.
 
     Returns:
         Tuple of (metrics_data, content_type)

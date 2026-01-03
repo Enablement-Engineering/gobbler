@@ -8,8 +8,7 @@
 #     "markdownify>=0.13.0",
 # ]
 # ///
-"""
-Gobbler Browser Extension Relay Server.
+"""Gobbler Browser Extension Relay Server.
 
 Provides HTTP and WebSocket endpoints for browser extension communication.
 Can be run standalone with `uv run relay.py` or imported by MCP server.
@@ -31,7 +30,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import httpx
 from aiohttp import web
@@ -41,7 +40,7 @@ from markdownify import markdownify as md
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
 
 if TYPE_CHECKING:
-    from typing import Dict, Set
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -55,17 +54,16 @@ PIDFILE_PATH = Path.home() / ".cache" / "gobbler" / "relay.pid"
 AUTO_SHUTDOWN_TIMEOUT = 14400  # 4 hours
 
 # Global WebSocket connections and command queue
-websocket_connections: "Set[web.WebSocketResponse]" = set()
-pending_commands: "Dict[str, Dict]" = {}  # command_id -> {event: asyncio.Event, response: dict}
+websocket_connections: "set[web.WebSocketResponse]" = set()
+pending_commands: "dict[str, dict]" = {}  # command_id -> {event: asyncio.Event, response: dict}
 
 # Activity tracking for auto-shutdown
 last_activity_time: float = 0.0
-auto_shutdown_task: Optional[asyncio.Task] = None
+auto_shutdown_task: asyncio.Task | None = None
 
 
 async def extract_handler(request: web.Request) -> web.Response:
-    """
-    Handle page extraction requests from browser extension.
+    """Handle page extraction requests from browser extension.
 
     Expects JSON body with:
     {
@@ -168,8 +166,7 @@ async def health_handler(request: web.Request) -> web.Response:
 
 
 async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
-    """
-    Handle WebSocket connections from browser extension.
+    """Handle WebSocket connections from browser extension.
 
     Enables bidirectional communication for sending commands to the extension
     and receiving responses.
@@ -218,11 +215,10 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
 async def send_command_to_extension(
     command: str,
-    params: Optional[dict] = None,
+    params: dict | None = None,
     timeout: float = 30.0,
 ) -> dict:
-    """
-    Send a command to the browser extension and wait for response.
+    """Send a command to the browser extension and wait for response.
 
     Args:
         command: Command name (e.g., "extract_page", "navigate", "execute_script")
@@ -271,7 +267,7 @@ async def send_command_to_extension(
 
             return response
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise RuntimeError(f"Command '{command}' timed out after {timeout} seconds")
 
     finally:
@@ -280,8 +276,7 @@ async def send_command_to_extension(
 
 
 async def command_handler(request: web.Request) -> web.Response:
-    """
-    Handle command requests from skills/scripts via HTTP.
+    """Handle command requests from skills/scripts via HTTP.
 
     Expects JSON body with:
     {
@@ -327,7 +322,7 @@ def update_activity() -> None:
 
 
 def create_app(
-    enable_auto_shutdown: bool = False, shutdown_event: Optional[asyncio.Event] = None
+    enable_auto_shutdown: bool = False, shutdown_event: asyncio.Event | None = None
 ) -> web.Application:
     """Create and configure the HTTP server application.
 
@@ -384,8 +379,7 @@ def create_app(
 async def auto_shutdown_monitor(
     shutdown_event: asyncio.Event, timeout: int = AUTO_SHUTDOWN_TIMEOUT
 ) -> None:
-    """
-    Monitor activity and trigger shutdown after inactivity timeout.
+    """Monitor activity and trigger shutdown after inactivity timeout.
 
     Args:
         shutdown_event: Event to set when shutdown should occur
@@ -409,13 +403,12 @@ async def auto_shutdown_monitor(
             logger.info(f"No activity for {timeout}s, initiating auto-shutdown...")
             shutdown_event.set()
             break
-        elif remaining < 60:
+        if remaining < 60:
             logger.debug(f"Auto-shutdown in {int(remaining)}s unless activity detected")
 
 
 async def start_relay_server(host: str = "127.0.0.1", port: int = 4625) -> web.AppRunner:
-    """
-    Start the relay server for browser extension communication.
+    """Start the relay server for browser extension communication.
 
     Args:
         host: Host address to bind to (default: 127.0.0.1)
@@ -456,7 +449,7 @@ def write_pidfile(pid: int) -> None:
     logger.info(f"Wrote PID {pid} to {pidfile}")
 
 
-def read_pidfile() -> Optional[int]:
+def read_pidfile() -> int | None:
     """Read the PID from the pidfile, if it exists."""
     pidfile = get_pidfile_path()
     if not pidfile.exists():
@@ -489,8 +482,7 @@ def is_process_running(pid: int) -> bool:
 async def is_relay_healthy(
     host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 2.0
 ) -> bool:
-    """
-    Check if the relay server is running and responding to health checks.
+    """Check if the relay server is running and responding to health checks.
 
     Args:
         host: Relay host
@@ -509,8 +501,7 @@ async def is_relay_healthy(
 
 
 def start_relay_daemon(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
-    """
-    Start the relay server as a background daemon process.
+    """Start the relay server as a background daemon process.
 
     Args:
         host: Host to bind to
@@ -557,8 +548,7 @@ async def ensure_relay_running(
     start_if_missing: bool = True,
     wait_timeout: float = 5.0,
 ) -> bool:
-    """
-    Ensure the relay server is running, starting it if necessary.
+    """Ensure the relay server is running, starting it if necessary.
 
     This is the main entry point for MCP servers and skills to ensure
     the relay is available before sending commands.
@@ -618,8 +608,7 @@ async def ensure_relay_running(
 
 
 def stop_relay_daemon() -> bool:
-    """
-    Stop the relay daemon if it's running.
+    """Stop the relay daemon if it's running.
 
     Returns:
         True if daemon was stopped, False if it wasn't running
@@ -669,8 +658,7 @@ async def run_as_daemon(
     auto_shutdown: bool = True,
     shutdown_timeout: int = AUTO_SHUTDOWN_TIMEOUT,
 ) -> None:
-    """
-    Run the relay server as a daemon (called by --daemon flag).
+    """Run the relay server as a daemon (called by --daemon flag).
 
     Writes pidfile, sets up signal handlers, and runs until terminated
     or auto-shutdown due to inactivity.

@@ -150,10 +150,7 @@ class TestBatchProcessor:
         concurrent_count = 0
         max_concurrent = 0
 
-        items = [
-            BatchItem(id=str(i), source=f"item{i}", metadata={})
-            for i in range(10)
-        ]
+        items = [BatchItem(id=str(i), source=f"item{i}", metadata={}) for i in range(10)]
 
         async def process_item(item: BatchItem) -> BatchResult:
             """Processor that tracks concurrency."""
@@ -228,6 +225,7 @@ class TestBatchProcessor:
     @pytest.mark.asyncio
     async def test_empty_batch(self, tmp_path):
         """Test processing empty batch."""
+
         async def process_item(item: BatchItem) -> BatchResult:
             """Dummy processor."""
             return BatchResult(item_id=item.id, success=True)

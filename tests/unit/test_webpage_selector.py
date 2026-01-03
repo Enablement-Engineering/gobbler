@@ -1,12 +1,13 @@
 """Unit tests for webpage selector converter."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from gobbler_mcp.converters.webpage_selector import (
-    convert_webpage_with_selector,
     _extract_links,
     _format_extracted_content,
+    convert_webpage_with_selector,
 )
 
 
@@ -20,10 +21,7 @@ def setup_mock_client(client_instance, task_response):
 
     # Mock task status - client.get() is async and returns a response
     get_response = MagicMock()
-    get_response.json.return_value = {
-        "status": "completed",
-        "results": [task_response]
-    }
+    get_response.json.return_value = {"status": "completed", "results": [task_response]}
     get_response.raise_for_status = MagicMock()
     client_instance.get = AsyncMock(return_value=get_response)
 
@@ -38,8 +36,7 @@ async def test_convert_webpage_with_css_selector(mock_crawl4ai_response):
         setup_mock_client(client_instance, mock_crawl4ai_response)
 
         markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com/article",
-            css_selector="article.main"
+            url="https://example.com/article", css_selector="article.main"
         )
 
         assert "Test Article" in markdown
@@ -58,8 +55,7 @@ async def test_convert_webpage_with_xpath(mock_crawl4ai_response):
         setup_mock_client(client_instance, mock_crawl4ai_response)
 
         markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com/article",
-            xpath="//article[@class='main']"
+            url="https://example.com/article", xpath="//article[@class='main']"
         )
 
         assert "Test Article" in markdown
@@ -71,9 +67,7 @@ async def test_convert_webpage_with_both_selectors_raises_error():
     """Test that providing both CSS and XPath selectors raises ValueError."""
     with pytest.raises(ValueError, match="Cannot specify both css_selector and xpath"):
         await convert_webpage_with_selector(
-            url="https://example.com",
-            css_selector="div.content",
-            xpath="//div[@class='content']"
+            url="https://example.com", css_selector="div.content", xpath="//div[@class='content']"
         )
 
 
@@ -89,14 +83,13 @@ async def test_convert_webpage_with_extracted_content(mock_crawl4ai_response):
         response_with_extracted = mock_crawl4ai_response.copy()
         response_with_extracted["extracted_content"] = [
             {"content": "# Extracted Title\n\nExtracted paragraph 1"},
-            {"content": "Extracted paragraph 2"}
+            {"content": "Extracted paragraph 2"},
         ]
 
         setup_mock_client(client_instance, response_with_extracted)
 
         markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com",
-            css_selector="article"
+            url="https://example.com", css_selector="article"
         )
 
         # Should use extracted content
@@ -128,8 +121,7 @@ async def test_convert_webpage_with_link_extraction(mock_crawl4ai_response):
         setup_mock_client(client_instance, response_with_html)
 
         markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com",
-            extract_links=True
+            url="https://example.com", extract_links=True
         )
 
         assert "links" in metadata
@@ -142,17 +134,18 @@ async def test_convert_webpage_with_link_extraction(mock_crawl4ai_response):
 @pytest.mark.asyncio
 async def test_convert_webpage_with_session(mock_crawl4ai_response):
     """Test webpage conversion with session ID."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client, \
-         patch("gobbler_mcp.crawlers.session_manager.SessionManager") as mock_session_mgr:
-
+    with (
+        patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client,
+        patch("gobbler_mcp.crawlers.session_manager.SessionManager") as mock_session_mgr,
+    ):
         # Setup mock session manager
         session_instance = AsyncMock()
         mock_session_mgr.return_value = session_instance
-        session_instance.load_session = AsyncMock(return_value={
-            "cookies": [
-                {"name": "session_token", "value": "abc123", "domain": "example.com"}
-            ]
-        })
+        session_instance.load_session = AsyncMock(
+            return_value={
+                "cookies": [{"name": "session_token", "value": "abc123", "domain": "example.com"}]
+            }
+        )
 
         # Setup mock client
         client_instance = AsyncMock()
@@ -160,8 +153,7 @@ async def test_convert_webpage_with_session(mock_crawl4ai_response):
         setup_mock_client(client_instance, mock_crawl4ai_response)
 
         markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com",
-            session_id="test-session"
+            url="https://example.com", session_id="test-session"
         )
 
         # Verify session was loaded
@@ -178,10 +170,7 @@ async def test_convert_webpage_bypass_cache(mock_crawl4ai_response):
         mock_client.return_value.__aenter__.return_value = client_instance
         setup_mock_client(client_instance, mock_crawl4ai_response)
 
-        await convert_webpage_with_selector(
-            url="https://example.com",
-            bypass_cache=True
-        )
+        await convert_webpage_with_selector(url="https://example.com", bypass_cache=True)
 
         # Check that cache_mode was set to bypass
         post_call_args = client_instance.post.call_args
@@ -225,7 +214,7 @@ def test_format_extracted_content():
     extracted = [
         {"content": "# Title 1\n\nParagraph 1"},
         {"content": "# Title 2\n\nParagraph 2"},
-        {"content": ["Nested 1", "Nested 2"]}
+        {"content": ["Nested 1", "Nested 2"]},
     ]
 
     markdown = _format_extracted_content(extracted)
@@ -239,10 +228,7 @@ def test_format_extracted_content():
 
 def test_format_extracted_content_with_strings():
     """Test formatting extracted content that are plain strings."""
-    extracted = [
-        "String content 1",
-        "String content 2"
-    ]
+    extracted = ["String content 1", "String content 2"]
 
     markdown = _format_extracted_content(extracted)
 
@@ -260,13 +246,14 @@ async def test_convert_webpage_without_images(mock_crawl4ai_response):
 
         # Add markdown with images
         response_with_images = mock_crawl4ai_response.copy()
-        response_with_images["markdown"] = "# Test\n\n![Image alt text](https://example.com/image.jpg)\n\nSome text"
+        response_with_images["markdown"] = (
+            "# Test\n\n![Image alt text](https://example.com/image.jpg)\n\nSome text"
+        )
 
         setup_mock_client(client_instance, response_with_images)
 
         markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com",
-            include_images=False
+            url="https://example.com", include_images=False
         )
 
         # Images should be stripped

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import print_error, print_info, print_success, print_warning
-from gobbler_queue import JobManager, JobStatus, JobType
+from gobbler_queue import JobManager, JobStatus
 from gobbler_queue.cli_integration import (
     format_job_detail,
     format_job_table,
@@ -31,7 +30,7 @@ def _get_worker_status_line() -> str:
     return "Worker: stopped"
 
 
-def _parse_status(status_str: Optional[str]) -> Optional[JobStatus]:
+def _parse_status(status_str: str | None) -> JobStatus | None:
     """Parse a status string to JobStatus enum."""
     if status_str is None:
         return None
@@ -45,7 +44,7 @@ def _parse_status(status_str: Optional[str]) -> Optional[JobStatus]:
 @app.command()
 def list(
     status_filter: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--status",
             "-s",
@@ -57,8 +56,7 @@ def list(
         typer.Option("--limit", "-l", help="Maximum number of jobs to show"),
     ] = 20,
 ) -> None:
-    """
-    List jobs.
+    """List jobs.
 
     Examples:
         gobbler jobs list
@@ -96,8 +94,7 @@ def get(
         typer.Option("--result/--no-result", help="Show job result if completed"),
     ] = False,
 ) -> None:
-    """
-    Get details about a specific job.
+    """Get details about a specific job.
 
     Examples:
         gobbler jobs get abc123
@@ -130,8 +127,7 @@ def cancel(
         typer.Option("--force", "-f", help="Force cancellation without confirmation"),
     ] = False,
 ) -> None:
-    """
-    Cancel a running job.
+    """Cancel a running job.
 
     Examples:
         gobbler jobs cancel abc123
@@ -181,7 +177,7 @@ def cancel(
 @app.command()
 def clear(
     status_filter: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--status",
             "-s",
@@ -189,7 +185,7 @@ def clear(
         ),
     ] = "completed",
     older_than_days: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--older-than-days",
             "-d",
@@ -201,8 +197,7 @@ def clear(
         typer.Option("--force", "-f", help="Clear without confirmation"),
     ] = False,
 ) -> None:
-    """
-    Clear completed or failed jobs.
+    """Clear completed or failed jobs.
 
     Examples:
         gobbler jobs clear
@@ -244,8 +239,7 @@ def clear(
 
 @app.command()
 def count() -> None:
-    """
-    Show job counts by status.
+    """Show job counts by status.
 
     Examples:
         gobbler jobs count
@@ -276,8 +270,7 @@ def count() -> None:
 
 @worker_app.command("start")
 def worker_start() -> None:
-    """
-    Start the worker daemon.
+    """Start the worker daemon.
 
     Examples:
         gobbler jobs worker start
@@ -301,8 +294,7 @@ def worker_start() -> None:
 
 @worker_app.command("stop")
 def worker_stop() -> None:
-    """
-    Stop the worker daemon.
+    """Stop the worker daemon.
 
     Examples:
         gobbler jobs worker stop
@@ -327,8 +319,7 @@ def worker_stop() -> None:
 
 @worker_app.command("status")
 def worker_status() -> None:
-    """
-    Show worker daemon status.
+    """Show worker daemon status.
 
     Examples:
         gobbler jobs worker status

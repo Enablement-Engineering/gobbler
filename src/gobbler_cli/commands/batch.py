@@ -6,10 +6,9 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Annotated, Any
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
@@ -52,8 +51,7 @@ def youtube_playlist(
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
 ) -> None:
-    """
-    Convert all videos in a YouTube playlist to markdown.
+    """Convert all videos in a YouTube playlist to markdown.
 
     Examples:
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./transcripts
@@ -158,7 +156,7 @@ async def _batch_youtube_playlist(
 
         async def process_video(
             video: dict[str, Any],
-        ) -> tuple[dict[str, Any], bool, str, Optional[dict[str, Any]]]:
+        ) -> tuple[dict[str, Any], bool, str, dict[str, Any] | None]:
             """Process a single video."""
             async with semaphore:
                 # Sanitize filename
@@ -298,7 +296,7 @@ def directory(
         typer.Option("--concurrency", "-c", help="Number of concurrent conversions"),
     ] = 3,
     file_type: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--type",
             "-t",
@@ -310,8 +308,7 @@ def directory(
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
 ) -> None:
-    """
-    Batch convert files from a directory.
+    """Batch convert files from a directory.
 
     Examples:
         gobbler batch directory ./recordings -o ./transcripts --pattern "*.mp3"
@@ -335,7 +332,7 @@ async def _batch_directory(
     output_dir: Path,
     pattern: str,
     concurrency: int,
-    file_type: Optional[str],
+    file_type: str | None,
     json_output: bool = False,
 ) -> None:
     """Async implementation of directory batch processing."""
@@ -514,8 +511,7 @@ async def _batch_directory(
 
 
 def _detect_file_type(file_path: Path) -> str:
-    """
-    Detect file type based on extension.
+    """Detect file type based on extension.
 
     Args:
         file_path: Path to the file
@@ -530,16 +526,15 @@ def _detect_file_type(file_path: Path) -> str:
 
     if ext in audio_extensions:
         return "audio"
-    elif ext in document_extensions:
+    if ext in document_extensions:
         return "document"
-    else:
-        return "unknown"
+    return "unknown"
 
 
 @app.command()
 def webpages(
     input_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Argument(help="File containing URLs (one per line). Use - or omit for stdin."),
     ] = None,
     output_dir: Annotated[
@@ -561,7 +556,7 @@ def webpages(
         typer.Option("--timeout", "-t", help="Timeout per page in seconds"),
     ] = 30,
     selector: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
     ] = None,
     skip_existing: Annotated[
@@ -579,8 +574,7 @@ def webpages(
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
 ) -> None:
-    """
-    Batch convert web pages to markdown.
+    """Batch convert web pages to markdown.
 
     Reads URLs from a file (one per line) or stdin, and converts each to markdown.
     Lines starting with # are treated as comments and skipped.
@@ -616,16 +610,14 @@ def webpages(
 
 
 def _queue_batch_webpages(
-    input_file: Optional[Path],
+    input_file: Path | None,
     output_dir: Path,
     concurrency: int,
     timeout: int,
-    selector: Optional[str],
+    selector: str | None,
     skip_existing: bool,
 ) -> None:
     """Queue the batch webpages job for background processing."""
-    import sys
-
     from gobbler_queue.manager import JobManager
     from gobbler_queue.models import JobType
 
@@ -668,9 +660,8 @@ def _queue_batch_webpages(
         raise typer.Exit(1)
 
 
-def _read_urls(input_file: Optional[Path]) -> list[str]:
-    """
-    Read URLs from file or stdin.
+def _read_urls(input_file: Path | None) -> list[str]:
+    """Read URLs from file or stdin.
 
     Args:
         input_file: Path to file containing URLs, or None for stdin
@@ -706,8 +697,7 @@ def _read_urls(input_file: Optional[Path]) -> list[str]:
 
 
 def _sanitize_url_to_filename(url: str) -> str:
-    """
-    Convert a URL to a safe filename.
+    """Convert a URL to a safe filename.
 
     Args:
         url: The URL to sanitize
@@ -748,11 +738,11 @@ def _sanitize_url_to_filename(url: str) -> str:
 
 
 async def _batch_webpages(
-    input_file: Optional[Path],
+    input_file: Path | None,
     output_dir: Path,
     concurrency: int,
     timeout: int,
-    selector: Optional[str],
+    selector: str | None,
     skip_existing: bool,
     json_output: bool = False,
 ) -> None:
@@ -799,7 +789,7 @@ async def _batch_webpages(
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(concurrency)
 
-        async def process_url(url: str) -> tuple[str, bool, str, Optional[dict[str, Any]]]:
+        async def process_url(url: str) -> tuple[str, bool, str, dict[str, Any] | None]:
             """Process a single URL. Returns (url, success, message, metadata)."""
             async with semaphore:
                 # Generate output filename

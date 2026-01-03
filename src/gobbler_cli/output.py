@@ -6,7 +6,7 @@ import json
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -25,11 +25,10 @@ class OutputFormat(str, Enum):
 
 def write_output(
     content: str,
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     format: OutputFormat = OutputFormat.MARKDOWN,
 ) -> None:
-    """
-    Write content to file or stdout.
+    """Write content to file or stdout.
 
     Args:
         content: The content to write
@@ -49,10 +48,9 @@ def write_output(
 
 def write_json(
     data: dict[str, Any],
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
 ) -> None:
-    """
-    Write JSON data to file or stdout.
+    """Write JSON data to file or stdout.
 
     Args:
         data: Dictionary to serialize as JSON
@@ -65,10 +63,9 @@ def write_json(
 def format_json_success(
     markdown: str,
     metadata: dict[str, Any],
-    source: Optional[str] = None,
+    source: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Format a successful conversion result as JSON.
+    """Format a successful conversion result as JSON.
 
     Args:
         markdown: The converted markdown content
@@ -91,10 +88,9 @@ def format_json_success(
 def format_json_error(
     error: str,
     error_code: str = "CONVERSION_ERROR",
-    source: Optional[str] = None,
+    source: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Format an error result as JSON.
+    """Format an error result as JSON.
 
     Args:
         error: Error message
@@ -116,10 +112,9 @@ def format_json_error(
 
 def write_json_result(
     result: dict[str, Any],
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
 ) -> None:
-    """
-    Write a JSON result to file or stdout without decoration.
+    """Write a JSON result to file or stdout without decoration.
 
     Unlike write_output, this doesn't add any status messages.
     Suitable for piping to other tools.
@@ -162,8 +157,7 @@ def create_table(
     columns: list[str],
     rows: list[list[str]],
 ) -> Table:
-    """
-    Create a rich table for display.
+    """Create a rich table for display.
 
     Args:
         title: Table title
@@ -189,8 +183,7 @@ def print_table(
     columns: list[str],
     rows: list[list[str]],
 ) -> None:
-    """
-    Print a formatted table.
+    """Print a formatted table.
 
     Args:
         title: Table title

@@ -6,7 +6,6 @@ gobbler_queue system with SQLite storage.
 """
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +18,7 @@ class ProgressTracker:
     """
 
     def __init__(self, batch_id: str):
-        """
-        Initialize progress tracker.
+        """Initialize progress tracker.
 
         Args:
             batch_id: Unique identifier for batch operation
@@ -31,12 +29,11 @@ class ProgressTracker:
         self.successful = 0
         self.failed = 0
         self.skipped = 0
-        self.current_item: Optional[str] = None
+        self.current_item: str | None = None
         self.status = "pending"
 
     async def initialize(self, total_items: int, operation_type: str = "batch") -> None:
-        """
-        Initialize progress tracking.
+        """Initialize progress tracking.
 
         Args:
             total_items: Total number of items in batch
@@ -47,8 +44,7 @@ class ProgressTracker:
         logger.info(f"Batch {self.batch_id}: Starting {operation_type} with {total_items} items")
 
     async def update_current_item(self, item: str) -> None:
-        """
-        Update currently processing item.
+        """Update currently processing item.
 
         Args:
             item: Identifier or name of current item
@@ -64,9 +60,8 @@ class ProgressTracker:
         self.successful += 1
         logger.debug(f"Batch {self.batch_id}: Success ({self.successful}/{self.processed})")
 
-    async def increment_failure(self, error: str, item: Optional[str] = None) -> None:
-        """
-        Increment failure counter and log error.
+    async def increment_failure(self, error: str, item: str | None = None) -> None:
+        """Increment failure counter and log error.
 
         Args:
             error: Error message
@@ -76,9 +71,8 @@ class ProgressTracker:
         item_str = f" for {item}" if item else ""
         logger.warning(f"Batch {self.batch_id}: Failed{item_str}: {error}")
 
-    async def increment_skipped(self, reason: str, item: Optional[str] = None) -> None:
-        """
-        Increment skipped counter.
+    async def increment_skipped(self, reason: str, item: str | None = None) -> None:
+        """Increment skipped counter.
 
         Args:
             reason: Reason for skipping
@@ -97,8 +91,7 @@ class ProgressTracker:
         )
 
     async def mark_failed(self, error: str) -> None:
-        """
-        Mark batch as failed.
+        """Mark batch as failed.
 
         Args:
             error: Error message describing why batch failed
@@ -107,8 +100,7 @@ class ProgressTracker:
         logger.error(f"Batch {self.batch_id}: Failed - {error}")
 
     async def get_progress(self) -> dict:
-        """
-        Get current progress.
+        """Get current progress.
 
         Returns:
             Progress data dictionary
@@ -125,8 +117,7 @@ class ProgressTracker:
         }
 
     def format_progress_report(self, progress: dict) -> str:
-        """
-        Format progress data as human-readable report.
+        """Format progress data as human-readable report.
 
         Args:
             progress: Progress data dictionary
@@ -153,7 +144,7 @@ class ProgressTracker:
         }.get(status, "❓")
 
         lines = [
-            f"# Batch Progress Report\n",
+            "# Batch Progress Report\n",
             f"**Batch ID:** {progress.get('batch_id')}",
             f"**Status:** {status_icon} {status.upper()}\n",
             "## Progress",

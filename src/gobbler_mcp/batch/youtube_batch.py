@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 import yt_dlp
 
@@ -14,9 +13,8 @@ from .models import BatchItem, BatchResult, BatchSummary
 logger = logging.getLogger(__name__)
 
 
-async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> List[dict]:
-    """
-    Extract video URLs and metadata from YouTube playlist.
+async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> list[dict]:
+    """Extract video URLs and metadata from YouTube playlist.
 
     Args:
         playlist_url: YouTube playlist URL
@@ -64,7 +62,7 @@ async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> List[
 
     except Exception as e:
         logger.error(f"Failed to extract playlist videos: {e}")
-        raise ValueError(f"Failed to extract playlist: {str(e)}")
+        raise ValueError(f"Failed to extract playlist: {e!s}")
 
 
 async def process_youtube_batch(
@@ -75,13 +73,12 @@ async def process_youtube_batch(
     max_videos: int = 100,
     concurrency: int = 3,
     skip_existing: bool = True,
-    batch_id: Optional[str] = None,
+    batch_id: str | None = None,
     delay_between_requests: float = 1.0,
     jitter_range: float = 0.5,
     max_retries: int = 2,
 ) -> BatchSummary:
-    """
-    Process YouTube playlist videos in batch with rate limiting.
+    """Process YouTube playlist videos in batch with rate limiting.
 
     Args:
         playlist_url: YouTube playlist URL
@@ -206,8 +203,6 @@ async def process_youtube_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(
-        f"Batch complete: {summary.successful}/{summary.total_items} successful"
-    )
+    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
 
     return summary

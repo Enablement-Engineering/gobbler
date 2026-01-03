@@ -1,19 +1,17 @@
 """Unit tests for audio/video transcription module."""
 
-import os
-import pytest
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
 import subprocess
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from gobbler_core.converters.audio import (
+    MAX_FILE_SIZE_BYTES,
+    SUPPORTED_EXTENSIONS,
+    VALID_MODELS,
     _extract_audio,
     _get_whisper_model,
     convert_audio_to_markdown,
-    SUPPORTED_EXTENSIONS,
-    VALID_MODELS,
-    MAX_FILE_SIZE_BYTES,
 )
 
 
@@ -64,9 +62,7 @@ class TestAudioExtraction:
         mock_exists.return_value = True
 
         # Mock ffmpeg failure
-        mock_run.return_value = MagicMock(
-            returncode=1, stderr="ffmpeg error", stdout=""
-        )
+        mock_run.return_value = MagicMock(returncode=1, stderr="ffmpeg error", stdout="")
 
         with pytest.raises(RuntimeError, match="ffmpeg audio extraction failed"):
             await _extract_audio("/path/to/video.mp4")
@@ -128,17 +124,14 @@ class TestWhisperModelLoading:
 
         # Clear global cache
         import gobbler_core.converters.audio as audio_module
+
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
         result = _get_whisper_model("small")
 
         assert result == mock_model
-        mock_whisper_class.assert_called_once_with(
-            "small",
-            device="cpu",
-            compute_type="auto"
-        )
+        mock_whisper_class.assert_called_once_with("small", device="cpu", compute_type="auto")
 
     @patch("gobbler_core.converters.audio.WhisperModel")
     def test_get_whisper_model_caching(self, mock_whisper_class):
@@ -148,6 +141,7 @@ class TestWhisperModelLoading:
 
         # Clear global cache
         import gobbler_core.converters.audio as audio_module
+
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -171,6 +165,7 @@ class TestWhisperModelLoading:
 
         # Clear global cache
         import gobbler_core.converters.audio as audio_module
+
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -223,9 +218,7 @@ class TestAudioConversion:
 
         # Execute conversion
         markdown, metadata = await convert_audio_to_markdown(
-            "/path/to/test_audio.mp3",
-            model="small",
-            language="auto"
+            "/path/to/test_audio.mp3", model="small", language="auto"
         )
 
         # Verify markdown structure
@@ -261,10 +254,7 @@ class TestAudioConversion:
         mock_validate.return_value = None
 
         with pytest.raises(ValueError, match="Invalid model"):
-            await convert_audio_to_markdown(
-                "/path/to/test_audio.mp3",
-                model="invalid_model"
-            )
+            await convert_audio_to_markdown("/path/to/test_audio.mp3", model="invalid_model")
 
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.audio._extract_audio")
@@ -275,8 +265,14 @@ class TestAudioConversion:
     @patch("gobbler_core.converters.audio.os.path.exists")
     @patch("gobbler_core.converters.audio.os.unlink")
     async def test_convert_large_video_extracts_audio(
-        self, mock_unlink, mock_exists, mock_get_ext, mock_validate,
-        mock_getsize, mock_get_model, mock_extract
+        self,
+        mock_unlink,
+        mock_exists,
+        mock_get_ext,
+        mock_validate,
+        mock_getsize,
+        mock_get_model,
+        mock_extract,
     ):
         """Test that large video files trigger audio extraction."""
         # Mock file validation
@@ -364,8 +360,7 @@ class TestAudioConversion:
 
         # Execute with French language
         markdown, metadata = await convert_audio_to_markdown(
-            "/path/to/french_audio.mp3",
-            language="fr"
+            "/path/to/french_audio.mp3", language="fr"
         )
 
         # Verify language parameter passed to transcribe

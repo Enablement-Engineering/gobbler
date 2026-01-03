@@ -3,21 +3,17 @@
 Provides consistent error handling across all MCP tools.
 """
 
-from functools import wraps
-from typing import Callable, Any
 import logging
+from collections.abc import Callable
+from functools import wraps
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
 
-def handle_tool_errors(
-    operation_name: str,
-    service_name: str | None = None
-) -> Callable:
-    """
-    Decorator for consistent MCP tool error handling.
+def handle_tool_errors(operation_name: str, service_name: str | None = None) -> Callable:
+    """Decorator for consistent MCP tool error handling.
 
     Args:
         operation_name: Human-readable operation name for error messages
@@ -26,6 +22,7 @@ def handle_tool_errors(
     Returns:
         Decorated function with consistent error handling
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> str:
@@ -43,6 +40,8 @@ def handle_tool_errors(
                 return f"Error: File not found: {e}"
             except Exception as e:
                 logger.error(f"Unexpected error in {operation_name}: {e}", exc_info=True)
-                return f"Failed to {operation_name}: {str(e)}"
+                return f"Failed to {operation_name}: {e!s}"
+
         return wrapper
+
     return decorator

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import subprocess
-import sys
 from pathlib import Path
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import (
     print_error,
@@ -32,8 +31,7 @@ def start(
         typer.Option("--detach/--foreground", help="Run as background daemon"),
     ] = True,
 ) -> None:
-    """
-    Start the Gobbler daemon.
+    """Start the Gobbler daemon.
 
     Examples:
         gobbler daemon start
@@ -78,8 +76,7 @@ async def _start_daemon(port: int, detach: bool) -> None:
 
 @app.command()
 def stop() -> None:
-    """
-    Stop the Gobbler daemon.
+    """Stop the Gobbler daemon.
 
     Examples:
         gobbler daemon stop
@@ -112,8 +109,7 @@ async def _stop_daemon() -> None:
 
 @app.command()
 def status() -> None:
-    """
-    Check daemon status.
+    """Check daemon status.
 
     Examples:
         gobbler daemon status
@@ -163,8 +159,7 @@ def logs(
         typer.Option("--lines", "-n", help="Number of lines to show"),
     ] = 50,
 ) -> None:
-    """
-    View daemon logs.
+    """View daemon logs.
 
     Examples:
         gobbler daemon logs
@@ -216,8 +211,7 @@ def restart(
         typer.Option("--port", "-p", help="Port to run daemon on"),
     ] = 4600,
 ) -> None:
-    """
-    Restart the Gobbler daemon.
+    """Restart the Gobbler daemon.
 
     Examples:
         gobbler daemon restart
@@ -246,8 +240,7 @@ async def _restart_daemon(port: int) -> None:
 
 
 async def _is_daemon_running() -> bool:
-    """
-    Check if daemon is running.
+    """Check if daemon is running.
 
     Returns:
         True if daemon is running, False otherwise
@@ -262,8 +255,7 @@ async def _is_daemon_running() -> bool:
 
 
 async def _get_daemon_info() -> dict[str, str]:
-    """
-    Get daemon information.
+    """Get daemon information.
 
     Returns:
         Dictionary with daemon info
@@ -304,8 +296,7 @@ async def _get_daemon_info() -> dict[str, str]:
 
 
 def _get_log_file_path() -> Path:
-    """
-    Get the path to the daemon log file.
+    """Get the path to the daemon log file.
 
     Returns:
         Path to log file

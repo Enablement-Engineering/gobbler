@@ -2,12 +2,11 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 from ..config import get_config
 from ..converters.audio import convert_audio_to_markdown
 from ..converters.document import convert_document_to_markdown
-from ..utils import save_markdown_file, get_metrics_callback
+from ..utils import get_metrics_callback, save_markdown_file
 from .batch_manager import BatchProcessor
 from .models import BatchItem, BatchResult, BatchSummary
 
@@ -34,9 +33,8 @@ def scan_directory(
     pattern: str = "*",
     recursive: bool = False,
     file_type: str = "audio",
-) -> List[Path]:
-    """
-    Scan directory for files matching pattern.
+) -> list[Path]:
+    """Scan directory for files matching pattern.
 
     Args:
         input_dir: Directory to scan
@@ -80,17 +78,16 @@ def scan_directory(
 
 async def process_audio_batch(
     input_dir: str,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     model: str = "small",
     language: str = "auto",
     pattern: str = "*",
     recursive: bool = False,
     concurrency: int = 2,
     skip_existing: bool = True,
-    batch_id: Optional[str] = None,
+    batch_id: str | None = None,
 ) -> BatchSummary:
-    """
-    Process directory of audio/video files in batch.
+    """Process directory of audio/video files in batch.
 
     Args:
         input_dir: Directory containing audio/video files
@@ -217,16 +214,15 @@ async def process_audio_batch(
 
 async def process_document_batch(
     input_dir: str,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     enable_ocr: bool = True,
     pattern: str = "*",
     recursive: bool = False,
     concurrency: int = 3,
     skip_existing: bool = True,
-    batch_id: Optional[str] = None,
+    batch_id: str | None = None,
 ) -> BatchSummary:
-    """
-    Process directory of documents in batch.
+    """Process directory of documents in batch.
 
     Args:
         input_dir: Directory containing documents

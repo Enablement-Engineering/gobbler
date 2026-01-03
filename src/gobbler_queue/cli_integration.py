@@ -12,10 +12,9 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .manager import JobManager
-from .models import Job, JobStatus, JobSummary, JobType
+from .models import Job, JobSummary, JobType
 
 # PID file location for the worker daemon
 WORKER_PID_FILE = Path.home() / ".cache" / "gobbler" / "worker.pid"
@@ -304,7 +303,7 @@ def is_worker_running() -> bool:
         return True
 
 
-def get_worker_pid() -> Optional[int]:
+def get_worker_pid() -> int | None:
     """Get the PID of the running worker daemon.
 
     Returns:
@@ -315,7 +314,7 @@ def get_worker_pid() -> Optional[int]:
     return None
 
 
-def _read_pid_file() -> Optional[int]:
+def _read_pid_file() -> int | None:
     """Read the PID from the PID file.
 
     Returns:
@@ -332,7 +331,7 @@ def _read_pid_file() -> Optional[int]:
         return None
 
 
-def _format_timestamp(dt: Optional[datetime]) -> str:
+def _format_timestamp(dt: datetime | None) -> str:
     """Format a datetime for display.
 
     Args:

@@ -6,7 +6,7 @@ import time
 import httpx
 import pytest
 
-from gobbler_mcp.metrics import conversion_total, track_conversion
+from gobbler_mcp.metrics import track_conversion
 from gobbler_mcp.metrics_server import MetricsServer
 
 
@@ -132,9 +132,7 @@ async def test_concurrent_metric_requests(metrics_server):
     """Test handling concurrent requests to metrics endpoint."""
     async with httpx.AsyncClient() as client:
         # Make multiple concurrent requests
-        tasks = [
-            client.get("http://127.0.0.1:9099/metrics") for _ in range(10)
-        ]
+        tasks = [client.get("http://127.0.0.1:9099/metrics") for _ in range(10)]
         responses = await asyncio.gather(*tasks)
 
         # All should succeed

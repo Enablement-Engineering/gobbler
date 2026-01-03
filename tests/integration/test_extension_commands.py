@@ -23,12 +23,16 @@ async def send_command(websocket, command: str, params: dict = None, timeout: fl
     command_id = str(uuid.uuid4())
 
     # Send command
-    await websocket.send(json.dumps({
-        "type": "command",
-        "command_id": command_id,
-        "command": command,
-        "params": params or {}
-    }))
+    await websocket.send(
+        json.dumps(
+            {
+                "type": "command",
+                "command_id": command_id,
+                "command": command,
+                "params": params or {},
+            }
+        )
+    )
 
     print(f"   Sent command '{command}' (id: {command_id[:8]}...)")
 
@@ -44,10 +48,10 @@ async def send_command(websocket, command: str, params: dict = None, timeout: fl
                 return data.get("result", {})
 
             # Handle other message types
-            elif data.get("type") == "ping":
+            if data.get("type") == "ping":
                 await websocket.send(json.dumps({"type": "pong"}))
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(f"   ✗ Timeout waiting for response to '{command}'")
         return None
 
@@ -80,7 +84,9 @@ async def test_commands():
                     print(f"   ✓ Found {len(tabs)} tab(s) in Gobbler group")
                     for tab in tabs:
                         active = "*" if tab.get("isActive") else " "
-                        print(f"     {active} [{tab.get('tabId')}] {tab.get('title', 'Unknown')[:50]}")
+                        print(
+                            f"     {active} [{tab.get('tabId')}] {tab.get('title', 'Unknown')[:50]}"
+                        )
                         print(f"        {tab.get('url', '')[:70]}")
                 else:
                     error = result.get("error", "Unknown error")
@@ -99,10 +105,7 @@ async def test_commands():
             # Test 2: Execute script
             print("\n2. Testing 'execute_script' command...")
             result = await send_command(
-                websocket,
-                "execute_script",
-                {"script": "document.title"},
-                timeout=5.0
+                websocket, "execute_script", {"script": "document.title"}, timeout=5.0
             )
 
             if result and result.get("success"):
@@ -114,17 +117,12 @@ async def test_commands():
 
             # Test 3: Extract page
             print("\n3. Testing 'extract_page' command...")
-            result = await send_command(
-                websocket,
-                "extract_page",
-                {},
-                timeout=30.0
-            )
+            result = await send_command(websocket, "extract_page", {}, timeout=30.0)
 
             if result and result.get("success"):
                 markdown = result.get("markdown", "")
                 print(f"   ✓ Extracted {len(markdown)} characters")
-                print(f"   Preview (first 200 chars):")
+                print("   Preview (first 200 chars):")
                 print(f"   {markdown[:200].strip()}...")
             else:
                 error = result.get("error", "Unknown") if result else "No response"
@@ -144,6 +142,7 @@ async def test_commands():
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -5,12 +5,12 @@ from .base import ContentProvider, ProviderResult
 
 # YouTube transcript providers
 from .youtube import (
+    AutoFallbackProvider,
+    TranscriptAPIProvider,
     TranscriptProvider,
     YouTubeTranscriptAPIProvider,
-    TranscriptAPIProvider,
-    AutoFallbackProvider,
-    create_proxy_config,
     create_provider,
+    create_proxy_config,
 )
 
 __all__ = [

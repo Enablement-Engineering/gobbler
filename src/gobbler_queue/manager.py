@@ -9,10 +9,10 @@ import os
 import signal
 import sqlite3
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from .database import Database
-from .models import Job, JobStatus, JobType, JobSummary
+from .models import Job, JobStatus, JobSummary, JobType
 
 
 class JobManager:
@@ -25,7 +25,7 @@ class JobManager:
         database: The Database instance for persistence.
     """
 
-    def __init__(self, database: Optional[Database] = None) -> None:
+    def __init__(self, database: Database | None = None) -> None:
         """Initialize the job manager.
 
         Args:
@@ -39,7 +39,7 @@ class JobManager:
         self,
         job_type: JobType,
         command: str,
-        args: Optional[dict[str, Any]] = None,
+        args: dict[str, Any] | None = None,
     ) -> Job:
         """Create a new job in pending status.
 
@@ -74,7 +74,7 @@ class JobManager:
 
         return job
 
-    def get_job(self, job_id: str) -> Optional[Job]:
+    def get_job(self, job_id: str) -> Job | None:
         """Retrieve a job by its ID.
 
         Args:
@@ -95,8 +95,8 @@ class JobManager:
 
     def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[JobType] = None,
+        status: JobStatus | None = None,
+        job_type: JobType | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[JobSummary]:
@@ -133,7 +133,7 @@ class JobManager:
         self,
         job_id: str,
         status: JobStatus,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> bool:
         """Update a job's status.
 
@@ -167,7 +167,7 @@ class JobManager:
         self,
         job_id: str,
         progress: int,
-        message: Optional[str] = None,
+        message: str | None = None,
     ) -> bool:
         """Update a job's progress.
 
@@ -316,8 +316,8 @@ class JobManager:
 
     def clear_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        older_than_days: Optional[int] = None,
+        status: JobStatus | None = None,
+        older_than_days: int | None = None,
     ) -> int:
         """Delete jobs matching the specified criteria.
 
@@ -367,7 +367,7 @@ class JobManager:
 
         return [self._row_to_job(row) for row in rows]
 
-    def count_jobs(self, status: Optional[JobStatus] = None) -> dict[str, int]:
+    def count_jobs(self, status: JobStatus | None = None) -> dict[str, int]:
         """Count jobs by status.
 
         Args:
@@ -439,7 +439,7 @@ class JobManager:
         )
 
     @staticmethod
-    def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+    def _parse_timestamp(value: str | None) -> datetime | None:
         """Parse an ISO format timestamp string.
 
         Args:

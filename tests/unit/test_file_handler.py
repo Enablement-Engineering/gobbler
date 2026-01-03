@@ -1,15 +1,14 @@
 """Unit tests for file handling utilities."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
-import aiofiles
 
 from gobbler_core.utils.file_handler import (
-    save_markdown_file,
-    validate_output_path,
-    validate_input_path,
     get_file_extension,
+    save_markdown_file,
+    validate_input_path,
+    validate_output_path,
 )
 
 

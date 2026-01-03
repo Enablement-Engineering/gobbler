@@ -3,7 +3,6 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from ..config import get_config
 
@@ -24,12 +23,11 @@ class SessionManager:
     async def create_session(
         self,
         session_id: str,
-        cookies: Optional[List[Dict]] = None,
-        local_storage: Optional[Dict] = None,
-        user_agent: Optional[str] = None,
-    ) -> Dict:
-        """
-        Create and persist session to disk.
+        cookies: list[dict] | None = None,
+        local_storage: dict | None = None,
+        user_agent: str | None = None,
+    ) -> dict:
+        """Create and persist session to disk.
 
         Args:
             session_id: Unique identifier for the session
@@ -88,9 +86,8 @@ class SessionManager:
             logger.error(f"Failed to create session '{session_id}': {e}")
             raise RuntimeError(f"Failed to save session: {e}")
 
-    async def load_session(self, session_id: str) -> Dict:
-        """
-        Load session from disk.
+    async def load_session(self, session_id: str) -> dict:
+        """Load session from disk.
 
         Args:
             session_id: Unique identifier for the session
@@ -107,7 +104,7 @@ class SessionManager:
             raise FileNotFoundError(f"Session '{session_id}' not found")
 
         try:
-            with open(session_file, "r") as f:
+            with open(session_file) as f:
                 session_data = json.load(f)
 
             logger.info(
@@ -120,9 +117,8 @@ class SessionManager:
             logger.error(f"Failed to parse session '{session_id}': {e}")
             raise RuntimeError(f"Invalid session file: {e}")
 
-    async def list_sessions(self) -> List[str]:
-        """
-        List all saved session IDs.
+    async def list_sessions(self) -> list[str]:
+        """List all saved session IDs.
 
         Returns:
             List of session IDs
@@ -134,8 +130,7 @@ class SessionManager:
         return sorted(session_ids)
 
     async def delete_session(self, session_id: str) -> bool:
-        """
-        Delete saved session.
+        """Delete saved session.
 
         Args:
             session_id: Unique identifier for the session
@@ -161,12 +156,11 @@ class SessionManager:
     async def update_session(
         self,
         session_id: str,
-        cookies: Optional[List[Dict]] = None,
-        local_storage: Optional[Dict] = None,
-        user_agent: Optional[str] = None,
-    ) -> Dict:
-        """
-        Update existing session with new data.
+        cookies: list[dict] | None = None,
+        local_storage: dict | None = None,
+        user_agent: str | None = None,
+    ) -> dict:
+        """Update existing session with new data.
 
         Args:
             session_id: Unique identifier for the session

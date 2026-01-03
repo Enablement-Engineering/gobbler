@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli import __version__
 
@@ -31,7 +32,6 @@ def main(
     ] = False,
 ) -> None:
     """Gobbler CLI - Universal content conversion to markdown."""
-    pass
 
 
 @app.command()
@@ -41,8 +41,7 @@ def completion(
         typer.Argument(help="Shell to generate completion for (bash, zsh, fish, or powershell)"),
     ] = "bash",
 ) -> None:
-    """
-    Generate shell completion script.
+    """Generate shell completion script.
 
     Examples:
         # Bash
@@ -54,7 +53,6 @@ def completion(
         # Fish
         gobbler completion fish > ~/.config/fish/completions/gobbler.fish
     """
-    import click
     from typer.main import get_command
 
     click_app = get_command(app)

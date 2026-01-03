@@ -1,7 +1,8 @@
 """Tests for metrics helper utilities."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestGetMetricsCallback:
@@ -19,7 +20,8 @@ class TestGetMetricsCallback:
         ):
             # Need to re-import to pick up the mocked module
             from importlib import reload
-            import gobbler_mcp.utils.metrics_helpers as metrics_helpers
+
+            from gobbler_mcp.utils import metrics_helpers
 
             reload(metrics_helpers)
             callback = metrics_helpers.get_metrics_callback()
@@ -39,7 +41,8 @@ class TestGetMetricsCallback:
         # Patch the import to raise an exception
         with patch.dict("sys.modules", {"gobbler_mcp.metrics": None}):
             from importlib import reload
-            import gobbler_mcp.utils.metrics_helpers as metrics_helpers
+
+            from gobbler_mcp.utils import metrics_helpers
 
             reload(metrics_helpers)
             callback = metrics_helpers.get_metrics_callback()
@@ -59,7 +62,8 @@ class TestGetMetricsCallback:
             "sys.modules", {"gobbler_mcp.metrics": MagicMock(conversion_size=mock_conversion_size)}
         ):
             from importlib import reload
-            import gobbler_mcp.utils.metrics_helpers as metrics_helpers
+
+            from gobbler_mcp.utils import metrics_helpers
 
             reload(metrics_helpers)
             callback = metrics_helpers.get_metrics_callback()
@@ -82,7 +86,8 @@ class TestGetMetricsCallback:
             "sys.modules", {"gobbler_mcp.metrics": MagicMock(conversion_size=mock_conversion_size)}
         ):
             from importlib import reload
-            import gobbler_mcp.utils.metrics_helpers as metrics_helpers
+
+            from gobbler_mcp.utils import metrics_helpers
 
             reload(metrics_helpers)
 

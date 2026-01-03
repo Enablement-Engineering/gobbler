@@ -10,10 +10,10 @@ Tests the conversion tools that delegate to CLI commands:
 
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 import httpx
+import pytest
 
 # Mock problematic modules before any gobbler_mcp imports
 # Create proper mock structure for rq package
@@ -26,11 +26,11 @@ sys.modules["gobbler_mcp.converters.audio"] = MagicMock()
 
 from fastmcp import FastMCP
 
+from gobbler_mcp.constants import MAX_TIMEOUT, MIN_TIMEOUT
 from gobbler_mcp.tools.conversion import (
     _run_cli,
     register_tools,
 )
-from gobbler_mcp.constants import MIN_TIMEOUT, MAX_TIMEOUT
 
 
 class TestRunCli:

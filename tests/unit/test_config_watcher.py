@@ -1,12 +1,8 @@
 """Unit tests for configuration file watcher."""
 
-import tempfile
 import time
 from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
-import yaml
 
 from gobbler_mcp.config_watcher import ConfigFileHandler, ConfigWatcher
 

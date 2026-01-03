@@ -5,8 +5,7 @@ import os
 import subprocess
 import tempfile
 import time
-from pathlib import Path
-from typing import Callable, Dict, Optional, Tuple
+from collections.abc import Callable
 
 from faster_whisper import WhisperModel
 
@@ -26,8 +25,7 @@ _current_model_size = None
 
 
 async def _extract_audio(video_path: str) -> str:
-    """
-    Extract audio from video file to compressed MP3.
+    """Extract audio from video file to compressed MP3.
 
     Uses ffmpeg to extract audio track and convert to mono 16kHz MP3,
     significantly reducing file size for large videos.
@@ -69,7 +67,7 @@ async def _extract_audio(video_path: str) -> str:
                 "-y",
                 temp_path,
             ],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=3600,  # 60 minute timeout for extraction (handles very large files)
         )
@@ -97,8 +95,7 @@ async def _extract_audio(video_path: str) -> str:
 
 
 def _get_whisper_model(model_size: str) -> WhisperModel:
-    """
-    Get or initialize Whisper model.
+    """Get or initialize Whisper model.
 
     Models are cached globally to avoid reloading on each transcription.
     On M-series Macs, automatically uses CoreML acceleration.
@@ -134,11 +131,10 @@ async def convert_audio_to_markdown(
     file_path: str,
     model: str = "small",
     language: str = "auto",
-    metrics_callback: Optional[Callable[[str, int], None]] = None,
-    logger_instance: Optional[logging.Logger] = None,
-) -> Tuple[str, Dict]:
-    """
-    Transcribe audio/video to markdown using faster-whisper with Metal/CoreML acceleration.
+    metrics_callback: Callable[[str, int], None] | None = None,
+    logger_instance: logging.Logger | None = None,
+) -> tuple[str, dict]:
+    """Transcribe audio/video to markdown using faster-whisper with Metal/CoreML acceleration.
 
     Uses local faster-whisper library with automatic CoreML acceleration on M-series Macs.
     Supports automatic language detection and various audio/video formats via ffmpeg.
@@ -209,7 +205,7 @@ async def convert_audio_to_markdown(
             try:
                 os.unlink(temp_file)
             except OSError:
-                pass  # noqa: S110  # nosec B110
+                pass  # nosec B110
         raise RuntimeError(f"Failed to load Whisper model: {e}")
 
     # Transcribe audio
@@ -250,7 +246,7 @@ async def convert_audio_to_markdown(
             try:
                 os.unlink(temp_file)
             except OSError:
-                pass  # noqa: S110  # nosec B110
+                pass  # nosec B110
         raise RuntimeError(f"Transcription failed: {e}")
 
     conversion_time_ms = int((time.time() - start_time) * 1000)

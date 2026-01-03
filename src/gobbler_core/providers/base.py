@@ -7,7 +7,7 @@ sources (YouTube, webpages, documents, etc.) and follow a consistent interface.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,10 +20,11 @@ class ProviderResult:
         metadata: Additional metadata about the content
         error: Error message if success is False
     """
+
     success: bool
     content: str
     metadata: dict[str, Any]
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class ContentProvider(ABC):
@@ -59,7 +60,6 @@ class ContentProvider(ABC):
         Returns:
             A unique identifier for this provider (e.g., "youtube-transcript-api")
         """
-        pass
 
     @abstractmethod
     async def fetch(self, source: str, **options) -> ProviderResult:
@@ -76,7 +76,6 @@ class ContentProvider(ABC):
             Should return ProviderResult with success=False and error message
             rather than raising exceptions.
         """
-        pass
 
     @abstractmethod
     def supports(self, source: str) -> bool:
@@ -88,4 +87,3 @@ class ContentProvider(ABC):
         Returns:
             True if this provider can handle the source
         """
-        pass

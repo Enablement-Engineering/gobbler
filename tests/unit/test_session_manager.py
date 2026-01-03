@@ -1,9 +1,9 @@
 """Unit tests for session manager."""
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
 
 from gobbler_mcp.crawlers.session_manager import SessionManager
 

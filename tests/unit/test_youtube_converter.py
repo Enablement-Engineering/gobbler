@@ -1,23 +1,22 @@
 """Unit tests for YouTube converter module."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+from youtube_transcript_api import (
+    TranscriptsDisabled,
+)
+
 from gobbler_core.converters.youtube import (
+    convert_youtube_to_markdown,
     extract_video_id,
     format_timestamp,
     get_video_metadata,
-    convert_youtube_to_markdown,
 )
 from gobbler_core.providers.youtube import (
     TranscriptProvider,
     TranscriptResult,
     TranscriptSegment,
-)
-from youtube_transcript_api import (
-    NoTranscriptFound,
-    TranscriptsDisabled,
-    VideoUnavailable,
 )
 
 
@@ -159,10 +158,12 @@ class TestYouTubeConversion:
             "description": "Test description",
         }
 
-        mock_provider = create_mock_provider([
-            {"text": "Hello world", "start": 0.0, "duration": 2.5},
-            {"text": "This is a test", "start": 2.5, "duration": 3.0},
-        ])
+        mock_provider = create_mock_provider(
+            [
+                {"text": "Hello world", "start": 0.0, "duration": 2.5},
+                {"text": "This is a test", "start": 2.5, "duration": 3.0},
+            ]
+        )
 
         markdown, metadata = await convert_youtube_to_markdown(
             "https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -197,9 +198,11 @@ class TestYouTubeConversion:
             "description": None,
         }
 
-        mock_provider = create_mock_provider([
-            {"text": "Hello", "start": 90.0, "duration": 2.0},
-        ])
+        mock_provider = create_mock_provider(
+            [
+                {"text": "Hello", "start": 90.0, "duration": 2.0},
+            ]
+        )
 
         markdown, _ = await convert_youtube_to_markdown(
             "https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -274,9 +277,11 @@ class TestYouTubeConversion:
             "description": None,
         }
 
-        mock_provider = create_mock_provider([
-            {"text": "Test content", "start": 0.0, "duration": 1.0},
-        ])
+        mock_provider = create_mock_provider(
+            [
+                {"text": "Test content", "start": 0.0, "duration": 1.0},
+            ]
+        )
 
         metrics_called = []
 

@@ -6,16 +6,15 @@ Supports both JSON (production) and text (development/MCP) logging formats.
 import json
 import logging
 import sys
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 class StructuredFormatter(logging.Formatter):
     """JSON formatter for structured logging."""
 
     def format(self, record: logging.LogRecord) -> str:
-        """
-        Format log record as JSON.
+        """Format log record as JSON.
 
         Args:
             record: Log record to format
@@ -23,8 +22,8 @@ class StructuredFormatter(logging.Formatter):
         Returns:
             JSON-formatted log string
         """
-        log_data: Dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+        log_data: dict[str, Any] = {
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -51,10 +50,9 @@ class StructuredFormatter(logging.Formatter):
 def setup_logging(
     level: str = "INFO",
     format: str = "text",
-    logger_name: Optional[str] = None,
+    logger_name: str | None = None,
 ) -> None:
-    """
-    Configure application logging.
+    """Configure application logging.
 
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -78,9 +76,7 @@ def setup_logging(
     else:
         # Text format (default for MCP compatibility)
         handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
 
     target_logger.addHandler(handler)
@@ -91,8 +87,7 @@ def setup_logging(
 
 
 def get_logger_with_context(name: str, **context: Any) -> logging.LoggerAdapter:
-    """
-    Get logger with context fields automatically added to all log messages.
+    """Get logger with context fields automatically added to all log messages.
 
     Args:
         name: Logger name
@@ -105,9 +100,7 @@ def get_logger_with_context(name: str, **context: Any) -> logging.LoggerAdapter:
     class ContextAdapter(logging.LoggerAdapter):
         """Adapter that adds context fields to log records."""
 
-        def process(
-            self, msg: str, kwargs: Dict[str, Any]
-        ) -> tuple[str, Dict[str, Any]]:
+        def process(self, msg: str, kwargs: dict[str, Any]) -> tuple[str, dict[str, Any]]:
             """Add context fields to extra."""
             extra = kwargs.get("extra", {})
             if "extra_fields" not in extra:

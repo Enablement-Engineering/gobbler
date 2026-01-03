@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from rich.progress import (
     BarColumn,
     Progress,
@@ -16,8 +14,7 @@ from rich.progress import (
 
 
 def create_progress() -> Progress:
-    """
-    Create a progress bar with default columns.
+    """Create a progress bar with default columns.
 
     Returns:
         A configured Progress instance
@@ -34,8 +31,7 @@ def create_progress() -> Progress:
 
 
 def create_spinner() -> Progress:
-    """
-    Create a simple spinner for indeterminate progress.
+    """Create a simple spinner for indeterminate progress.
 
     Returns:
         A configured Progress instance with just a spinner
@@ -51,9 +47,8 @@ def create_spinner() -> Progress:
 class ProgressTracker:
     """Context manager for tracking progress of operations."""
 
-    def __init__(self, description: str, total: Optional[int] = None):
-        """
-        Initialize progress tracker.
+    def __init__(self, description: str, total: int | None = None):
+        """Initialize progress tracker.
 
         Args:
             description: Description of the task
@@ -61,10 +56,10 @@ class ProgressTracker:
         """
         self.description = description
         self.total = total
-        self.progress: Optional[Progress] = None
-        self.task_id: Optional[TaskID] = None
+        self.progress: Progress | None = None
+        self.task_id: TaskID | None = None
 
-    def __enter__(self) -> "ProgressTracker":
+    def __enter__(self) -> ProgressTracker:
         """Start progress tracking."""
         if self.total is None:
             self.progress = create_spinner()
@@ -80,9 +75,8 @@ class ProgressTracker:
         if self.progress:
             self.progress.__exit__(exc_type, exc_val, exc_tb)
 
-    def update(self, advance: int = 1, description: Optional[str] = None) -> None:
-        """
-        Update progress.
+    def update(self, advance: int = 1, description: str | None = None) -> None:
+        """Update progress.
 
         Args:
             advance: Number of steps to advance
@@ -95,8 +89,7 @@ class ProgressTracker:
             self.progress.update(self.task_id, **kwargs)
 
     def set_total(self, total: int) -> None:
-        """
-        Set the total number of steps.
+        """Set the total number of steps.
 
         Args:
             total: Total number of steps

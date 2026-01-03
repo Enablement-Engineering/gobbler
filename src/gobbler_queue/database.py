@@ -6,9 +6,10 @@ background job state, with support for WAL mode for better concurrency.
 
 import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any
 
 
 class Database:
@@ -45,7 +46,7 @@ class Database:
     CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC);
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         """Initialize the database manager.
 
         Args:
@@ -114,7 +115,7 @@ class Database:
     def execute(
         self,
         query: str,
-        params: Optional[tuple[Any, ...]] = None,
+        params: tuple[Any, ...] | None = None,
     ) -> sqlite3.Cursor:
         """Execute a single SQL query.
 
@@ -139,8 +140,8 @@ class Database:
     def fetch_one(
         self,
         query: str,
-        params: Optional[tuple[Any, ...]] = None,
-    ) -> Optional[sqlite3.Row]:
+        params: tuple[Any, ...] | None = None,
+    ) -> sqlite3.Row | None:
         """Fetch a single row from the database.
 
         Args:
@@ -166,7 +167,7 @@ class Database:
     def fetch_all(
         self,
         query: str,
-        params: Optional[tuple[Any, ...]] = None,
+        params: tuple[Any, ...] | None = None,
     ) -> list[sqlite3.Row]:
         """Fetch all rows matching the query.
 

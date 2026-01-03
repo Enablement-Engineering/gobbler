@@ -1,12 +1,11 @@
 """Utilities for generating YAML frontmatter in markdown files."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
-def create_frontmatter(metadata: Dict[str, Any]) -> str:
-    """
-    Create YAML frontmatter from metadata dictionary.
+def create_frontmatter(metadata: dict[str, Any]) -> str:
+    """Create YAML frontmatter from metadata dictionary.
 
     Args:
         metadata: Dictionary of metadata fields
@@ -36,18 +35,16 @@ def create_frontmatter(metadata: Dict[str, Any]) -> str:
 
 
 def get_iso8601_timestamp() -> str:
-    """
-    Get current timestamp in ISO 8601 format.
+    """Get current timestamp in ISO 8601 format.
 
     Returns:
         ISO 8601 timestamp string (e.g., "2025-10-02T14:32:11Z")
     """
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def count_words(text: str) -> int:
-    """
-    Count words in text.
+    """Count words in text.
 
     Args:
         text: Text to count words in
@@ -64,13 +61,12 @@ def create_youtube_frontmatter(
     duration: int,
     language: str,
     word_count: int,
-    title: Optional[str] = None,
-    channel: Optional[str] = None,
-    thumbnail: Optional[str] = None,
-    description: Optional[str] = None,
+    title: str | None = None,
+    channel: str | None = None,
+    thumbnail: str | None = None,
+    description: str | None = None,
 ) -> str:
-    """
-    Create frontmatter for YouTube transcript.
+    """Create frontmatter for YouTube transcript.
 
     Args:
         video_url: Original YouTube URL
@@ -120,8 +116,7 @@ def create_webpage_frontmatter(
     word_count: int,
     conversion_time_ms: int,
 ) -> str:
-    """
-    Create frontmatter for web page conversion.
+    """Create frontmatter for web page conversion.
 
     Args:
         url: Original URL
@@ -150,8 +145,7 @@ def create_document_frontmatter(
     word_count: int,
     conversion_time_ms: int,
 ) -> str:
-    """
-    Create frontmatter for document conversion.
+    """Create frontmatter for document conversion.
 
     Args:
         file_path: Original file path
@@ -183,8 +177,7 @@ def create_audio_frontmatter(
     word_count: int,
     conversion_time_ms: int,
 ) -> str:
-    """
-    Create frontmatter for audio transcription.
+    """Create frontmatter for audio transcription.
 
     Args:
         file_path: Original file path

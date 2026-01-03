@@ -5,10 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import (
     OutputFormat,
@@ -50,7 +49,7 @@ def browser_callback(
 def read_urls_from_file(filepath: Path) -> list[str]:
     """Read URLs from a file, one per line. Skips empty lines and comments."""
     urls = []
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
@@ -78,10 +77,9 @@ async def _check_relay_and_extension() -> tuple[bool, bool, str]:
                 relay_auto_started = True
         except RuntimeError as e:
             return False, False, f"Failed to start relay: {e}"
-    else:
-        # Auto-start disabled, just check if running
-        if not await is_relay_running():
-            return False, False, "Relay server is not running. Start it with: gobbler relay start"
+    # Auto-start disabled, just check if running
+    elif not await is_relay_running():
+        return False, False, "Relay server is not running. Start it with: gobbler relay start"
 
     status = await check_connection()
     if status.get("status") == "error":
@@ -156,7 +154,7 @@ async def _status() -> None:
 @app.command("list")
 def list_tabs(
     filter_type: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--filter", "-f", help="Filter tabs (e.g., 'notebooklm')"),
     ] = None,
     json_output: Annotated[
@@ -168,7 +166,7 @@ def list_tabs(
     asyncio.run(_list_tabs(filter_type, json_output))
 
 
-async def _list_tabs(filter_type: Optional[str], json_output: bool) -> None:
+async def _list_tabs(filter_type: str | None, json_output: bool) -> None:
     """Async implementation of list tabs."""
     from gobbler_relay.client import list_tabs
 
@@ -252,15 +250,15 @@ async def _navigate(url: str) -> None:
 @app.command()
 def extract(
     selector: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
     ] = None,
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--output", "-o", help="Output file path"),
     ] = None,
     tab_id: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--tab", "-t", help="Specific tab ID (active tab if not specified)"),
     ] = None,
     json_output: Annotated[
@@ -273,9 +271,9 @@ def extract(
 
 
 async def _extract(
-    selector: Optional[str],
-    output: Optional[Path],
-    tab_id: Optional[int],
+    selector: str | None,
+    output: Path | None,
+    tab_id: int | None,
     json_output: bool = False,
 ) -> None:
     """Async implementation of extract."""
@@ -352,7 +350,7 @@ async def _extract(
 def execute(
     script: Annotated[str, typer.Argument(help="JavaScript code to execute")],
     tab_id: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--tab", "-t", help="Specific tab ID (active tab if not specified)"),
     ] = None,
     timeout: Annotated[
@@ -368,7 +366,7 @@ def execute(
     asyncio.run(_execute(script, tab_id, timeout, json_output))
 
 
-async def _execute(script: str, tab_id: Optional[int], timeout: int, json_output: bool) -> None:
+async def _execute(script: str, tab_id: int | None, timeout: int, json_output: bool) -> None:
     """Async implementation of execute."""
     from gobbler_relay.client import execute_script, execute_script_in_tab
 
@@ -409,11 +407,11 @@ async def _execute(script: str, tab_id: Optional[int], timeout: int, json_output
 @app.command("open")
 def open_tabs(
     urls: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Argument(help="URLs to open in the Gobbler tab group"),
     ] = None,
     file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--file", "-f", help="Read URLs from file (one per line)"),
     ] = None,
     json_output: Annotated[
@@ -431,7 +429,7 @@ def open_tabs(
     asyncio.run(_open_tabs(urls or [], file, json_output))
 
 
-async def _open_tabs(urls: list[str], file: Optional[Path], json_output: bool) -> None:
+async def _open_tabs(urls: list[str], file: Path | None, json_output: bool) -> None:
     """Async implementation of open tabs."""
     from gobbler_relay.client import open_tabs
 

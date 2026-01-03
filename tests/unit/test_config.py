@@ -1,10 +1,8 @@
 """Unit tests for configuration management."""
 
 import threading
-
-import pytest
 from pathlib import Path
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
 from gobbler_mcp.config import Config, get_config
 
@@ -88,28 +86,18 @@ class TestServiceUrl:
 
     def test_get_service_url(self):
         """Test generating service URLs."""
-        config = create_test_config({
-            "services": {
-                "crawl4ai": {
-                    "host": "localhost",
-                    "port": 11235
-                }
-            }
-        })
+        config = create_test_config(
+            {"services": {"crawl4ai": {"host": "localhost", "port": 11235}}}
+        )
 
         url = config.get_service_url("crawl4ai")
         assert url == "http://localhost:11235"
 
     def test_get_service_url_custom_host(self):
         """Test service URL with custom host."""
-        config = create_test_config({
-            "services": {
-                "crawl4ai": {
-                    "host": "example.com",
-                    "port": 8080
-                }
-            }
-        })
+        config = create_test_config(
+            {"services": {"crawl4ai": {"host": "example.com", "port": 8080}}}
+        )
 
         url = config.get_service_url("crawl4ai")
         assert url == "http://example.com:8080"
@@ -157,6 +145,7 @@ class TestGlobalConfig:
         """Test that get_config returns singleton instance."""
         # Reset global config
         import gobbler_mcp.config as config_module
+
         config_module._config = None
 
         mock_instance = MagicMock()

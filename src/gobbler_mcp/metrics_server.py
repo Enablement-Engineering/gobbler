@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import threading
-from typing import Optional
 
 from aiohttp import web
 
@@ -13,8 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 async def metrics_handler(request: web.Request) -> web.Response:
-    """
-    Handle /metrics endpoint for Prometheus scraping.
+    """Handle /metrics endpoint for Prometheus scraping.
 
     Args:
         request: aiohttp request object
@@ -35,8 +33,7 @@ async def metrics_handler(request: web.Request) -> web.Response:
 
 
 async def health_handler(request: web.Request) -> web.Response:
-    """
-    Handle /health endpoint for health checks.
+    """Handle /health endpoint for health checks.
 
     Args:
         request: aiohttp request object
@@ -48,8 +45,7 @@ async def health_handler(request: web.Request) -> web.Response:
 
 
 def create_metrics_app() -> web.Application:
-    """
-    Create aiohttp application for metrics server.
+    """Create aiohttp application for metrics server.
 
     Returns:
         Configured aiohttp Application
@@ -64,8 +60,7 @@ class MetricsServer:
     """Metrics HTTP server manager."""
 
     def __init__(self, host: str = "0.0.0.0", port: int = 9090):  # noqa: S104  # nosec B104
-        """
-        Initialize metrics server.
+        """Initialize metrics server.
 
         Args:
             host: Host to bind to
@@ -73,11 +68,11 @@ class MetricsServer:
         """
         self.host = host
         self.port = port
-        self.runner: Optional[web.AppRunner] = None
-        self.site: Optional[web.TCPSite] = None
-        self._thread: Optional[threading.Thread] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._stop_event: Optional[threading.Event] = None
+        self.runner: web.AppRunner | None = None
+        self.site: web.TCPSite | None = None
+        self._thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._stop_event: threading.Event | None = None
 
     async def _run_server(self) -> None:
         """Run the metrics server (internal async method)."""
@@ -157,8 +152,7 @@ class MetricsServer:
         logger.info("Metrics server stopped")
 
     def is_running(self) -> bool:
-        """
-        Check if metrics server is running.
+        """Check if metrics server is running.
 
         Returns:
             True if server is running
@@ -167,12 +161,11 @@ class MetricsServer:
 
 
 # Global server instance
-_metrics_server: Optional[MetricsServer] = None
+_metrics_server: MetricsServer | None = None
 
 
 def get_metrics_server() -> MetricsServer:
-    """
-    Get global metrics server instance.
+    """Get global metrics server instance.
 
     Returns:
         MetricsServer instance

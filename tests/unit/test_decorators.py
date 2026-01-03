@@ -5,7 +5,6 @@ Tests the error handling decorator functionality used across all MCP tools.
 
 import inspect
 import logging
-from unittest.mock import patch
 
 import httpx
 import pytest
@@ -152,7 +151,6 @@ class TestDecoratorFunctionSignature:
         @handle_tool_errors(operation_name="test")
         async def documented_function():
             """This is a detailed docstring."""
-            pass
 
         assert documented_function.__doc__ == "This is a detailed docstring."
 

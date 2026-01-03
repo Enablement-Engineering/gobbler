@@ -8,9 +8,10 @@ These tools use the SQLite-based gobbler_queue system.
 """
 
 import logging
+
 from fastmcp import FastMCP
 
-from ..constants import MAX_JOBS_LIST, DEFAULT_JOBS_LIST
+from ..constants import DEFAULT_JOBS_LIST, MAX_JOBS_LIST
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,7 @@ def register_tools(mcp: FastMCP):
 
     @mcp.tool()
     async def get_job_status(job_id: str) -> str:
-        """
-        Check status and result of a queued job.
+        """Check status and result of a queued job.
 
         Retrieves current status, progress, and result (if completed) for a job
         that was queued via the job queue system.
@@ -86,15 +86,14 @@ def register_tools(mcp: FastMCP):
             return "Job queue system not available. Use 'gobbler jobs get' CLI command instead."
         except Exception as e:
             logger.error(f"Error getting job status: {e}", exc_info=True)
-            return f"Failed to get job status: {str(e)}"
+            return f"Failed to get job status: {e!s}"
 
     @mcp.tool()
     async def list_jobs(
         status: str = "all",
         limit: int = DEFAULT_JOBS_LIST,
     ) -> str:
-        """
-        List jobs in the queue.
+        """List jobs in the queue.
 
         Shows recent jobs with their current status.
         Useful for monitoring background tasks.
@@ -112,8 +111,7 @@ def register_tools(mcp: FastMCP):
 
             manager = JobManager()
 
-            if limit > MAX_JOBS_LIST:
-                limit = MAX_JOBS_LIST
+            limit = min(limit, MAX_JOBS_LIST)
 
             # Convert status string to enum if filtering
             status_filter = None
@@ -155,4 +153,4 @@ def register_tools(mcp: FastMCP):
             return "Job queue system not available. Use 'gobbler jobs list' CLI command instead."
         except Exception as e:
             logger.error(f"Error listing jobs: {e}", exc_info=True)
-            return f"Failed to list jobs: {str(e)}"
+            return f"Failed to list jobs: {e!s}"

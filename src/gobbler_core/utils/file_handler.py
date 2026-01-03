@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import aiofiles
 
@@ -14,8 +13,7 @@ async def save_markdown_file(
     content: str,
     create_dirs: bool = True,
 ) -> bool:
-    """
-    Save markdown content to file.
+    """Save markdown content to file.
 
     Args:
         file_path: Absolute path to save file
@@ -48,9 +46,8 @@ async def save_markdown_file(
         return False
 
 
-def validate_output_path(file_path: str) -> Optional[str]:
-    """
-    Validate output file path.
+def validate_output_path(file_path: str) -> str | None:
+    """Validate output file path.
 
     Args:
         file_path: Path to validate
@@ -69,9 +66,8 @@ def validate_output_path(file_path: str) -> Optional[str]:
     return None
 
 
-def validate_input_path(file_path: str, allowed_extensions: tuple) -> Optional[str]:
-    """
-    Validate input file path.
+def validate_input_path(file_path: str, allowed_extensions: tuple) -> str | None:
+    """Validate input file path.
 
     Args:
         file_path: Path to validate
@@ -93,17 +89,13 @@ def validate_input_path(file_path: str, allowed_extensions: tuple) -> Optional[s
     # Check extension
     if path.suffix.lower() not in allowed_extensions:
         ext_list = ", ".join(allowed_extensions)
-        return (
-            f"Unsupported file format: {path.suffix}. "
-            f"This tool supports {ext_list}."
-        )
+        return f"Unsupported file format: {path.suffix}. This tool supports {ext_list}."
 
     return None
 
 
 def get_file_extension(file_path: str) -> str:
-    """
-    Get file extension without the dot.
+    """Get file extension without the dot.
 
     Args:
         file_path: Path to file

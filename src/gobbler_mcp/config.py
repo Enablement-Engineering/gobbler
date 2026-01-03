@@ -3,7 +3,7 @@
 import logging
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -14,7 +14,7 @@ class Config:
     """Configuration loader and manager."""
 
     # Default configuration
-    DEFAULTS: Dict[str, Any] = {
+    DEFAULTS: dict[str, Any] = {
         "whisper": {
             "model": "small",
             "language": "auto",
@@ -63,16 +63,15 @@ class Config:
         },
     }
 
-    def __init__(self, config_path: Optional[Path] = None) -> None:
-        """
-        Initialize configuration.
+    def __init__(self, config_path: Path | None = None) -> None:
+        """Initialize configuration.
 
         Args:
             config_path: Path to config file. If None, uses default location.
         """
         self.config_path = config_path or self._default_config_path()
         self._lock = threading.RLock()  # Reentrant lock for thread-safety
-        self._watcher: Optional[Any] = None  # ConfigWatcher instance
+        self._watcher: Any | None = None  # ConfigWatcher instance
         self.data = self._load_config()
 
     @staticmethod
@@ -80,9 +79,8 @@ class Config:
         """Get default configuration file path."""
         return Path.home() / ".config" / "gobbler" / "config.yml"
 
-    def _load_config(self) -> Dict[str, Any]:
-        """
-        Load configuration from file, falling back to defaults.
+    def _load_config(self) -> dict[str, Any]:
+        """Load configuration from file, falling back to defaults.
 
         Returns:
             Configuration dictionary
@@ -93,7 +91,7 @@ class Config:
         # Try to load user config
         if self.config_path.exists():
             try:
-                with open(self.config_path, "r") as f:
+                with open(self.config_path) as f:
                     user_config = yaml.safe_load(f)
                     if user_config:
                         # Deep merge user config over defaults
@@ -108,9 +106,8 @@ class Config:
         return config
 
     @staticmethod
-    def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Deep merge two dictionaries.
+    def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+        """Deep merge two dictionaries.
 
         Args:
             base: Base dictionary
@@ -128,8 +125,7 @@ class Config:
         return result
 
     def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get configuration value using dot notation (thread-safe).
+        """Get configuration value using dot notation (thread-safe).
 
         Args:
             key: Configuration key (e.g., "whisper.model")
@@ -149,8 +145,7 @@ class Config:
             return value
 
     def get_service_url(self, service: str) -> str:
-        """
-        Get full service URL.
+        """Get full service URL.
 
         Args:
             service: Service name (crawl4ai, docling, whisper)
@@ -163,8 +158,7 @@ class Config:
         return f"http://{host}:{port}"
 
     def reload(self) -> None:
-        """
-        Reload configuration from file (thread-safe).
+        """Reload configuration from file (thread-safe).
 
         Validates new config before applying. If validation fails,
         keeps current config and logs errors.
@@ -183,7 +177,7 @@ class Config:
             validation_errors = ConfigWatcher.validate_config(new_config)
             if validation_errors:
                 logger.error(
-                    f"Config validation failed. Keeping current config. Errors:\n"
+                    "Config validation failed. Keeping current config. Errors:\n"
                     + "\n".join(f"  - {err}" for err in validation_errors)
                 )
                 return
@@ -198,17 +192,16 @@ class Config:
             # Log reload success
             if changes:
                 logger.info(
-                    f"Configuration reloaded successfully. Changes:\n"
+                    "Configuration reloaded successfully. Changes:\n"
                     + "\n".join(f"  - {change}" for change in changes)
                 )
             else:
                 logger.info("Configuration reloaded (no changes detected)")
 
     def _detect_changes(
-        self, old: Dict[str, Any], new: Dict[str, Any], prefix: str = ""
+        self, old: dict[str, Any], new: dict[str, Any], prefix: str = ""
     ) -> list[str]:
-        """
-        Detect changes between old and new config.
+        """Detect changes between old and new config.
 
         Args:
             old: Old configuration
@@ -233,7 +226,7 @@ class Config:
                 changes.append(f"{full_key}: {old_value} → {new[key]}")
 
         # Check for new keys
-        for key in new.keys():
+        for key in new:
             if key not in old:
                 full_key = f"{prefix}.{key}" if prefix else key
                 changes.append(f"{full_key} added: {new[key]}")
@@ -241,8 +234,7 @@ class Config:
         return changes
 
     def enable_hot_reload(self, debounce_seconds: float = 1.0) -> None:
-        """
-        Enable configuration hot-reload.
+        """Enable configuration hot-reload.
 
         Starts watching config file for changes and automatically
         reloads when modifications are detected.
@@ -272,12 +264,11 @@ class Config:
 
 
 # Global config instance
-_config: Optional[Config] = None
+_config: Config | None = None
 
 
 def get_config() -> Config:
-    """
-    Get global configuration instance.
+    """Get global configuration instance.
 
     Returns:
         Config instance

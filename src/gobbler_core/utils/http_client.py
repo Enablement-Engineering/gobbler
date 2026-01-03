@@ -1,7 +1,7 @@
 """HTTP client wrapper with retry logic for service communication."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -17,8 +17,7 @@ class RetryableHTTPClient:
         max_retries: int = 3,
         retry_statuses: tuple = (500, 502, 503, 504),
     ) -> None:
-        """
-        Initialize HTTP client.
+        """Initialize HTTP client.
 
         Args:
             timeout: Request timeout in seconds
@@ -28,7 +27,7 @@ class RetryableHTTPClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_statuses = retry_statuses
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "RetryableHTTPClient":
         """Enter async context manager."""
@@ -43,13 +42,12 @@ class RetryableHTTPClient:
     async def post(
         self,
         url: str,
-        json: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        files: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> httpx.Response:
-        """
-        POST request with retry logic.
+        """POST request with retry logic.
 
         Args:
             url: URL to post to
@@ -67,7 +65,7 @@ class RetryableHTTPClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use as context manager.")
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(self.max_retries):
             try:
@@ -83,8 +81,7 @@ class RetryableHTTPClient:
                             f"retrying ({attempt + 1}/{self.max_retries})..."
                         )
                         continue
-                    else:
-                        response.raise_for_status()
+                    response.raise_for_status()
 
                 return response
 
@@ -95,8 +92,7 @@ class RetryableHTTPClient:
                         f"Request failed: {e}, retrying ({attempt + 1}/{self.max_retries})..."
                     )
                     continue
-                else:
-                    raise
+                raise
 
             except Exception as e:
                 # Don't retry on other exceptions
@@ -108,9 +104,8 @@ class RetryableHTTPClient:
             raise last_error
         raise RuntimeError("Request failed after retries")
 
-    async def get(self, url: str, headers: Optional[Dict[str, str]] = None) -> httpx.Response:
-        """
-        GET request with retry logic.
+    async def get(self, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
+        """GET request with retry logic.
 
         Args:
             url: URL to get
@@ -125,7 +120,7 @@ class RetryableHTTPClient:
         if not self._client:
             raise RuntimeError("Client not initialized. Use as context manager.")
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(self.max_retries):
             try:
@@ -139,8 +134,7 @@ class RetryableHTTPClient:
                             f"retrying ({attempt + 1}/{self.max_retries})..."
                         )
                         continue
-                    else:
-                        response.raise_for_status()
+                    response.raise_for_status()
 
                 return response
 
@@ -151,8 +145,7 @@ class RetryableHTTPClient:
                         f"Request failed: {e}, retrying ({attempt + 1}/{self.max_retries})..."
                     )
                     continue
-                else:
-                    raise
+                raise
 
             except Exception as e:
                 # Don't retry on other exceptions

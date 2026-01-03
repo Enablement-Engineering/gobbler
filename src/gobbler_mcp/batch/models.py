@@ -1,7 +1,7 @@
 """Data models for batch processing."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -10,7 +10,7 @@ class BatchItem:
 
     id: str
     source: str  # URL, file path, etc.
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -19,9 +19,9 @@ class BatchResult:
 
     item_id: str
     success: bool
-    output_file: Optional[str] = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    output_file: str | None = None
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -40,15 +40,12 @@ class BatchSummary:
     skipped_details: list[dict] = field(default_factory=list)
 
     def format_report(self) -> str:
-        """
-        Format batch summary as human-readable report.
+        """Format batch summary as human-readable report.
 
         Returns:
             Formatted markdown report
         """
-        success_rate = (
-            (self.successful / self.total_items * 100) if self.total_items > 0 else 0
-        )
+        success_rate = (self.successful / self.total_items * 100) if self.total_items > 0 else 0
 
         # Format processing time
         minutes = int(self.processing_time_seconds // 60)
@@ -101,8 +98,6 @@ class BatchSummary:
         lines.append("## Output Location")
         lines.append(f"All files saved to: {self.output_dir}\n")
 
-        lines.append(
-            f"Check progress anytime with: get_batch_progress(batch_id=\"{self.batch_id}\")"
-        )
+        lines.append(f'Check progress anytime with: get_batch_progress(batch_id="{self.batch_id}")')
 
         return "\n".join(lines)

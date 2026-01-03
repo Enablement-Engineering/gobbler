@@ -5,8 +5,8 @@ import logging
 import random
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional
 
 from .models import BatchItem, BatchResult, BatchSummary
 from .progress_tracker import ProgressTracker
@@ -19,11 +19,11 @@ class BatchProcessor:
 
     def __init__(
         self,
-        batch_id: Optional[str] = None,
-        items: Optional[List[BatchItem]] = None,
-        process_fn: Optional[Callable] = None,
+        batch_id: str | None = None,
+        items: list[BatchItem] | None = None,
+        process_fn: Callable | None = None,
         concurrency: int = 3,
-        output_dir: Optional[str] = None,
+        output_dir: str | None = None,
         skip_existing: bool = True,
         operation_type: str = "batch",
         delay_between_requests: float = 0.0,
@@ -31,8 +31,7 @@ class BatchProcessor:
         max_retries: int = 0,
         retry_delay: float = 1.0,
     ):
-        """
-        Initialize batch processor.
+        """Initialize batch processor.
 
         Args:
             batch_id: Unique identifier for batch (auto-generated if None)
@@ -59,14 +58,13 @@ class BatchProcessor:
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self.progress = ProgressTracker(self.batch_id)
-        self.results: List[BatchResult] = []
+        self.results: list[BatchResult] = []
         self.start_time: float = 0
         self.end_time: float = 0
         self._request_lock = asyncio.Lock()  # For rate limiting coordination
 
     async def _process_with_retry(self, item: BatchItem) -> BatchResult:
-        """
-        Process item with exponential backoff retry logic.
+        """Process item with exponential backoff retry logic.
 
         Args:
             item: Item to process
@@ -114,8 +112,7 @@ class BatchProcessor:
         )
 
     def _get_unique_output_path(self, base_path: Path) -> Path:
-        """
-        Get unique output path by adding numeric suffix if file exists.
+        """Get unique output path by adding numeric suffix if file exists.
 
         Args:
             base_path: Base output path
@@ -139,8 +136,7 @@ class BatchProcessor:
             counter += 1
 
     async def run(self) -> BatchSummary:
-        """
-        Execute batch operation with progress tracking.
+        """Execute batch operation with progress tracking.
 
         Returns:
             BatchSummary with results and statistics
@@ -197,16 +193,15 @@ class BatchProcessor:
                         # Track success
                         if result.success:
                             await self.progress.increment_success()
+                        elif result.error == "skipped":
+                            await self.progress.increment_skipped(
+                                result.metadata.get("reason", "Unknown"),
+                                item.source,
+                            )
                         else:
-                            if result.error == "skipped":
-                                await self.progress.increment_skipped(
-                                    result.metadata.get("reason", "Unknown"),
-                                    item.source,
-                                )
-                            else:
-                                await self.progress.increment_failure(
-                                    result.error or "Unknown error", item.source
-                                )
+                            await self.progress.increment_failure(
+                                result.error or "Unknown error", item.source
+                            )
 
                         return result
 
@@ -240,8 +235,7 @@ class BatchProcessor:
         return self._generate_summary()
 
     def _generate_summary(self) -> BatchSummary:
-        """
-        Generate batch operation summary.
+        """Generate batch operation summary.
 
         Returns:
             BatchSummary with statistics and details

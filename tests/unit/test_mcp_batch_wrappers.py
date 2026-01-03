@@ -7,7 +7,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -23,9 +23,9 @@ sys.modules["gobbler_mcp.converters.audio"] = MagicMock()
 from fastmcp import FastMCP
 
 from gobbler_mcp.tools.batch import (
-    _run_cli,
-    _parse_json_output,
     _format_batch_report,
+    _parse_json_output,
+    _run_cli,
     register_tools,
 )
 

@@ -1,17 +1,16 @@
 """Unit tests for frontmatter generation utilities."""
 
-import pytest
+from datetime import UTC, datetime
 from unittest.mock import patch
-from datetime import datetime, timezone
 
 from gobbler_core.utils.frontmatter import (
-    create_frontmatter,
-    get_iso8601_timestamp,
     count_words,
-    create_youtube_frontmatter,
-    create_webpage_frontmatter,
-    create_document_frontmatter,
     create_audio_frontmatter,
+    create_document_frontmatter,
+    create_frontmatter,
+    create_webpage_frontmatter,
+    create_youtube_frontmatter,
+    get_iso8601_timestamp,
 )
 
 
@@ -86,12 +85,12 @@ class TestTimestampGeneration:
     def test_get_iso8601_timestamp_uses_utc(self, mock_datetime):
         """Test that timestamp uses UTC timezone."""
         # Mock datetime to return a fixed time
-        mock_now = datetime(2025, 10, 3, 14, 30, 45, tzinfo=timezone.utc)
+        mock_now = datetime(2025, 10, 3, 14, 30, 45, tzinfo=UTC)
         mock_datetime.now.return_value = mock_now
 
         timestamp = get_iso8601_timestamp()
 
-        mock_datetime.now.assert_called_once_with(timezone.utc)
+        mock_datetime.now.assert_called_once_with(UTC)
         assert timestamp == "2025-10-03T14:30:45Z"
 
 

@@ -5,8 +5,7 @@ import logging
 import re
 import time
 from collections import deque
-from typing import Dict, List, Optional, Set, Tuple
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -21,25 +20,24 @@ class SiteCrawler:
 
     def __init__(self):
         """Initialize site crawler."""
-        self.visited_urls: Set[str] = set()
-        self.link_graph: Dict[str, List[str]] = {}
+        self.visited_urls: set[str] = set()
+        self.link_graph: dict[str, list[str]] = {}
 
     async def crawl_site(
         self,
         start_url: str,
         max_depth: int = 2,
         max_pages: int = 50,
-        url_include_pattern: Optional[str] = None,
-        url_exclude_pattern: Optional[str] = None,
-        css_selector: Optional[str] = None,
+        url_include_pattern: str | None = None,
+        url_exclude_pattern: str | None = None,
+        css_selector: str | None = None,
         respect_robots_txt: bool = True,
         crawl_delay: float = 1.0,
         concurrency: int = 3,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
         use_stealth: bool = False,
-    ) -> Tuple[List[Dict], Dict]:
-        """
-        Crawl site recursively and return pages + link graph.
+    ) -> tuple[list[dict], dict]:
+        """Crawl site recursively and return pages + link graph.
 
         Args:
             start_url: URL to start crawling from
@@ -60,12 +58,9 @@ class SiteCrawler:
             - crawl_summary: Dict with {total_pages, link_graph, domains, duration_ms}
         """
         # Validate parameters
-        if max_depth > 5:
-            max_depth = 5
-        if max_pages > 500:
-            max_pages = 500
-        if concurrency > 10:
-            concurrency = 10
+        max_depth = min(max_depth, 5)
+        max_pages = min(max_pages, 500)
+        concurrency = min(concurrency, 10)
 
         start_time = time.time()
         base_domain = urlparse(start_url).netloc
@@ -140,12 +135,14 @@ class SiteCrawler:
                     self.link_graph[url] = link_urls
 
                     # Add page to results
-                    pages.append({
-                        "url": url,
-                        "markdown": markdown,
-                        "metadata": metadata,
-                        "depth": depth,
-                    })
+                    pages.append(
+                        {
+                            "url": url,
+                            "markdown": markdown,
+                            "metadata": metadata,
+                            "depth": depth,
+                        }
+                    )
 
                     # Queue links for next depth
                     if depth < max_depth:
@@ -181,13 +178,11 @@ class SiteCrawler:
             "max_depth_reached": max(p["depth"] for p in pages) if pages else 0,
         }
 
-        logger.info(
-            f"Crawl complete: {len(pages)} pages, {len(self.link_graph)} nodes in graph"
-        )
+        logger.info(f"Crawl complete: {len(pages)} pages, {len(self.link_graph)} nodes in graph")
 
         return pages, summary
 
-    async def _get_robots_parser(self, url: str) -> Optional[RobotFileParser]:
+    async def _get_robots_parser(self, url: str) -> RobotFileParser | None:
         """Fetch and parse robots.txt for the given URL."""
         parsed = urlparse(url)
         robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"

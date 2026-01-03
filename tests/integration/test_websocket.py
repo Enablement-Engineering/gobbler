@@ -28,9 +28,13 @@ async def test_websocket():
             print("✓ WebSocket connected")
 
             # Register with server
-            await websocket.send(json.dumps({
-                "type": "register",
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "register",
+                    }
+                )
+            )
             print("✓ Sent registration")
 
             # Wait for registration response
@@ -40,12 +44,16 @@ async def test_websocket():
 
             # Try to send a command (this simulates what the MCP tools do)
             command_id = str(uuid.uuid4())
-            await websocket.send(json.dumps({
-                "type": "command",
-                "command_id": command_id,
-                "command": "list_gobbler_tabs",
-                "params": {}
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "command",
+                        "command_id": command_id,
+                        "command": "list_gobbler_tabs",
+                        "params": {},
+                    }
+                )
+            )
             print(f"✓ Sent command 'list_gobbler_tabs' (id: {command_id})")
 
             # Wait for response (with timeout)
@@ -53,7 +61,7 @@ async def test_websocket():
                 response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                 data = json.loads(response)
                 print(f"✓ Received response: {json.dumps(data, indent=2)}")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print("✗ Timeout waiting for command response")
                 print("\nNote: This is expected if no browser extension is connected.")
                 print("The WebSocket connection works, but commands need the extension to respond.")

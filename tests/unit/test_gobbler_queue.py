@@ -7,18 +7,16 @@ Tests cover:
 """
 
 import json
-import sqlite3
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
-from gobbler_queue.models import Job, JobStatus, JobType, JobSummary
 from gobbler_queue.database import Database
 from gobbler_queue.manager import JobManager
-
+from gobbler_queue.models import Job, JobStatus, JobSummary, JobType
 
 # =============================================================================
 # Model Tests

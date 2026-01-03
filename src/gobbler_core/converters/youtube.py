@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import Callable, Dict, Optional, Tuple
+from collections.abc import Callable
 
 import yt_dlp
 
@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_video_id(video_url: str) -> str:
-    """
-    Extract video ID from YouTube URL.
+    """Extract video ID from YouTube URL.
 
     Args:
         video_url: YouTube video URL
@@ -42,8 +41,7 @@ def extract_video_id(video_url: str) -> str:
 
 
 def format_timestamp(seconds: float) -> str:
-    """
-    Format seconds into MM:SS or HH:MM:SS timestamp.
+    """Format seconds into MM:SS or HH:MM:SS timestamp.
 
     Args:
         seconds: Time in seconds
@@ -57,13 +55,11 @@ def format_timestamp(seconds: float) -> str:
 
     if hours > 0:
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-    else:
-        return f"{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
 
 
-def get_video_metadata(video_url: str) -> Dict[str, Optional[str]]:
-    """
-    Extract video metadata using yt-dlp.
+def get_video_metadata(video_url: str) -> dict[str, str | None]:
+    """Extract video metadata using yt-dlp.
 
     Args:
         video_url: YouTube video URL
@@ -95,12 +91,11 @@ async def convert_youtube_to_markdown(
     video_url: str,
     include_timestamps: bool = False,
     language: str = "auto",
-    metrics_callback: Optional[Callable[[str, int], None]] = None,
-    provider: Optional[TranscriptProvider] = None,
-    logger_instance: Optional[logging.Logger] = None,
-) -> Tuple[str, Dict]:
-    """
-    Convert YouTube video to markdown transcript.
+    metrics_callback: Callable[[str, int], None] | None = None,
+    provider: TranscriptProvider | None = None,
+    logger_instance: logging.Logger | None = None,
+) -> tuple[str, dict]:
+    """Convert YouTube video to markdown transcript.
 
     Uses proxy and fallback providers based on environment configuration:
     - WEBSHARE_USER/WEBSHARE_PASS: Rotating proxy for free API
@@ -158,9 +153,7 @@ async def convert_youtube_to_markdown(
 
     # Calculate duration
     total_duration = (
-        result.segments[-1].start + result.segments[-1].duration
-        if result.segments
-        else 0
+        result.segments[-1].start + result.segments[-1].duration if result.segments else 0
     )
 
     # Build transcript text

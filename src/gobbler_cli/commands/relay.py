@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import print_error, print_info, print_success, print_warning
 

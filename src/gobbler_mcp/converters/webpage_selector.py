@@ -3,33 +3,31 @@
 import logging
 import re
 import time
-from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 
-from ..config import get_config
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
-from gobbler_core.utils.health import get_service_unavailable_error
 from gobbler_core.utils.http_client import RetryableHTTPClient
+
+from ..config import get_config
 
 logger = logging.getLogger(__name__)
 
 
 async def convert_webpage_with_selector(
     url: str,
-    css_selector: Optional[str] = None,
-    xpath: Optional[str] = None,
+    css_selector: str | None = None,
+    xpath: str | None = None,
     include_images: bool = True,
     extract_links: bool = False,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     bypass_cache: bool = False,
     timeout: int = 30,
     use_stealth: bool = False,
-) -> Tuple[str, Dict]:
-    """
-    Convert web page to markdown with CSS/XPath selector extraction.
+) -> tuple[str, dict]:
+    """Convert web page to markdown with CSS/XPath selector extraction.
 
     Extends basic webpage conversion with targeted content extraction using
     CSS selectors or XPath expressions. Optionally extracts and categorizes
@@ -61,7 +59,9 @@ async def convert_webpage_with_selector(
 
     config = get_config()
     service_url = config.get_service_url("crawl4ai")
-    api_token = config.data.get("services", {}).get("crawl4ai", {}).get("api_token", "gobbler-local-token")
+    api_token = (
+        config.data.get("services", {}).get("crawl4ai", {}).get("api_token", "gobbler-local-token")
+    )
 
     logger.info(f"Converting web page with selector: {url}")
     start_time = time.time()
@@ -73,33 +73,29 @@ async def convert_webpage_with_selector(
         # Enable stealth mode for anti-detection
         # Use headed mode (headless=False) even though browser won't be visible in Docker
         # This changes browser fingerprint and removes headless-specific detection markers
-        browser_params.update({
-            "headless": False,
-            "enable_stealth": True,
-            "user_agent_mode": "random",
-            "extra_args": [
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage",
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-            ]
-        })
+        browser_params.update(
+            {
+                "headless": False,
+                "enable_stealth": True,
+                "user_agent_mode": "random",
+                "extra_args": [
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                ],
+            }
+        )
         logger.info("Stealth mode enabled with headed browser for enhanced bot detection evasion")
 
     # Prepare Crawl4AI request with selector
     crawl_request = {
         "urls": [url],
-        "browser_config": {
-            "type": "BrowserConfig",
-            "params": browser_params
-        },
+        "browser_config": {"type": "BrowserConfig", "params": browser_params},
         "crawler_config": {
             "type": "CrawlerRunConfig",
-            "params": {
-                "stream": False,
-                "cache_mode": "bypass" if bypass_cache else "enabled"
-            }
-        }
+            "params": {"stream": False, "cache_mode": "bypass" if bypass_cache else "enabled"},
+        },
     }
 
     # Add extraction strategy if selector provided
@@ -114,11 +110,11 @@ async def convert_webpage_with_selector(
                         {
                             "name": "content",
                             "selector": css_selector if css_selector else xpath,
-                            "type": "nested"
+                            "type": "nested",
                         }
-                    ]
+                    ],
                 }
-            }
+            },
         }
         crawl_request["crawler_config"]["params"]["extraction_strategy"] = extraction_strategy
 
@@ -126,6 +122,7 @@ async def convert_webpage_with_selector(
     session_cookies = None
     if session_id:
         from ..crawlers.session_manager import SessionManager
+
         session_manager = SessionManager()
         try:
             session_data = await session_manager.load_session(session_id)
@@ -140,17 +137,13 @@ async def convert_webpage_with_selector(
         crawl_request["browser_config"]["params"]["cookies"] = session_cookies
 
     # Prepare headers with auth token
-    headers = {
-        "Authorization": f"Bearer {api_token}"
-    }
+    headers = {"Authorization": f"Bearer {api_token}"}
 
     try:
         async with RetryableHTTPClient(timeout=timeout) as client:
             # Submit crawl request
             response = await client.post(
-                f"{service_url}/crawl",
-                json=crawl_request,
-                headers=headers
+                f"{service_url}/crawl", json=crawl_request, headers=headers
             )
             response.raise_for_status()
             task_data = response.json()
@@ -167,14 +160,12 @@ async def convert_webpage_with_selector(
 
             while elapsed < max_wait:
                 import asyncio
+
                 await asyncio.sleep(wait_interval)
                 elapsed += wait_interval
 
                 # Check task status
-                status_response = await client.get(
-                    f"{service_url}/task/{task_id}",
-                    headers=headers
-                )
+                status_response = await client.get(f"{service_url}/task/{task_id}", headers=headers)
                 status_response.raise_for_status()
                 task_status = status_response.json()
 
@@ -186,19 +177,23 @@ async def convert_webpage_with_selector(
 
                     result = results[0]
                     break
-                elif task_status.get("status") == "failed":
+                if task_status.get("status") == "failed":
                     error = task_status.get("error", "Unknown error")
                     raise RuntimeError(f"Crawl4AI task failed: {error}")
 
             else:
                 # Timeout waiting for task
-                raise httpx.TimeoutException(f"Crawl task did not complete within {timeout} seconds")
+                raise httpx.TimeoutException(
+                    f"Crawl task did not complete within {timeout} seconds"
+                )
 
             # Get markdown content - try different possible field structures
             markdown_content = None
             if isinstance(result.get("markdown"), dict):
                 # Prefer fit_markdown if available, fallback to raw_markdown
-                markdown_content = result["markdown"].get("fit_markdown") or result["markdown"].get("raw_markdown")
+                markdown_content = result["markdown"].get("fit_markdown") or result["markdown"].get(
+                    "raw_markdown"
+                )
             elif isinstance(result.get("markdown"), str):
                 markdown_content = result["markdown"]
 
@@ -224,12 +219,14 @@ async def convert_webpage_with_selector(
                 html_content = result.get("html", "")
                 if html_content:
                     links_data = _extract_links(html_content, url)
-                    logger.info(f"Extracted {len(links_data.get('all_links', []))} links from {url}")
+                    logger.info(
+                        f"Extracted {len(links_data.get('all_links', []))} links from {url}"
+                    )
 
             # Strip images if requested
             if not include_images:
                 # Remove markdown image syntax: ![alt](url)
-                markdown_content = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', r'\1', markdown_content)
+                markdown_content = re.sub(r"!\[([^\]]*)\]\([^\)]+\)", r"\1", markdown_content)
 
             conversion_time_ms = int((time.time() - start_time) * 1000)
             word_count = count_words(markdown_content)
@@ -245,23 +242,23 @@ async def convert_webpage_with_selector(
             # Add selector info to frontmatter if present
             if css_selector or xpath or session_id:
                 # Parse existing frontmatter to add fields
-                lines = frontmatter.split('\n')
+                lines = frontmatter.split("\n")
                 frontmatter_lines = []
                 for line in lines:
                     frontmatter_lines.append(line)
-                    if line == '---' and len(frontmatter_lines) > 1:
+                    if line == "---" and len(frontmatter_lines) > 1:
                         # Insert before closing ---
                         insert_pos = len(frontmatter_lines) - 1
                         if css_selector:
-                            frontmatter_lines.insert(insert_pos, f'css_selector: {css_selector}')
+                            frontmatter_lines.insert(insert_pos, f"css_selector: {css_selector}")
                             insert_pos += 1
                         if xpath:
-                            frontmatter_lines.insert(insert_pos, f'xpath: {xpath}')
+                            frontmatter_lines.insert(insert_pos, f"xpath: {xpath}")
                             insert_pos += 1
                         if session_id:
-                            frontmatter_lines.insert(insert_pos, f'session_id: {session_id}')
+                            frontmatter_lines.insert(insert_pos, f"session_id: {session_id}")
                         break
-                frontmatter = '\n'.join(frontmatter_lines)
+                frontmatter = "\n".join(frontmatter_lines)
 
             # Combine frontmatter and markdown
             full_markdown = frontmatter + markdown_content
@@ -283,7 +280,9 @@ async def convert_webpage_with_selector(
             if session_id:
                 metadata["session_id"] = session_id
 
-            logger.info(f"Successfully converted web page with selector: {url} ({word_count} words)")
+            logger.info(
+                f"Successfully converted web page with selector: {url} ({word_count} words)"
+            )
             return full_markdown, metadata
 
     except Exception as e:
@@ -291,7 +290,7 @@ async def convert_webpage_with_selector(
         raise
 
 
-def _format_extracted_content(extracted: List[Dict]) -> str:
+def _format_extracted_content(extracted: list[dict]) -> str:
     """Format extracted structured content as markdown."""
     markdown_parts = []
 
@@ -309,9 +308,8 @@ def _format_extracted_content(extracted: List[Dict]) -> str:
     return "\n\n".join(markdown_parts)
 
 
-def _extract_links(html_content: str, base_url: str) -> Dict:
-    """
-    Extract and categorize links from HTML content.
+def _extract_links(html_content: str, base_url: str) -> dict:
+    """Extract and categorize links from HTML content.
 
     Args:
         html_content: Raw HTML content
@@ -351,7 +349,7 @@ def _extract_links(html_content: str, base_url: str) -> Dict:
         link_data = {
             "url": absolute_url,
             "text": link_text,
-            "href": href  # Original href attribute
+            "href": href,  # Original href attribute
         }
 
         all_links.append(link_data)

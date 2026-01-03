@@ -11,11 +11,10 @@ Tools for controlling and extracting content from browser tabs:
 
 import json
 import logging
-from typing import Optional
 
 from fastmcp import FastMCP
 
-from ..constants import MIN_SCRIPT_TIMEOUT, MAX_SCRIPT_TIMEOUT, DEFAULT_SCRIPT_TIMEOUT
+from ..constants import DEFAULT_SCRIPT_TIMEOUT, MAX_SCRIPT_TIMEOUT, MIN_SCRIPT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +24,7 @@ def register_tools(mcp: FastMCP):
 
     @mcp.tool()
     async def browser_check_connection() -> str:
-        """
-        Check if browser extension is connected and ready.
+        """Check if browser extension is connected and ready.
 
         Verifies that the Gobbler browser extension is installed, running, and
         connected to the MCP server via WebSocket.
@@ -35,7 +33,7 @@ def register_tools(mcp: FastMCP):
             Connection status message
         """
         try:
-            from gobbler_relay.client import check_connection, get_connection_count
+            from gobbler_relay.client import check_connection
 
             status = await check_connection()
 
@@ -43,28 +41,25 @@ def register_tools(mcp: FastMCP):
                 conn_count = status.get("websocket_connections", 0)
                 if conn_count > 0:
                     return f"Browser extension is connected and ready. ({conn_count} connection(s))"
-                else:
-                    return (
-                        "Relay server is running but no browser extension connected.\n\n"
-                        "To connect:\n"
-                        "1. Install the Gobbler browser extension in Chrome\n"
-                        "2. Add tabs to the Gobbler group via the extension popup\n"
-                        "3. The extension will auto-connect to the relay server"
-                    )
-            else:
                 return (
-                    "Relay server is not running.\n\n"
-                    "The relay should start automatically. If it doesn't, run:\n"
-                    "  python -m gobbler_relay.relay --daemon"
+                    "Relay server is running but no browser extension connected.\n\n"
+                    "To connect:\n"
+                    "1. Install the Gobbler browser extension in Chrome\n"
+                    "2. Add tabs to the Gobbler group via the extension popup\n"
+                    "3. The extension will auto-connect to the relay server"
                 )
+            return (
+                "Relay server is not running.\n\n"
+                "The relay should start automatically. If it doesn't, run:\n"
+                "  python -m gobbler_relay.relay --daemon"
+            )
         except Exception as e:
             logger.error(f"Error checking browser connection: {e}", exc_info=True)
-            return f"Failed to check browser connection: {str(e)}"
+            return f"Failed to check browser connection: {e!s}"
 
     @mcp.tool()
     async def browser_navigate_to_url(url: str, wait_for_load: bool = True) -> str:
-        """
-        Navigate browser extension's active tab to a URL.
+        """Navigate browser extension's active tab to a URL.
 
         Sends a navigation command to the browser extension to load the specified URL
         in the currently active tab.
@@ -80,32 +75,30 @@ def register_tools(mcp: FastMCP):
             from gobbler_relay.client import send_command
 
             # Validate URL
-            if not url.startswith(('http://', 'https://')):
+            if not url.startswith(("http://", "https://")):
                 return "Error: URL must start with http:// or https://"
 
             # Send navigation command via HTTP client
             result = await send_command(
                 command="navigate",
                 params={"url": url, "wait_for_load": wait_for_load},
-                timeout=60.0  # Long timeout for page loads
+                timeout=60.0,  # Long timeout for page loads
             )
 
             if result.get("success"):
                 return f"Successfully navigated to: {url}"
-            else:
-                error = result.get("error", "Unknown error")
-                return f"Failed to navigate: {error}"
+            error = result.get("error", "Unknown error")
+            return f"Failed to navigate: {error}"
 
         except RuntimeError as e:
             return str(e)
         except Exception as e:
             logger.error(f"Error navigating browser: {e}", exc_info=True)
-            return f"Failed to navigate browser: {str(e)}"
+            return f"Failed to navigate browser: {e!s}"
 
     @mcp.tool()
     async def browser_execute_script(script: str, timeout: int = DEFAULT_SCRIPT_TIMEOUT) -> str:
-        """
-        Execute JavaScript in the browser extension's active tab.
+        """Execute JavaScript in the browser extension's active tab.
 
         Runs arbitrary JavaScript code in the context of the currently active tab
         and returns the result. The script can access the DOM, interact with the page,
@@ -143,21 +136,23 @@ def register_tools(mcp: FastMCP):
                 script_result = result.get("result")
                 if script_result is None:
                     return "null"
-                return json.dumps(script_result) if not isinstance(script_result, str) else script_result
-            else:
-                error = result.get("error", "Unknown error")
-                return f"Script execution failed: {error}"
+                return (
+                    json.dumps(script_result)
+                    if not isinstance(script_result, str)
+                    else script_result
+                )
+            error = result.get("error", "Unknown error")
+            return f"Script execution failed: {error}"
 
         except RuntimeError as e:
             return str(e)
         except Exception as e:
             logger.error(f"Error executing script: {e}", exc_info=True)
-            return f"Failed to execute script: {str(e)}"
+            return f"Failed to execute script: {e!s}"
 
     @mcp.tool()
-    async def browser_extract_current_page(selector: Optional[str] = None) -> str:
-        """
-        Extract the current page's content as markdown.
+    async def browser_extract_current_page(selector: str | None = None) -> str:
+        """Extract the current page's content as markdown.
 
         Extracts HTML content from the browser extension's active tab and converts
         it to clean markdown format. Optionally uses a CSS selector to extract only
@@ -178,20 +173,18 @@ def register_tools(mcp: FastMCP):
             if result.get("success"):
                 markdown = result.get("markdown", "")
                 return markdown
-            else:
-                error = result.get("error", "Unknown error")
-                return f"Failed to extract page: {error}"
+            error = result.get("error", "Unknown error")
+            return f"Failed to extract page: {error}"
 
         except RuntimeError as e:
             return str(e)
         except Exception as e:
             logger.error(f"Error extracting page: {e}", exc_info=True)
-            return f"Failed to extract page: {str(e)}"
+            return f"Failed to extract page: {e!s}"
 
     @mcp.tool()
-    async def browser_list_tabs(filter: Optional[str] = None) -> str:
-        """
-        List all tabs in the Gobbler tab group with their IDs, titles, and URLs.
+    async def browser_list_tabs(filter: str | None = None) -> str:
+        """List all tabs in the Gobbler tab group with their IDs, titles, and URLs.
 
         Returns a list of tabs that Claude can interact with. Only tabs in the
         Gobbler group are accessible for security.
@@ -220,20 +213,20 @@ def register_tools(mcp: FastMCP):
                     lines.append(f"  [{tab['tabId']}] {tab['title']}{active_marker}")
                     lines.append(f"       {tab['url']}")
                 return "\n".join(lines)
-            else:
-                error = result.get("error", "Unknown error")
-                return f"Failed to list tabs: {error}"
+            error = result.get("error", "Unknown error")
+            return f"Failed to list tabs: {error}"
 
         except RuntimeError as e:
             return str(e)
         except Exception as e:
             logger.error(f"Error listing tabs: {e}", exc_info=True)
-            return f"Failed to list tabs: {str(e)}"
+            return f"Failed to list tabs: {e!s}"
 
     @mcp.tool()
-    async def browser_execute_script_in_tab(tab_id: int, script: str, timeout: int = DEFAULT_SCRIPT_TIMEOUT) -> str:
-        """
-        Execute JavaScript in a specific browser tab (must be in Gobbler group).
+    async def browser_execute_script_in_tab(
+        tab_id: int, script: str, timeout: int = DEFAULT_SCRIPT_TIMEOUT
+    ) -> str:
+        """Execute JavaScript in a specific browser tab (must be in Gobbler group).
 
         Use browser_list_tabs() first to get available tab IDs. This allows targeting
         specific tabs instead of just the active tab - useful for multi-instance
@@ -255,9 +248,7 @@ def register_tools(mcp: FastMCP):
 
             # Send command via HTTP client
             result = await execute_script_in_tab(
-                tab_id=tab_id,
-                script=script,
-                timeout=float(timeout)
+                tab_id=tab_id, script=script, timeout=float(timeout)
             )
 
             if result.get("success"):
@@ -266,17 +257,17 @@ def register_tools(mcp: FastMCP):
 
                 # Return result as JSON if it's complex, otherwise as string
                 if script_result is None:
-                    return f"Script executed successfully in tab {executed_tab_id} (no return value)"
-                elif isinstance(script_result, (dict, list)):
+                    return (
+                        f"Script executed successfully in tab {executed_tab_id} (no return value)"
+                    )
+                if isinstance(script_result, (dict, list)):
                     return json.dumps(script_result, indent=2)
-                else:
-                    return str(script_result)
-            else:
-                error = result.get("error", "Unknown error")
-                return f"Script execution failed: {error}"
+                return str(script_result)
+            error = result.get("error", "Unknown error")
+            return f"Script execution failed: {error}"
 
         except RuntimeError as e:
             return str(e)
         except Exception as e:
             logger.error(f"Error executing script in tab: {e}", exc_info=True)
-            return f"Failed to execute script in tab: {str(e)}"
+            return f"Failed to execute script in tab: {e!s}"

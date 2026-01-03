@@ -15,26 +15,24 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from fastmcp import FastMCP
 
 from ..constants import (
-    MAX_BATCH_URLS,
-    MIN_TIMEOUT,
-    MAX_TIMEOUT,
-    MAX_BATCH_CONCURRENCY_WEBPAGE,
     MAX_BATCH_CONCURRENCY_AUDIO,
     MAX_BATCH_CONCURRENCY_DOCUMENT,
+    MAX_BATCH_CONCURRENCY_WEBPAGE,
     MAX_BATCH_CONCURRENCY_YOUTUBE,
+    MAX_BATCH_URLS,
+    MAX_TIMEOUT,
+    MIN_TIMEOUT,
 )
 
 logger = logging.getLogger(__name__)
 
 
 def _run_cli(cmd: list[str], timeout: int = 3600) -> tuple[bool, str]:
-    """
-    Run a CLI command and return success status and output.
+    """Run a CLI command and return success status and output.
 
     Args:
         cmd: Command list to execute
@@ -47,7 +45,7 @@ def _run_cli(cmd: list[str], timeout: int = 3600) -> tuple[bool, str]:
         # cmd is built from hardcoded "gobbler" binary with validated user arguments
         result = subprocess.run(  # noqa: S603  # nosec B603
             cmd,
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=timeout,
         )
@@ -62,12 +60,11 @@ def _run_cli(cmd: list[str], timeout: int = 3600) -> tuple[bool, str]:
     except FileNotFoundError:
         return False, "gobbler CLI not found. Ensure it's installed and in PATH."
     except Exception as e:
-        return False, f"Failed to run command: {str(e)}"
+        return False, f"Failed to run command: {e!s}"
 
 
 def _parse_json_output(output: str) -> dict:
-    """
-    Parse JSON output from CLI command.
+    """Parse JSON output from CLI command.
 
     Args:
         output: Raw CLI output (may contain JSON or text)
@@ -83,8 +80,7 @@ def _parse_json_output(output: str) -> dict:
 
 
 def _format_batch_report(data: dict) -> str:
-    """
-    Format batch result data as a human-readable report.
+    """Format batch result data as a human-readable report.
 
     Args:
         data: Batch result dictionary from CLI
@@ -171,8 +167,7 @@ def register_tools(mcp: FastMCP):
         language: str = "en",
         concurrency: int = 3,
     ) -> str:
-        """
-        Extract transcripts from all videos in a YouTube playlist.
+        """Extract transcripts from all videos in a YouTube playlist.
 
         Processes videos with controlled concurrency. All transcripts are saved
         to the output directory as markdown files.
@@ -232,8 +227,7 @@ def register_tools(mcp: FastMCP):
         concurrency: int = 5,
         skip_existing: bool = True,
     ) -> str:
-        """
-        Convert multiple web pages to markdown format.
+        """Convert multiple web pages to markdown format.
 
         Processes URLs with controlled concurrency to avoid overwhelming target servers.
         Automatically generates filenames from page titles or URLs.
@@ -309,15 +303,14 @@ def register_tools(mcp: FastMCP):
     @mcp.tool()
     async def batch_transcribe_audio(
         input_dir: str,
-        output_dir: Optional[str] = None,
+        output_dir: str | None = None,
         model: str = "small",
         language: str = "auto",
         pattern: str = "*",
         recursive: bool = False,
         concurrency: int = 2,
     ) -> str:
-        """
-        Transcribe all audio/video files in a directory.
+        """Transcribe all audio/video files in a directory.
 
         Automatically detects supported file formats and processes them with Whisper.
         Supported formats: mp3, mp4, wav, m4a, mov, avi, mkv, flac, ogg, webm.
@@ -390,14 +383,13 @@ def register_tools(mcp: FastMCP):
     @mcp.tool()
     async def batch_convert_documents(
         input_dir: str,
-        output_dir: Optional[str] = None,
+        output_dir: str | None = None,
         enable_ocr: bool = True,
         pattern: str = "*",
         recursive: bool = False,
         concurrency: int = 3,
     ) -> str:
-        """
-        Convert all documents in a directory to markdown.
+        """Convert all documents in a directory to markdown.
 
         Supports PDF, DOCX, PPTX, XLSX with optional OCR for scanned documents.
         All results are saved to the output directory.

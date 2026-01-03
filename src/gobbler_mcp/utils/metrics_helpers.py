@@ -1,11 +1,10 @@
 """Metrics helper utilities for MCP tools and batch processing."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 
-def get_metrics_callback() -> Optional[Callable[[str, int], None]]:
-    """
-    Get metrics callback if metrics are enabled.
+def get_metrics_callback() -> Callable[[str, int], None] | None:
+    """Get metrics callback if metrics are enabled.
 
     Returns a callback function that records conversion size metrics,
     or None if metrics are not available or disabled.

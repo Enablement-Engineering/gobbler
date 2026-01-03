@@ -1,9 +1,9 @@
 """Unit tests for site crawler."""
 
-import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.robotparser import RobotFileParser
+
+import pytest
 
 from gobbler_mcp.crawlers.site_crawler import SiteCrawler
 
@@ -47,14 +47,13 @@ class TestMaxDepth:
         """Test that max_depth limits crawl depth."""
         with patch(
             "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=0,
-                    max_pages=100,
-                    crawl_delay=0,
-                )
+        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+            pages, summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=0,
+                max_pages=100,
+                crawl_delay=0,
+            )
 
         # With depth 0, should only crawl start URL
         assert len(pages) == 1
@@ -66,15 +65,14 @@ class TestMaxDepth:
         """Test that max_depth is capped at 5."""
         with patch(
             "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                # Request depth 10, should be capped to 5
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=10,
-                    max_pages=1,  # Limit to 1 page to keep test fast
-                    crawl_delay=0,
-                )
+        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+            # Request depth 10, should be capped to 5
+            pages, summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=10,
+                max_pages=1,  # Limit to 1 page to keep test fast
+                crawl_delay=0,
+            )
 
         # Should still work (capped to 5 internally)
         assert len(pages) >= 1
@@ -88,14 +86,13 @@ class TestMaxPages:
         """Test that max_pages limits number of pages crawled."""
         with patch(
             "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=5,
-                    max_pages=3,
-                    crawl_delay=0,
-                )
+        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+            pages, summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=5,
+                max_pages=3,
+                crawl_delay=0,
+            )
 
         assert len(pages) <= 3
         assert summary["total_pages"] <= 3
@@ -337,7 +334,7 @@ class TestConcurrency:
 
         async def mock_convert(url, **kwargs):
             return (
-                f"# Content",
+                "# Content",
                 {"url": url, "links": {"internal_links": [], "external_links": []}},
             )
 
@@ -515,13 +512,12 @@ class TestSummary:
         """Test that summary contains all expected fields."""
         with patch(
             "gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert_webpage
-        ):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=0,
-                    crawl_delay=0,
-                )
+        ), patch.object(crawler, "_get_robots_parser", return_value=None):
+            pages, summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=0,
+                crawl_delay=0,
+            )
 
         assert "total_pages" in summary
         assert "link_graph" in summary

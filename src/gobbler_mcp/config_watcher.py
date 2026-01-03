@@ -2,8 +2,9 @@
 
 import logging
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -20,8 +21,7 @@ class ConfigFileHandler(FileSystemEventHandler):
         on_change_callback: Callable[[], None],
         debounce_seconds: float = 1.0,
     ) -> None:
-        """
-        Initialize config file handler.
+        """Initialize config file handler.
 
         Args:
             config_path: Path to config file to watch
@@ -34,8 +34,7 @@ class ConfigFileHandler(FileSystemEventHandler):
         self.last_reload_time = 0.0
 
     def on_modified(self, event: FileSystemEvent) -> None:
-        """
-        Handle file modification events.
+        """Handle file modification events.
 
         Args:
             event: File system event
@@ -84,8 +83,7 @@ class ConfigWatcher:
         reload_callback: Callable[[], None],
         debounce_seconds: float = 1.0,
     ) -> None:
-        """
-        Initialize config watcher.
+        """Initialize config watcher.
 
         Args:
             config_path: Path to config file to watch
@@ -96,8 +94,8 @@ class ConfigWatcher:
         self.reload_callback = reload_callback
         self.debounce_seconds = debounce_seconds
 
-        self.observer: Optional[Observer] = None
-        self.handler: Optional[ConfigFileHandler] = None
+        self.observer: Observer | None = None
+        self.handler: ConfigFileHandler | None = None
 
     def start(self) -> None:
         """Start watching configuration file for changes."""
@@ -135,8 +133,7 @@ class ConfigWatcher:
             logger.info("Config hot-reload disabled")
 
     def is_running(self) -> bool:
-        """
-        Check if watcher is running.
+        """Check if watcher is running.
 
         Returns:
             True if observer is alive, False otherwise
@@ -144,9 +141,8 @@ class ConfigWatcher:
         return self.observer is not None and self.observer.is_alive()
 
     @classmethod
-    def validate_config(cls, config: Dict[str, Any]) -> list[str]:
-        """
-        Validate configuration values.
+    def validate_config(cls, config: dict[str, Any]) -> list[str]:
+        """Validate configuration values.
 
         Args:
             config: Configuration dictionary to validate
@@ -173,9 +169,7 @@ class ConfigWatcher:
             )
 
         crawl_max_timeout = config.get("crawl4ai", {}).get("max_timeout")
-        if crawl_max_timeout and not (
-            cls.TIMEOUT_MIN <= crawl_max_timeout <= cls.TIMEOUT_MAX
-        ):
+        if crawl_max_timeout and not (cls.TIMEOUT_MIN <= crawl_max_timeout <= cls.TIMEOUT_MAX):
             errors.append(
                 f"Invalid crawl4ai.max_timeout: {crawl_max_timeout}. "
                 f"Must be between {cls.TIMEOUT_MIN} and {cls.TIMEOUT_MAX}"

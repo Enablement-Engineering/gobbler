@@ -1,5 +1,4 @@
-"""
-Gobbler Browser Extension Relay.
+"""Gobbler Browser Extension Relay.
 
 This package provides HTTP and WebSocket relay functionality for
 communication between Claude/skills and the Gobbler browser extension.

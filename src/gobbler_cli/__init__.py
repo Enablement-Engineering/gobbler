@@ -1,5 +1,4 @@
-"""
-Gobbler CLI - Command-line interface for Gobbler content conversion.
+"""Gobbler CLI - Command-line interface for Gobbler content conversion.
 
 This package provides a user-friendly CLI for converting content (YouTube videos,
 audio files, documents, and web pages) to markdown with YAML frontmatter.

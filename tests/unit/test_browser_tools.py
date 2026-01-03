@@ -6,7 +6,7 @@ All tests run without requiring actual browser extension connection.
 
 import json
 import sys
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp import FastMCP

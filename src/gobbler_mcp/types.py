@@ -4,7 +4,7 @@ This module defines TypedDict classes and type aliases used throughout the
 Gobbler MCP server to improve type safety and code documentation.
 """
 
-from typing import TypedDict, Literal, Any
+from typing import Any, Literal, TypedDict
 
 
 class ConversionMetadata(TypedDict, total=False):
@@ -25,6 +25,7 @@ class ConversionMetadata(TypedDict, total=False):
         model: Model used for processing (e.g., Whisper model)
         error: Error message if conversion partially failed
     """
+
     title: str
     source_url: str
     source_file: str
@@ -57,6 +58,7 @@ class BatchResult(TypedDict, total=False):
         errors: List of error messages
         current_item: Currently processing item
     """
+
     batch_id: str
     status: Literal["queued", "running", "completed", "failed", "cancelled"]
     total_items: int
@@ -86,6 +88,7 @@ class JobStatus(TypedDict, total=False):
         error: Error message if job failed
         exc_info: Exception information if job failed
     """
+
     job_id: str
     status: Literal["queued", "started", "finished", "failed", "cancelled"]
     queue_name: str
@@ -111,6 +114,7 @@ class ServiceHealth(TypedDict, total=False):
         error: Error message if service is unhealthy
         details: Additional service-specific health details
     """
+
     service_name: str
     status: Literal["healthy", "unhealthy", "degraded", "unknown"]
     available: bool
@@ -131,6 +135,7 @@ class CrawlSessionConfig(TypedDict, total=False):
         user_agent: Custom user agent string
         headers: Additional HTTP headers
     """
+
     session_id: str
     cookies: list[dict[str, Any]]
     local_storage: dict[str, str]
@@ -148,6 +153,7 @@ class TranscriptionOptions(TypedDict, total=False):
         output_file: Path to save transcription
         auto_queue: Automatically queue if estimated duration > threshold
     """
+
     model: Literal["tiny", "base", "small", "medium", "large"]
     language: str
     include_timestamps: bool
@@ -167,6 +173,7 @@ class WebpageOptions(TypedDict, total=False):
         session_id: Session ID for authenticated crawling
         bypass_cache: Bypass cache for fresh content
     """
+
     include_images: bool
     timeout: int
     css_selector: str
@@ -183,6 +190,7 @@ class DocumentOptions(TypedDict, total=False):
         enable_ocr: Enable OCR for scanned documents
         output_file: Path to save converted document
     """
+
     enable_ocr: bool
     output_file: str
 
@@ -198,6 +206,7 @@ class BatchOptions(TypedDict, total=False):
         pattern: Glob pattern for file matching
         recursive: Search subdirectories recursively
     """
+
     concurrency: int
     skip_existing: bool
     auto_queue: bool

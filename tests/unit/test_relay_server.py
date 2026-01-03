@@ -9,7 +9,6 @@ Tests cover:
 """
 
 import asyncio
-import json
 import os
 import time
 from pathlib import Path
@@ -21,7 +20,6 @@ from aiohttp.test_utils import TestClient, TestServer
 
 # Import the module under test
 from gobbler_relay import relay
-
 
 # =============================================================================
 # Test Fixtures

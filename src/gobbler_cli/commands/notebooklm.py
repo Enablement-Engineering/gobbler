@@ -5,16 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
 from gobbler_cli.output import (
     console,
     print_error,
     print_info,
-    print_success,
     print_table,
     print_warning,
 )
@@ -251,10 +249,9 @@ async def _check_relay_and_extension() -> tuple[bool, bool, str]:
                 relay_auto_started = True
         except RuntimeError as e:
             return False, False, f"Failed to start relay: {e}"
-    else:
-        # Auto-start disabled, just check if running
-        if not await is_relay_running():
-            return False, False, "Relay server is not running. Start it with: gobbler relay start"
+    # Auto-start disabled, just check if running
+    elif not await is_relay_running():
+        return False, False, "Relay server is not running. Start it with: gobbler relay start"
 
     status = await check_connection()
     if status.get("status") == "error":
@@ -306,7 +303,7 @@ async def _list_notebooks() -> None:
 @app.command()
 def info(
     tab_id: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--tab", "-t", help="Specific tab ID"),
     ] = None,
 ) -> None:
@@ -314,7 +311,7 @@ def info(
     asyncio.run(_info(tab_id))
 
 
-async def _info(tab_id: Optional[int]) -> None:
+async def _info(tab_id: int | None) -> None:
     """Async implementation of info."""
     from gobbler_relay.client import execute_script_in_tab
 
@@ -362,7 +359,7 @@ async def _info(tab_id: Optional[int]) -> None:
 def query(
     message: Annotated[str, typer.Argument(help="Query to send to NotebookLM")],
     tab_id: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--tab", "-t", help="Specific tab ID"),
     ] = None,
     timeout: Annotated[
@@ -374,7 +371,7 @@ def query(
     asyncio.run(_query(message, tab_id, timeout))
 
 
-async def _query(message: str, tab_id: Optional[int], timeout: int) -> None:
+async def _query(message: str, tab_id: int | None, timeout: int) -> None:
     """Async implementation of query."""
     from gobbler_relay.client import execute_script_in_tab
 
@@ -448,7 +445,7 @@ async def _query(message: str, tab_id: Optional[int], timeout: int) -> None:
 @app.command()
 def last(
     tab_id: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--tab", "-t", help="Specific tab ID"),
     ] = None,
 ) -> None:
@@ -456,7 +453,7 @@ def last(
     asyncio.run(_last(tab_id))
 
 
-async def _last(tab_id: Optional[int]) -> None:
+async def _last(tab_id: int | None) -> None:
     """Async implementation of last."""
     from gobbler_relay.client import execute_script_in_tab
 
@@ -507,7 +504,7 @@ async def _last(tab_id: Optional[int]) -> None:
 @app.command()
 def history(
     tab_id: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--tab", "-t", help="Specific tab ID"),
     ] = None,
     count: Annotated[
@@ -523,7 +520,7 @@ def history(
     asyncio.run(_history(tab_id, count, show_all))
 
 
-async def _history(tab_id: Optional[int], count: int, show_all: bool) -> None:
+async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
     """Async implementation of history."""
     from gobbler_relay.client import execute_script_in_tab
 

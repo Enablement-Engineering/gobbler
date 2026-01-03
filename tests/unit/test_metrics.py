@@ -1,7 +1,6 @@
 """Unit tests for Prometheus metrics."""
 
 import pytest
-from prometheus_client import REGISTRY
 
 from gobbler_mcp.metrics import (
     conversion_duration,
@@ -18,7 +17,7 @@ def clear_metrics():
     """Clear metrics before each test."""
     # Note: In real tests, we'd use a separate registry per test
     # For now, we just track deltas
-    yield
+    return
     # Cleanup handled by registry
 
 
@@ -56,9 +55,8 @@ def test_track_conversion_failure(clear_metrics):
     )._value._value
 
     # Track a failed conversion
-    with pytest.raises(ValueError):
-        with track_conversion(converter_type):
-            raise ValueError("Test error")
+    with pytest.raises(ValueError), track_conversion(converter_type):
+        raise ValueError("Test error")
 
     # Verify failure counter incremented
     final_failure = conversion_total.labels(
@@ -171,14 +169,12 @@ def test_error_types_tracked_separately():
     converter_type = "test_errors"
 
     # Track ValueError
-    with pytest.raises(ValueError):
-        with track_conversion(converter_type):
-            raise ValueError("Test error 1")
+    with pytest.raises(ValueError), track_conversion(converter_type):
+        raise ValueError("Test error 1")
 
     # Track TypeError
-    with pytest.raises(TypeError):
-        with track_conversion(converter_type):
-            raise TypeError("Test error 2")
+    with pytest.raises(TypeError), track_conversion(converter_type):
+        raise TypeError("Test error 2")
 
     # Get metrics
     metrics_data, _ = get_metrics()

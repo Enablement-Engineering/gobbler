@@ -1,5 +1,4 @@
-"""
-Gobbler Core - Shared providers and utilities for content processing.
+"""Gobbler Core - Shared providers and utilities for content processing.
 
 This package contains portable, standalone functionality that can be used
 by both gobbler-mcp (MCP server) and skill scripts without dependencies
