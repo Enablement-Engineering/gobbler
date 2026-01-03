@@ -198,7 +198,7 @@ class TestDocumentFrontmatter:
 
         result = create_document_frontmatter(
             file_path="/path/to/document.pdf",
-            format="pdf",
+            doc_format="pdf",
             pages=10,
             word_count=3000,
             conversion_time_ms=15000,

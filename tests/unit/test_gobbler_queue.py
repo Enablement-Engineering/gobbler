@@ -10,7 +10,7 @@ Tests cover:
 import json
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -145,7 +145,7 @@ class TestJob:
 
     def test_job_duration_running(self):
         """Test duration for running job."""
-        started = datetime.utcnow() - timedelta(minutes=5)
+        started = datetime.now(UTC) - timedelta(minutes=5)
         job = Job(
             id="test-id",
             job_type=JobType.YOUTUBE,
