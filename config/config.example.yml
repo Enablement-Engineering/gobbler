@@ -11,7 +11,7 @@
 providers:
   # Audio/video transcription providers
   transcription:
-    # Default provider to use (currently only whisper-local available)
+    # Default provider to use: whisper-local or openai-whisper
     default: whisper-local
 
     # Local Whisper (faster-whisper) configuration
@@ -19,6 +19,14 @@ providers:
       # Model size: tiny, base, small, medium, large
       # Larger models are more accurate but slower and use more memory
       model: small
+
+    # OpenAI Whisper API configuration
+    # Requires OPENAI_API_KEY environment variable to be set
+    openai-whisper:
+      # Model to use (currently only whisper-1 available)
+      model: whisper-1
+      # Request timeout in seconds
+      timeout: 120
 
   # Document conversion providers (PDF, DOCX, PPTX, XLSX)
   document:
@@ -92,13 +100,6 @@ services:
 # Model cache directory (used by docker-compose.yml)
 # Set GOBBLER_MODELS_PATH environment variable to customize
 models_path: ~/.gobbler/models
-
-# Redis queue settings (for background jobs)
-redis:
-  host: localhost
-  port: 6380          # Non-standard port to avoid conflicts
-  db: 0
-  password: null      # Set for production
 
 # Queue settings
 queue:

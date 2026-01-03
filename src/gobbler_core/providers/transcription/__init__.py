@@ -5,11 +5,13 @@ backend implementations.
 
 Available Providers:
     - whisper-local: Local faster-whisper transcription (default)
+    - openai-whisper: OpenAI Whisper API (cloud-based, requires API key)
 
 Example:
     from gobbler_core.providers.transcription import (
         TranscriptionProvider,
         WhisperLocalProvider,
+        OpenAIWhisperProvider,
         get_default_provider,
     )
 
@@ -20,6 +22,10 @@ Example:
     # Or create specific provider
     provider = WhisperLocalProvider(model="small")
     result = await provider.transcribe(Path("audio.mp3"), language="en")
+
+    # Use OpenAI Whisper API
+    provider = OpenAIWhisperProvider()  # Uses OPENAI_API_KEY env var
+    result = await provider.transcribe(Path("audio.mp3"), language="en")
 """
 
 from gobbler_core.providers.transcription.base import (
@@ -27,9 +33,11 @@ from gobbler_core.providers.transcription.base import (
     TranscriptionResult,
     TranscriptionSegment,
 )
+from gobbler_core.providers.transcription.openai_whisper import OpenAIWhisperProvider
 from gobbler_core.providers.transcription.whisper import WhisperLocalProvider
 
 __all__ = [
+    "OpenAIWhisperProvider",
     "TranscriptionProvider",
     "TranscriptionResult",
     "TranscriptionSegment",
