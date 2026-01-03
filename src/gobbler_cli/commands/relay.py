@@ -113,7 +113,7 @@ async def _status() -> None:
                 print_success(f"{connections} browser extension(s) connected")
             else:
                 print_info("No browser extensions connected")
-        except Exception:
+        except Exception:  # noqa: S110  # nosec B110
             pass
     else:
         print_warning("Relay process exists but not responding to health checks")

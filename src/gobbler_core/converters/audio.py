@@ -52,29 +52,33 @@ async def _extract_audio(video_path: str) -> str:
         # -ar 16000: 16kHz sample rate (sufficient for speech)
         # -ac 1: mono (reduces size)
         # -y: overwrite output file
-        result = subprocess.run(
-            [
+        # Using ffmpeg with fixed arguments for audio extraction
+        # video_path is validated earlier in convert_audio_to_markdown via validate_input_path
+        result = subprocess.run(  # noqa: S603  # nosec B603 B607
+            [  # noqa: S607
                 "ffmpeg",
-                "-i", video_path,
-                "-vn",  # No video
-                "-acodec", "libmp3lame",
-                "-ar", "16000",  # 16kHz sample rate
-                "-ac", "1",  # Mono
-                "-y",  # Overwrite
-                temp_path
+                "-i",
+                video_path,
+                "-vn",
+                "-acodec",
+                "libmp3lame",
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-y",
+                temp_path,
             ],
             capture_output=True,
             text=True,
-            timeout=3600  # 60 minute timeout for extraction (handles very large files)
+            timeout=3600,  # 60 minute timeout for extraction (handles very large files)
         )
 
         if result.returncode != 0:
             # Clean up temp file on error
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
-            raise RuntimeError(
-                f"ffmpeg audio extraction failed: {result.stderr}"
-            )
+            raise RuntimeError(f"ffmpeg audio extraction failed: {result.stderr}")
 
         return temp_path
 
@@ -85,9 +89,7 @@ async def _extract_audio(video_path: str) -> str:
     except FileNotFoundError:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
-        raise RuntimeError(
-            "ffmpeg not found. Please install ffmpeg to process large video files."
-        )
+        raise RuntimeError("ffmpeg not found. Please install ffmpeg to process large video files.")
     except Exception as e:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -165,9 +167,7 @@ async def convert_audio_to_markdown(
 
     # Validate model
     if model not in VALID_MODELS:
-        raise ValueError(
-            f"Invalid model: {model}. Supported models: {', '.join(VALID_MODELS)}"
-        )
+        raise ValueError(f"Invalid model: {model}. Supported models: {', '.join(VALID_MODELS)}")
 
     file_format = get_file_extension(file_path)
 
@@ -197,8 +197,7 @@ async def convert_audio_to_markdown(
         temp_file = await _extract_audio(file_path)
         processing_file = temp_file
         log.info(
-            f"Audio extracted to temporary file "
-            f"({os.path.getsize(temp_file) / 1024 / 1024:.1f}MB)"
+            f"Audio extracted to temporary file ({os.path.getsize(temp_file) / 1024 / 1024:.1f}MB)"
         )
 
     # Get Whisper model
@@ -209,8 +208,8 @@ async def convert_audio_to_markdown(
         if temp_file and os.path.exists(temp_file):
             try:
                 os.unlink(temp_file)
-            except:
-                pass
+            except OSError:
+                pass  # noqa: S110  # nosec B110
         raise RuntimeError(f"Failed to load Whisper model: {e}")
 
     # Transcribe audio
@@ -250,8 +249,8 @@ async def convert_audio_to_markdown(
         if temp_file and os.path.exists(temp_file):
             try:
                 os.unlink(temp_file)
-            except:
-                pass
+            except OSError:
+                pass  # noqa: S110  # nosec B110
         raise RuntimeError(f"Transcription failed: {e}")
 
     conversion_time_ms = int((time.time() - start_time) * 1000)

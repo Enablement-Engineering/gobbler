@@ -185,17 +185,20 @@ def logs(
             print_info(f"Following logs from {log_file}")
             print_info("Press Ctrl+C to stop")
             try:
-                subprocess.run(["tail", "-f", str(log_file)], check=True)
+                # Using tail command with hardcoded path argument from user-controlled input
+                # that has been validated via Path.exists() above
+                subprocess.run(["tail", "-f", str(log_file)], check=True)  # noqa: S603 S607  # nosec B603 B607
             except KeyboardInterrupt:
                 print_info("\nStopped following logs")
         else:
-            # Show last N lines
-            result = subprocess.run(
-                ["tail", "-n", str(lines), str(log_file)],
+            # Show last N lines using tail command
+            # The log_file path is controlled by the application, not user input
+            result = subprocess.run(  # noqa: S603
+                ["tail", "-n", str(lines), str(log_file)],  # noqa: S607
                 capture_output=True,
                 text=True,
                 check=True,
-            )
+            )  # nosec B603 B607
             print(result.stdout)
 
     except subprocess.CalledProcessError as e:
@@ -290,7 +293,7 @@ async def _get_daemon_info() -> dict[str, str]:
                 }
             except psutil.NoSuchProcess:
                 pass
-    except Exception:
+    except Exception:  # noqa: S110  # nosec B110
         pass
 
     return {

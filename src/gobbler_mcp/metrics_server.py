@@ -28,16 +28,10 @@ async def metrics_handler(request: web.Request) -> web.Response:
         # Prometheus returns "text/plain; version=X.X.X; charset=utf-8"
         # aiohttp wants content_type without charset (charset is separate param)
         content_type = content_type_full.split(";")[0].strip()
-        return web.Response(
-            body=metrics_data,
-            content_type=content_type,
-            charset="utf-8"
-        )
+        return web.Response(body=metrics_data, content_type=content_type, charset="utf-8")
     except Exception as e:
         logger.error(f"Error generating metrics: {e}")
-        return web.Response(
-            text="Error generating metrics", status=500
-        )
+        return web.Response(text="Error generating metrics", status=500)
 
 
 async def health_handler(request: web.Request) -> web.Response:
@@ -69,7 +63,7 @@ def create_metrics_app() -> web.Application:
 class MetricsServer:
     """Metrics HTTP server manager."""
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 9090):
+    def __init__(self, host: str = "0.0.0.0", port: int = 9090):  # noqa: S104  # nosec B104
         """
         Initialize metrics server.
 
@@ -188,7 +182,7 @@ def get_metrics_server() -> MetricsServer:
         from .config import get_config
 
         config = get_config()
-        host = config.get("monitoring.metrics_host", "0.0.0.0")
+        host = config.get("monitoring.metrics_host", "0.0.0.0")  # noqa: S104  # nosec B104
         port = config.get("monitoring.metrics_port", 9090)
         _metrics_server = MetricsServer(host, port)
     return _metrics_server

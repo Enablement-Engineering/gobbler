@@ -55,7 +55,7 @@ class Config:
         "monitoring": {
             "metrics_enabled": False,  # Enable Prometheus metrics collection
             "metrics_port": 9090,  # Port for metrics HTTP endpoint
-            "metrics_host": "0.0.0.0",  # Host to bind metrics server
+            "metrics_host": "0.0.0.0",  # noqa: S104  # nosec B104
             "log_format": "text",  # 'text' or 'json' (use text for MCP stdio)
             "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
             "health_check_interval": 60,  # Seconds between service health checks

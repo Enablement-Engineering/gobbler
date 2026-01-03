@@ -101,7 +101,7 @@ class BatchProcessor:
                     raise
 
             # Exponential backoff: retry_delay * 2^attempt
-            backoff_delay = self.retry_delay * (2 ** attempt)
+            backoff_delay = self.retry_delay * (2**attempt)
             logger.warning(
                 f"Attempt {attempt + 1} failed for {item.source}: {last_error}. "
                 f"Retrying in {backoff_delay:.1f}s..."
@@ -110,9 +110,7 @@ class BatchProcessor:
 
         # Should not reach here, but return failure if we do
         return BatchResult(
-            item_id=item.id,
-            success=False,
-            error=last_error or "Unknown error after retries"
+            item_id=item.id, success=False, error=last_error or "Unknown error after retries"
         )
 
     def _get_unique_output_path(self, base_path: Path) -> Path:
@@ -170,7 +168,7 @@ class BatchProcessor:
                         async with self._request_lock:
                             delay = self.delay_between_requests
                             if self.jitter_range > 0:
-                                delay += random.uniform(0, self.jitter_range)
+                                delay += random.uniform(0, self.jitter_range)  # noqa: S311  # nosec B311
                             if delay > 0:
                                 logger.debug(f"Rate limit delay: {delay:.2f}s for {item.source}")
                                 await asyncio.sleep(delay)
@@ -219,14 +217,10 @@ class BatchProcessor:
                             exc_info=True,
                         )
                         await self.progress.increment_failure(error_msg, item.source)
-                        return BatchResult(
-                            item_id=item.id, success=False, error=error_msg
-                        )
+                        return BatchResult(item_id=item.id, success=False, error=error_msg)
 
             # Process all items
-            logger.info(
-                f"Processing {len(self.items)} items with concurrency={self.concurrency}"
-            )
+            logger.info(f"Processing {len(self.items)} items with concurrency={self.concurrency}")
             self.results = await asyncio.gather(
                 *[process_with_tracking(item) for item in self.items]
             )

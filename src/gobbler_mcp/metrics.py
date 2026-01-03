@@ -23,10 +23,12 @@ app_info = Info(
     "Gobbler MCP Server Information",
     registry=registry,
 )
-app_info.info({
-    "version": "0.1.0",
-    "python_version": "3.11",
-})
+app_info.info(
+    {
+        "version": "0.1.0",
+        "python_version": "3.11",
+    }
+)
 
 # Conversion metrics
 conversion_total = Counter(
@@ -182,14 +184,10 @@ class ConversionTracker:
 
         if exc_type is None:
             # Success
-            conversion_total.labels(
-                converter_type=self.converter_type, status="success"
-            ).inc()
+            conversion_total.labels(converter_type=self.converter_type, status="success").inc()
         else:
             # Failure
-            conversion_total.labels(
-                converter_type=self.converter_type, status="failure"
-            ).inc()
+            conversion_total.labels(converter_type=self.converter_type, status="failure").inc()
             errors_total.labels(
                 error_type=exc_type.__name__, converter_type=self.converter_type
             ).inc()
@@ -229,9 +227,9 @@ def update_resource_metrics() -> None:
                 usage = psutil.disk_usage(partition.mountpoint)
                 disk_usage.labels(mount_point=partition.mountpoint).set(usage.percent)
             except (PermissionError, OSError):
-                # Skip partitions we can't access
+                # Skip partitions we can't access (expected for protected mounts)
                 pass
-    except Exception:
+    except Exception:  # noqa: S110  # nosec B110
         # Don't let metrics collection crash the application
         pass
 
@@ -246,10 +244,10 @@ def update_queue_metrics() -> None:
                 queue = get_queue(queue_name)
                 depth = len(queue)
                 queue_depth.labels(queue_name=queue_name).set(depth)
-            except Exception:
+            except Exception:  # noqa: S110  # nosec B110
                 # Queue might not be available (Redis down)
                 pass
-    except Exception:
+    except Exception:  # noqa: S110  # nosec B110
         # Don't let metrics collection crash the application
         pass
 

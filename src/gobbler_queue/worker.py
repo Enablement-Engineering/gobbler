@@ -185,14 +185,20 @@ class Worker:
         Args:
             job: The Job to execute.
         """
+        import shlex
+
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
 
         try:
+            # Parse command string into list of arguments
+            # This is safer than shell=True as it prevents shell injection
+            cmd_args = shlex.split(job.command)
+
             # Start the subprocess
-            self.current_process = subprocess.Popen(
-                job.command,
-                shell=True,
+            # cmd_args is parsed from job.command using shlex.split (no shell injection)
+            self.current_process = subprocess.Popen(  # noqa: S603  # nosec B603
+                cmd_args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

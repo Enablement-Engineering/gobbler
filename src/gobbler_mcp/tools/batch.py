@@ -44,7 +44,8 @@ def _run_cli(cmd: list[str], timeout: int = 3600) -> tuple[bool, str]:
         Tuple of (success, output) where output is stdout on success or stderr on failure
     """
     try:
-        result = subprocess.run(
+        # cmd is built from hardcoded "gobbler" binary with validated user arguments
+        result = subprocess.run(  # noqa: S603  # nosec B603
             cmd,
             capture_output=True,
             text=True,

@@ -74,7 +74,9 @@ jobs:
 
       - name: Run Bandit
         run: |
+          # First run to generate JSON output (don't fail yet)
           bandit -r src/ -c pyproject.toml -f json -o bandit-results.json || true
+          # Second run with text output that will fail on issues
           bandit -r src/ -c pyproject.toml -f txt
 
       - name: Upload Bandit Results

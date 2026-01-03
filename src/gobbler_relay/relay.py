@@ -538,7 +538,8 @@ def start_relay_daemon(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> in
     ]
 
     # Start detached process
-    process = subprocess.Popen(
+    # cmd is built from sys.executable and __file__ paths (not user input)
+    process = subprocess.Popen(  # noqa: S603  # nosec B603
         cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

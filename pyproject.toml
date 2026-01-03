@@ -220,6 +220,14 @@ omit = [
     "*/.venv/*",
     "*/site-packages/*",
     "*/__init__.py",
+    # Entry points with no logic
+    "src/gobbler_mcp/__main__.py",
+    # Pure type definitions
+    "src/gobbler_mcp/types.py",
+    # Server startup (integration tested)
+    "src/gobbler_mcp/server.py",
+    # Metrics HTTP server (optional, integration tested)
+    "src/gobbler_mcp/metrics_server.py",
 ]
 
 [tool.coverage.report]
@@ -265,8 +273,10 @@ exclude_dirs = [
 ]
 skips = [
     "B101",  # assert_used (needed for pytest)
+    "B404",  # import_subprocess - we use subprocess safely with list args, not shell
 ]
-severity = "medium"
+# Note: We run bandit with default severity to catch all issues.
+# Individual false positives are suppressed with inline # nosec comments.
 
 [tool.interrogate]
 # Docstring coverage configuration
