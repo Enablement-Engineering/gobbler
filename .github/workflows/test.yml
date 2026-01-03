@@ -16,17 +16,6 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
 
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6380:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,12 +33,6 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v --cov=src/gobbler_mcp --cov-report=xml --cov-report=term-missing
-
-      - name: Run integration tests (without Docker services)
-        run: |
-          # Integration tests that use fakeredis or don't require external services
-          uv run pytest tests/integration/test_redis_queue.py -v -m "not requires_docker" || true
-        continue-on-error: true
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -78,16 +61,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6380:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
       crawl4ai:
         image: unclecode/crawl4ai:latest
         ports:
@@ -115,10 +88,6 @@ jobs:
 
       - name: Wait for services
         run: |
-          echo "Waiting for Redis..."
-          timeout 30 bash -c 'until nc -z localhost 6380; do sleep 1; done'
-          echo "Redis is ready"
-
           echo "Waiting for Crawl4AI..."
           timeout 60 bash -c 'until curl -f http://localhost:11235/health; do sleep 2; done' || echo "Crawl4AI may not be ready"
 
