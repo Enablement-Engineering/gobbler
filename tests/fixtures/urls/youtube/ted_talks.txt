@@ -1,0 +1,34 @@
+# TED Talks - Educational Use
+# Source: ted.com (TED allows educational use of content)
+# License: TED Terms of Use - educational/non-commercial
+# Note: Selected for variety in length, accent, and topic
+
+# Ken Robinson "Do schools kill creativity?" (~19 min, British)
+https://www.youtube.com/watch?v=iG9CE55wbtY
+
+# Simon Sinek "Start with Why" (~18 min, American)
+https://www.youtube.com/watch?v=qp0HIF3SfI4
+
+# Brene Brown "The power of vulnerability" (~20 min, American)
+https://www.youtube.com/watch?v=iCvmsMzlF7o
+
+# Amy Cuddy "Your body language may shape who you are" (~21 min, American)
+https://www.youtube.com/watch?v=Ks-_Mh1QhMc
+
+# Tim Urban "Inside the mind of a master procrastinator" (~14 min, American)
+https://www.youtube.com/watch?v=arj7oStGLkU
+
+# Hans Rosling "The best stats you've ever seen" (~20 min, Swedish accent)
+https://www.youtube.com/watch?v=hVimVzgtD6w
+
+# Chimamanda Ngozi Adichie "The danger of a single story" (~19 min, Nigerian accent)
+https://www.youtube.com/watch?v=D9Ihs241zeg
+
+# Shawn Achor "The happy secret to better work" (~12 min, American)
+https://www.youtube.com/watch?v=fLJsdqxnZb0
+
+# Susan Cain "The power of introverts" (~19 min, American)
+https://www.youtube.com/watch?v=c0KYU2j0TM4
+
+# Dan Pink "The puzzle of motivation" (~18 min, American)
+https://www.youtube.com/watch?v=rrkrvAUbU9Y

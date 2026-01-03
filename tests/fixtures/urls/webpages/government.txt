@@ -1,0 +1,33 @@
+# US Government Sites for Web Scraping Tests
+# All content is public domain (US Government works)
+# These pages contain authoritative, well-structured content
+
+# NASA - James Webb Space Telescope Overview
+https://www.nasa.gov/mission/webb/
+
+# NASA - Mars 2020 Perseverance Rover Mission
+https://mars.nasa.gov/mars2020/
+
+# CDC - About Influenza (Flu)
+https://www.cdc.gov/flu/about/index.html
+
+# CDC - Physical Activity Basics
+https://www.cdc.gov/physical-activity-basics/about/index.html
+
+# NIST - Cybersecurity Framework Overview
+https://www.nist.gov/cyberframework
+
+# NIST - Time and Frequency Division
+https://www.nist.gov/pml/time-and-frequency-division
+
+# EPA - Climate Change Science
+https://www.epa.gov/climate-change-science
+
+# EPA - Recycling Basics and Benefits
+https://www.epa.gov/recycle/recycling-basics-and-benefits
+
+# White House - The Administration
+https://www.whitehouse.gov/administration/
+
+# USGS - Earthquake Hazards Program
+https://www.usgs.gov/programs/earthquake-hazards

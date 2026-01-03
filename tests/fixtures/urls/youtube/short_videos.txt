@@ -1,0 +1,33 @@
+# Short YouTube Videos (Under 5 minutes)
+# Good for quick testing and validation of transcription pipeline
+# License: Various CC and educational use
+
+# Kurzgesagt "What Is Life?" (~4 min)
+https://www.youtube.com/watch?v=QOCaacO8wus
+
+# Veritasium "The Surprising Secret of Synchronization" (~4 min, excerpt)
+https://www.youtube.com/watch?v=t-_VPRCtiUg
+
+# 3Blue1Brown "But what is a neural network?" intro (~1 min)
+https://www.youtube.com/watch?v=aircAruvnKk
+
+# CGP Grey "The Simple Solution to Traffic" (~5 min)
+https://www.youtube.com/watch?v=iHzzSao6ypE
+
+# Minute Physics "What is Gravity?" (~3 min)
+https://www.youtube.com/watch?v=Xc4xYacTu-E
+
+# SmarterEveryDay "How do Mirrors Work?" (~4 min)
+https://www.youtube.com/watch?v=O-xFEFPt6-U
+
+# Numberphile "The Golden Ratio (why it is so irrational)" (~4 min)
+https://www.youtube.com/watch?v=sj8Sg8qnjOg
+
+# Tom Scott "Why Electronic Voting Is Still A Bad Idea" (~4 min)
+https://www.youtube.com/watch?v=LkH2r-sNjQs
+
+# PBS Space Time "What Happens at the Event Horizon?" (~5 min)
+https://www.youtube.com/watch?v=mht-1c4wc0Q
+
+# Vsauce "What Is The Speed of Dark?" (~4 min teaser)
+https://www.youtube.com/watch?v=JTvcpdfGUtQ

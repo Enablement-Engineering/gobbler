@@ -1,0 +1,33 @@
+# Tech Conference Talks
+# Usually CC licensed or explicitly shared for educational purposes
+# Good mix of Python, JavaScript, and general software engineering topics
+
+# PyCon 2015: Raymond Hettinger "Beyond PEP 8" (~52 min)
+https://www.youtube.com/watch?v=wf-BqAjZb8M
+
+# PyCon 2016: Raymond Hettinger "Super considered super!" (~46 min)
+https://www.youtube.com/watch?v=EiOglTERPEo
+
+# PyCon 2017: James Powell "So you want to be a Python expert?" (~68 min)
+https://www.youtube.com/watch?v=cKPlPJyQrt4
+
+# JSConf EU 2018: Jake Archibald "In The Loop" (~35 min)
+https://www.youtube.com/watch?v=cCOL7MC4Pl0
+
+# Google I/O 2019: "What's new in JavaScript" (~30 min)
+https://www.youtube.com/watch?v=c0oy0vQKEZE
+
+# Strange Loop 2019: "Clojure Data Science" Rich Hickey keynote (~58 min)
+https://www.youtube.com/watch?v=2V1FtfBDsLU
+
+# GopherCon 2019: Dave Cheney "Two Go Programs, Three Different Profiling Techniques" (~27 min)
+https://www.youtube.com/watch?v=nok0aYiGiYA
+
+# RustConf 2018: Without Boats "Using Rust for Game Development" (~32 min)
+https://www.youtube.com/watch?v=aKLntZcp27M
+
+# WWDC 2019: "Introducing SwiftUI" (~38 min)
+https://www.youtube.com/watch?v=psL_5RIBqnY
+
+# dotJS 2017: Wes Bos "Async + Await" (~26 min)
+https://www.youtube.com/watch?v=9YkUCxvaLEk

@@ -1,0 +1,33 @@
+# Documentation Sites for Web Scraping Tests
+# These are public documentation sites with well-structured content
+# All pages feature semantic HTML, code blocks, and technical content
+
+# Python Official Docs - Built-in Functions Reference
+https://docs.python.org/3/library/functions.html
+
+# Python Official Docs - asyncio Module Documentation
+https://docs.python.org/3/library/asyncio.html
+
+# MDN Web Docs - JavaScript Promises Guide
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises
+
+# MDN Web Docs - CSS Flexbox Layout
+https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout/Basic_concepts_of_flexbox
+
+# Rust Documentation - The Rust Programming Language Book
+https://doc.rust-lang.org/book/ch01-00-getting-started.html
+
+# Rust Documentation - Standard Library Collections
+https://doc.rust-lang.org/std/collections/index.html
+
+# FastAPI Documentation - First Steps Tutorial
+https://fastapi.tiangolo.com/tutorial/first-steps/
+
+# ReadTheDocs - Requests Library Quickstart
+https://requests.readthedocs.io/en/latest/user/quickstart/
+
+# Django Documentation - Writing Your First App
+https://docs.djangoproject.com/en/5.0/intro/tutorial01/
+
+# Go Documentation - A Tour of Go
+https://go.dev/tour/welcome/1

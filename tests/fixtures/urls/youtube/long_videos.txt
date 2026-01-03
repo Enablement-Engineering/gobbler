@@ -1,0 +1,18 @@
+# Long YouTube Videos (Over 30 minutes)
+# Good for testing queue/timeout handling and chunked processing
+# License: Various CC and educational use
+
+# MIT OpenCourseWare "Introduction to Algorithms" Lecture 1 (~53 min)
+https://www.youtube.com/watch?v=HtSuA80QTyo
+
+# Stanford CS229 Machine Learning - Andrew Ng Lecture 1 (~75 min)
+https://www.youtube.com/watch?v=jGwO_UgTS7I
+
+# 3Blue1Brown "Essence of Calculus" Full Series Compilation (~3 hours)
+https://www.youtube.com/watch?v=WUvTyaaNkzM
+
+# freeCodeCamp "Python for Beginners" Tutorial (~4 hours)
+https://www.youtube.com/watch?v=rfscVS0vtbw
+
+# Two Minute Papers "AI Research Compilation 2023" (~45 min)
+https://www.youtube.com/watch?v=u3E-JqY5-Lk

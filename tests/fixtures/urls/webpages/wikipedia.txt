@@ -1,0 +1,33 @@
+# Wikipedia Articles for Web Scraping Tests
+# Licensed under CC BY-SA 3.0
+# Selection includes varying complexity: tables, formulas, images, featured articles
+
+# Simple Article - Basic biographical content
+https://en.wikipedia.org/wiki/Ada_Lovelace
+
+# Featured Article - Comprehensive historical topic
+https://en.wikipedia.org/wiki/Apollo_11
+
+# Article with Complex Tables - Statistical data
+https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)
+
+# Article with Mathematical Formulas - Physics equations
+https://en.wikipedia.org/wiki/Maxwell%27s_equations
+
+# Article with Many Images - Visual topic
+https://en.wikipedia.org/wiki/Solar_System
+
+# Technical Article - Computer science topic
+https://en.wikipedia.org/wiki/Machine_learning
+
+# Article with Chemical Formulas - Chemistry content
+https://en.wikipedia.org/wiki/Caffeine
+
+# Long Featured Article - Detailed historical coverage
+https://en.wikipedia.org/wiki/World_War_II
+
+# Article with Infobox and Categories - Structured data
+https://en.wikipedia.org/wiki/Python_(programming_language)
+
+# Article with Timeline and References - Complex structure
+https://en.wikipedia.org/wiki/History_of_the_Internet

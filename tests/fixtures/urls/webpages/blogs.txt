@@ -1,0 +1,33 @@
+# Creative Commons and Open Source Blog Posts for Web Scraping Tests
+# All content is freely available under open licenses
+# Includes organizational blogs and open source project updates
+
+# Wikimedia Foundation Blog - General updates
+https://wikimediafoundation.org/news/
+
+# Mozilla Blog - Firefox and web standards
+https://blog.mozilla.org/en/
+
+# Creative Commons Blog - Open licensing news
+https://creativecommons.org/blog/
+
+# The Linux Foundation Blog - Open source ecosystem
+https://www.linuxfoundation.org/blog
+
+# Apache Software Foundation Blog - Project updates
+https://news.apache.org/
+
+# Open Source Initiative Blog - OSI news and policy
+https://opensource.org/blog
+
+# Electronic Frontier Foundation - Digital rights (CC BY)
+https://www.eff.org/deeplinks
+
+# Internet Archive Blog - Digital preservation
+https://blog.archive.org/
+
+# CERN Open Science Blog - Research and data
+https://openscience.cern/
+
+# Public Knowledge Blog - Tech policy (CC BY)
+https://publicknowledge.org/blog/

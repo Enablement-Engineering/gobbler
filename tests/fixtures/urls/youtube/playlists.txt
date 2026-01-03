@@ -1,0 +1,18 @@
+# YouTube Playlists for Batch Testing
+# These are full playlists for testing batch_transcribe_youtube_playlist
+# Note: Large playlists may take significant time to process
+
+# CrashCourse Artificial Intelligence - CrashCourse (20 videos)
+https://www.youtube.com/playlist?list=PL8dPuuaLjXtO65LeD2p4_Sb5XQ51par_b
+
+# CrashCourse Computer Science - CrashCourse (41 videos)
+https://www.youtube.com/playlist?list=PL8dPuuaLjXtNlUrzyH5r6jN9ulIgZBpdo
+
+# 3Blue1Brown Essence of Linear Algebra - 3Blue1Brown (16 videos)
+https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
+
+# 3Blue1Brown Neural Networks - 3Blue1Brown (4 videos, short playlist for quick tests)
+https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi
+
+# Khan Academy Intro to Algorithms - Khan Academy (12 videos)
+https://www.youtube.com/playlist?list=PL36E7A2B75028A3D6

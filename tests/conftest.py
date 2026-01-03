@@ -139,20 +139,55 @@ def sample_youtube_url() -> str:
 
 @pytest.fixture
 def sample_audio_file(fixtures_dir: Path) -> Path:
-    """Return path to sample audio fixture."""
-    return fixtures_dir / "test_audio.wav"
+    """Return path to sample audio fixture (short wav)."""
+    return fixtures_dir / "audio" / "test_short.wav"
 
 
 @pytest.fixture
 def sample_video_file(fixtures_dir: Path) -> Path:
     """Return path to sample video fixture."""
-    return fixtures_dir / "How_Games_Do_Destruction.mp4"
+    return fixtures_dir / "video" / "ted_chatgpt_language.mp4"
 
 
 @pytest.fixture
 def sample_document_file(fixtures_dir: Path) -> Path:
     """Return path to sample PDF fixture."""
-    return fixtures_dir / "Dylan_Isaac_Resume_AI.pdf"
+    return fixtures_dir / "documents" / "pdf" / "resume_sample.pdf"
+
+
+# Additional fixture path helpers
+@pytest.fixture(scope="session")
+def audio_dir(fixtures_dir: Path) -> Path:
+    """Return path to audio fixtures directory."""
+    return fixtures_dir / "audio"
+
+
+@pytest.fixture(scope="session")
+def video_dir(fixtures_dir: Path) -> Path:
+    """Return path to video fixtures directory."""
+    return fixtures_dir / "video"
+
+
+@pytest.fixture(scope="session")
+def documents_dir(fixtures_dir: Path) -> Path:
+    """Return path to documents fixtures directory."""
+    return fixtures_dir / "documents"
+
+
+@pytest.fixture(scope="session")
+def urls_dir(fixtures_dir: Path) -> Path:
+    """Return path to URL lists directory."""
+    return fixtures_dir / "urls"
+
+
+def load_url_list(urls_dir: Path, category: str, filename: str) -> list[str]:
+    """Load URLs from a fixture file, filtering comments and empty lines."""
+    path = urls_dir / category / filename
+    return [
+        line.strip()
+        for line in path.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
 
 
 # Expected outputs for comparison
@@ -175,20 +210,6 @@ def expected_audio_transcript(fixtures_dir: Path) -> str:
 
 
 # Service health check helpers
-@pytest.fixture
-def check_redis_available() -> bool:
-    """Check if Redis service is available for integration tests."""
-    try:
-        import redis  # noqa: PLC0415
-
-        r = redis.Redis(host="localhost", port=6380, socket_connect_timeout=1)
-        r.ping()
-    except Exception:
-        return False
-    else:
-        return True
-
-
 @pytest.fixture
 def check_crawl4ai_available() -> bool:
     """Check if Crawl4AI service is available for integration tests."""
