@@ -44,6 +44,7 @@ class TestRunCli:
         assert output == "Success output"
         mock_run.assert_called_once_with(
             ["gobbler", "test"],
+            check=False,
             capture_output=True,
             text=True,
             timeout=3600,  # Default timeout
@@ -58,6 +59,7 @@ class TestRunCli:
 
         mock_run.assert_called_once_with(
             ["gobbler", "test"],
+            check=False,
             capture_output=True,
             text=True,
             timeout=7200,
