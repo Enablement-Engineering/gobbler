@@ -402,7 +402,7 @@ class TestBrowserListTabs:
             mock_relay_client["list_tabs"],
         ):
             tool = mcp._tool_manager._tools["browser_list_tabs"]
-            result = await tool.fn(filter="notebooklm")
+            result = await tool.fn(filter_type="notebooklm")
 
         mock_relay_client["list_tabs"].assert_called_once_with(filter_type="notebooklm")
         assert "NotebookLM" in result
