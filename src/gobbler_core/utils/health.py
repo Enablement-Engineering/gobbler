@@ -24,7 +24,7 @@ class ServiceHealth:
         self._client = httpx.AsyncClient(timeout=self.timeout)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[no-untyped-def]
         """Exit async context manager."""
         if self._client:
             await self._client.aclose()
@@ -40,26 +40,29 @@ class ServiceHealth:
             True if service is healthy, False otherwise
         """
         if not self._client:
-            raise RuntimeError("Health checker not initialized. Use as context manager.")
+            msg = "Health checker not initialized. Use as context manager."
+            raise RuntimeError(msg)
 
         health_url = f"{service_url}/health"
+        http_ok = 200
         try:
             response = await self._client.get(health_url)
-            is_healthy = response.status_code == 200
+            is_healthy = response.status_code == http_ok
             if is_healthy:
-                logger.debug(f"{service_name} service is healthy")
+                logger.debug("%s service is healthy", service_name)
             else:
-                logger.warning(f"{service_name} service returned status {response.status_code}")
-            return is_healthy
+                logger.warning("%s service returned status %s", service_name, response.status_code)
         except httpx.ConnectError:
-            logger.warning(f"{service_name} service is not reachable at {service_url}")
+            logger.warning("%s service is not reachable at %s", service_name, service_url)
             return False
         except httpx.TimeoutException:
-            logger.warning(f"{service_name} service health check timed out")
+            logger.warning("%s service health check timed out", service_name)
             return False
-        except Exception as e:
-            logger.error(f"Unexpected error checking {service_name} health: {e}")
+        except Exception:
+            logger.exception("Unexpected error checking %s health", service_name)
             return False
+        else:
+            return is_healthy
 
     async def check_all_services(self, service_urls: dict[str, str]) -> dict[str, bool]:
         """Check health of all services.

@@ -1,5 +1,6 @@
 """Web page conversion with CSS/XPath selector support using Crawl4AI."""
 
+import asyncio
 import logging
 import re
 import time
@@ -16,7 +17,7 @@ from ..config import get_config
 logger = logging.getLogger(__name__)
 
 
-async def convert_webpage_with_selector(
+async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
     url: str,
     css_selector: str | None = None,
     xpath: str | None = None,
@@ -55,7 +56,8 @@ async def convert_webpage_with_selector(
         ValueError: Invalid selector combination (both css_selector and xpath provided)
     """
     if css_selector and xpath:
-        raise ValueError("Cannot specify both css_selector and xpath. Choose one.")
+        msg = "Cannot specify both css_selector and xpath. Choose one."
+        raise ValueError(msg)
 
     config = get_config()
     service_url = config.get_service_url("crawl4ai")
@@ -63,7 +65,7 @@ async def convert_webpage_with_selector(
         config.data.get("services", {}).get("crawl4ai", {}).get("api_token", "gobbler-local-token")
     )
 
-    logger.info(f"Converting web page with selector: {url}")
+    logger.info("Converting web page with selector: %s", url)
     start_time = time.time()
 
     # Prepare browser config with optional stealth mode
@@ -121,16 +123,16 @@ async def convert_webpage_with_selector(
     # Load session if provided
     session_cookies = None
     if session_id:
-        from ..crawlers.session_manager import SessionManager
+        from ..crawlers.session_manager import SessionManager  # noqa: PLC0415
 
         session_manager = SessionManager()
         try:
             session_data = await session_manager.load_session(session_id)
             session_cookies = session_data.get("cookies", [])
             # TODO: Add localStorage support when Crawl4AI supports it
-            logger.info(f"Loaded session {session_id} with {len(session_cookies)} cookies")
+            logger.info("Loaded session %s with %d cookies", session_id, len(session_cookies))
         except FileNotFoundError:
-            logger.warning(f"Session {session_id} not found, proceeding without session")
+            logger.warning("Session %s not found, proceeding without session", session_id)
 
     # Add cookies to browser config if available
     if session_cookies:
@@ -151,7 +153,8 @@ async def convert_webpage_with_selector(
             # Get task ID
             task_id = task_data.get("task_id")
             if not task_id:
-                raise RuntimeError("No task_id returned from Crawl4AI")
+                msg = "No task_id returned from Crawl4AI"
+                raise RuntimeError(msg)  # noqa: TRY301
 
             # Poll for task completion
             max_wait = timeout
@@ -159,8 +162,6 @@ async def convert_webpage_with_selector(
             elapsed = 0
 
             while elapsed < max_wait:
-                import asyncio
-
                 await asyncio.sleep(wait_interval)
                 elapsed += wait_interval
 
@@ -173,19 +174,20 @@ async def convert_webpage_with_selector(
                     # Task finished
                     results = task_status.get("results")
                     if not results or len(results) == 0:
-                        raise RuntimeError("Crawl4AI returned no results")
+                        msg = "Crawl4AI returned no results"
+                        raise RuntimeError(msg)  # noqa: TRY301
 
                     result = results[0]
                     break
                 if task_status.get("status") == "failed":
                     error = task_status.get("error", "Unknown error")
-                    raise RuntimeError(f"Crawl4AI task failed: {error}")
+                    msg = f"Crawl4AI task failed: {error}"
+                    raise RuntimeError(msg)  # noqa: TRY301
 
             else:
                 # Timeout waiting for task
-                raise httpx.TimeoutException(
-                    f"Crawl task did not complete within {timeout} seconds"
-                )
+                msg = f"Crawl task did not complete within {timeout} seconds"
+                raise httpx.TimeoutException(msg)  # noqa: TRY301
 
             # Get markdown content - try different possible field structures
             markdown_content = None
@@ -208,7 +210,8 @@ async def convert_webpage_with_selector(
                     markdown_content = extracted
 
             if not markdown_content:
-                raise RuntimeError("No markdown content in Crawl4AI response")
+                msg = "No markdown content in Crawl4AI response"
+                raise RuntimeError(msg)  # noqa: TRY301
 
             # Extract metadata
             page_title = result.get("title") or result.get("metadata", {}).get("title", "Web Page")
@@ -220,7 +223,9 @@ async def convert_webpage_with_selector(
                 if html_content:
                     links_data = _extract_links(html_content, url)
                     logger.info(
-                        f"Extracted {len(links_data.get('all_links', []))} links from {url}"
+                        "Extracted %d links from %s",
+                        len(links_data.get("all_links", [])),
+                        url,
                     )
 
             # Strip images if requested
@@ -281,12 +286,14 @@ async def convert_webpage_with_selector(
                 metadata["session_id"] = session_id
 
             logger.info(
-                f"Successfully converted web page with selector: {url} ({word_count} words)"
+                "Successfully converted web page with selector: %s (%d words)",
+                url,
+                word_count,
             )
             return full_markdown, metadata
 
-    except Exception as e:
-        logger.error(f"Failed to convert web page {url}: {e}")
+    except Exception:
+        logger.exception("Failed to convert web page %s", url)
         raise
 
 

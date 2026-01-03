@@ -29,21 +29,21 @@ async def save_markdown_file(
         # Create parent directories if needed
         if create_dirs and not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory: {path.parent}")
+            logger.info("Created directory: %s", path.parent)
 
         # Write file
         async with aiofiles.open(path, "w", encoding="utf-8") as f:
             await f.write(content)
 
-        logger.info(f"Saved markdown to: {file_path}")
-        return True
-
+        logger.info("Saved markdown to: %s", file_path)
     except PermissionError:
-        logger.error(f"Permission denied writing to: {file_path}")
+        logger.exception("Permission denied writing to: %s", file_path)
         return False
-    except Exception as e:
-        logger.error(f"Failed to write file {file_path}: {e}")
+    except Exception:
+        logger.exception("Failed to write file %s", file_path)
         return False
+    else:
+        return True
 
 
 def validate_output_path(file_path: str) -> str | None:

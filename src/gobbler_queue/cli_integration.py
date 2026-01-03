@@ -44,9 +44,10 @@ def queue_job(job_type: str, command: list[str], args: dict) -> str:
     # Validate and convert job type
     try:
         jtype = JobType(job_type.lower())
-    except ValueError:
+    except ValueError as err:
         valid_types = [t.value for t in JobType]
-        raise ValueError(f"Invalid job type '{job_type}'. Valid types: {', '.join(valid_types)}")
+        msg = f"Invalid job type '{job_type}'. Valid types: {', '.join(valid_types)}"
+        raise ValueError(msg) from err
 
     # Join command list into string
     command_str = " ".join(command)
@@ -103,10 +104,10 @@ def format_job_table(jobs: list[JobSummary]) -> str:
             for job in error_jobs:
                 rows.append(f"  {job.id[:8]}...: {job.error}")
 
-    return "\n".join([header, separator] + rows)
+    return "\n".join([header, separator, *rows])
 
 
-def format_job_detail(job: Job) -> str:
+def format_job_detail(job: Job) -> str:  # noqa: C901, PLR0912
     """Format a single job as a detailed view.
 
     Args:
@@ -190,8 +191,9 @@ def format_job_detail(job: Job) -> str:
         # Show stdout preview
         stdout = job.result.get("stdout", "")
         if stdout:
-            preview = stdout[:500]
-            if len(stdout) > 500:
+            max_preview_len = 500
+            preview = stdout[:max_preview_len]
+            if len(stdout) > max_preview_len:
                 preview += "\n... (truncated)"
             lines.append(preview)
 
@@ -212,7 +214,8 @@ def start_worker_daemon() -> int:
     """
     if is_worker_running():
         pid = _read_pid_file()
-        raise RuntimeError(f"Worker is already running (PID: {pid})")
+        msg = f"Worker is already running (PID: {pid})"
+        raise RuntimeError(msg)
 
     # Ensure cache directory exists
     WORKER_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -231,7 +234,7 @@ def start_worker_daemon() -> int:
     ]
 
     # Open log file for output
-    with open(log_file, "a") as log:
+    with log_file.open("a") as log:
         # Start process in background, detached from terminal
         # cmd is built from sys.executable and module paths (not user input)
         process = subprocess.Popen(  # noqa: S603  # nosec B603
@@ -267,8 +270,6 @@ def stop_worker_daemon() -> bool:
         # Remove PID file
         if WORKER_PID_FILE.exists():
             WORKER_PID_FILE.unlink()
-
-        return True
     except ProcessLookupError:
         # Process already exited, clean up PID file
         if WORKER_PID_FILE.exists():
@@ -277,6 +278,8 @@ def stop_worker_daemon() -> bool:
     except PermissionError:
         # Can't kill the process (owned by different user?)
         return False
+    else:
+        return True
 
 
 def is_worker_running() -> bool:
@@ -292,7 +295,6 @@ def is_worker_running() -> bool:
     try:
         # Check if process exists (signal 0 doesn't send a signal)
         os.kill(pid, 0)
-        return True
     except ProcessLookupError:
         # Process doesn't exist, clean up stale PID file
         if WORKER_PID_FILE.exists():
@@ -300,6 +302,8 @@ def is_worker_running() -> bool:
         return False
     except PermissionError:
         # Process exists but we can't signal it (different user)
+        return True
+    else:
         return True
 
 

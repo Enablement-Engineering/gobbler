@@ -81,7 +81,7 @@ class BatchProcessor:
                 # If successful or skipped, return immediately
                 if result.success or result.error == "skipped":
                     if attempt > 0:
-                        logger.info(f"Succeeded on attempt {attempt + 1} for {item.source}")
+                        logger.info("Succeeded on attempt %s for %s", attempt + 1, item.source)
                     return result
 
                 # If failed but out of retries, return the result
@@ -101,8 +101,11 @@ class BatchProcessor:
             # Exponential backoff: retry_delay * 2^attempt
             backoff_delay = self.retry_delay * (2**attempt)
             logger.warning(
-                f"Attempt {attempt + 1} failed for {item.source}: {last_error}. "
-                f"Retrying in {backoff_delay:.1f}s..."
+                "Attempt %s failed for %s: %s. Retrying in %.1fs...",
+                attempt + 1,
+                item.source,
+                last_error,
+                backoff_delay,
             )
             await asyncio.sleep(backoff_delay)
 
@@ -135,7 +138,7 @@ class BatchProcessor:
                 return new_path
             counter += 1
 
-    async def run(self) -> BatchSummary:
+    async def run(self) -> BatchSummary:  # noqa: C901
         """Execute batch operation with progress tracking.
 
         Returns:
@@ -166,7 +169,7 @@ class BatchProcessor:
                             if self.jitter_range > 0:
                                 delay += random.uniform(0, self.jitter_range)  # noqa: S311  # nosec B311
                             if delay > 0:
-                                logger.debug(f"Rate limit delay: {delay:.2f}s for {item.source}")
+                                logger.debug("Rate limit delay: %.2fs for %s", delay, item.source)
                                 await asyncio.sleep(delay)
 
                     try:
@@ -203,19 +206,18 @@ class BatchProcessor:
                                 result.error or "Unknown error", item.source
                             )
 
-                        return result
-
                     except Exception as e:
                         error_msg = str(e)
-                        logger.error(
-                            f"Error processing item {item.source}: {error_msg}",
-                            exc_info=True,
-                        )
+                        logger.exception("Error processing item %s: %s", item.source, error_msg)
                         await self.progress.increment_failure(error_msg, item.source)
                         return BatchResult(item_id=item.id, success=False, error=error_msg)
+                    else:
+                        return result
 
             # Process all items
-            logger.info(f"Processing {len(self.items)} items with concurrency={self.concurrency}")
+            logger.info(
+                "Processing %s items with concurrency=%s", len(self.items), self.concurrency
+            )
             self.results = await asyncio.gather(
                 *[process_with_tracking(item) for item in self.items]
             )
@@ -224,7 +226,7 @@ class BatchProcessor:
             await self.progress.mark_complete()
 
         except Exception as e:
-            logger.error(f"Batch operation failed: {e}", exc_info=True)
+            logger.exception("Batch operation failed")
             await self.progress.mark_failed(str(e))
             raise
 

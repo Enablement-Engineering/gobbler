@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
+# Import command modules at top level to avoid PLC0415
+from gobbler_cli.commands import batch, convert, daemon, jobs
 from gobbler_cli.main import app
 from gobbler_cli.output import (
     OutputFormat,
@@ -33,26 +36,15 @@ def runner() -> CliRunner:
 @pytest.fixture
 def cli_app():
     """Create and configure the CLI app for testing."""
-    # Import command modules to register them
-    from gobbler_cli.commands import batch, convert, daemon, jobs
-
     # Add command groups (may already be registered, but typer handles duplicates)
-    try:
+    with contextlib.suppress(Exception):
         app.add_typer(convert.app, name="convert", help="Convert individual content items")
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         app.add_typer(batch.app, name="batch", help="Batch processing operations")
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         app.add_typer(daemon.app, name="daemon", help="Daemon management")
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         app.add_typer(jobs.app, name="jobs", help="Job management")
-    except Exception:
-        pass
 
     return app
 
@@ -511,7 +503,8 @@ class TestBatchWebpagesWithMock:
         output_dir = tmp_path / "output"
 
         async def mock_async_error(*args, **kwargs):
-            raise Exception("Connection failed")
+            msg = "Connection failed"
+            raise RuntimeError(msg)
 
         mock_convert.side_effect = mock_async_error
 
@@ -537,7 +530,7 @@ class TestBatchWebpagesWithMock:
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
     def test_batch_item_skipped_message(
         self,
-        mock_convert: MagicMock,
+        _mock_convert: MagicMock,  # noqa: PT019
         runner: CliRunner,
         cli_app,
         tmp_path: Path,

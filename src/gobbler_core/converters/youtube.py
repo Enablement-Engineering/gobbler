@@ -32,10 +32,11 @@ def extract_video_id(video_url: str) -> str:
     match = re.match(pattern, video_url)
 
     if not match:
-        raise ValueError(
+        msg = (
             "Invalid YouTube URL format. Expected: https://youtube.com/watch?v=VIDEO_ID "
             "or https://youtu.be/VIDEO_ID"
         )
+        raise ValueError(msg)
 
     return match.group(3)
 
@@ -83,7 +84,7 @@ def get_video_metadata(video_url: str) -> dict[str, str | None]:
                 "description": info.get("description"),
             }
     except Exception as e:
-        logger.warning(f"Failed to extract video metadata: {e}")
+        logger.warning("Failed to extract video metadata: %s", e)
         return {"title": None, "channel": None, "thumbnail": None, "description": None}
 
 

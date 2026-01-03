@@ -20,7 +20,7 @@ class TestConfigHotReload:
             "whisper": {"model": "small", "language": "auto"},
             "crawl4ai": {"timeout": 30},
         }
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -37,7 +37,7 @@ class TestConfigHotReload:
             "whisper": {"model": "base", "language": "auto"},
             "crawl4ai": {"timeout": 60},
         }
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(updated_config, f)
 
         # Wait for file watcher to detect change and reload
@@ -55,7 +55,7 @@ class TestConfigHotReload:
         # Create initial config file
         config_file = tmp_path / "config.yml"
         initial_config = {"whisper": {"model": "small"}}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -68,7 +68,7 @@ class TestConfigHotReload:
 
         # Write invalid config
         invalid_config = {"whisper": {"model": "invalid_model"}}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(invalid_config, f)
 
         # Wait for reload attempt
@@ -85,7 +85,7 @@ class TestConfigHotReload:
         # Create initial config file
         config_file = tmp_path / "config.yml"
         initial_config = {"whisper": {"model": "small"}}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -97,7 +97,7 @@ class TestConfigHotReload:
         time.sleep(0.2)
 
         # Write malformed YAML
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             f.write("this is not: valid: yaml: content:")
 
         # Wait for reload attempt
@@ -114,7 +114,7 @@ class TestConfigHotReload:
         # Create initial config file
         config_file = tmp_path / "config.yml"
         initial_config = {"whisper": {"model": "small"}, "test_value": 1}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -148,7 +148,7 @@ class TestConfigHotReload:
         # Modify config while readers are running
         time.sleep(0.1)
         updated_config = {"whisper": {"model": "base"}, "test_value": 2}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(updated_config, f)
 
         # Wait for threads to finish
@@ -169,7 +169,7 @@ class TestConfigHotReload:
             "whisper": {"model": "small", "language": "auto"},
             "crawl4ai": {"timeout": 30},
         }
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -191,7 +191,7 @@ class TestConfigHotReload:
         # the enable/disable methods work
         config_file = tmp_path / "config.yml"
         initial_config = {"whisper": {"model": "small"}}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         config = Config(config_path=config_file)
@@ -210,7 +210,7 @@ class TestConfigHotReload:
         # Create initial config file
         config_file = tmp_path / "config.yml"
         initial_config = {"test_value": 0}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -223,7 +223,7 @@ class TestConfigHotReload:
 
         # Make multiple rapid changes
         for i in range(1, 6):
-            with open(config_file, "w") as f:
+            with config_file.open("w") as f:
                 yaml.dump({"test_value": i}, f)
             time.sleep(0.05)  # Less than debounce time
 
@@ -243,7 +243,7 @@ class TestConfigHotReload:
         # Create initial config file
         config_file = tmp_path / "config.yml"
         initial_config = {"whisper": {"model": "small"}}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(initial_config, f)
 
         # Initialize config
@@ -252,7 +252,7 @@ class TestConfigHotReload:
 
         # Modify config file
         updated_config = {"whisper": {"model": "base"}}
-        with open(config_file, "w") as f:
+        with config_file.open("w") as f:
             yaml.dump(updated_config, f)
 
         # Manually reload

@@ -18,9 +18,8 @@ def create_frontmatter(metadata: dict[str, Any]) -> str:
         # Format value based on type
         if isinstance(value, str):
             # Escape special characters if needed
-            if ":" in value or "#" in value:
-                value = f'"{value}"'
-            lines.append(f"{key}: {value}")
+            formatted_value = f'"{value}"' if ":" in value or "#" in value else value
+            lines.append(f"{key}: {formatted_value}")
         elif isinstance(value, (int, float, bool)):
             lines.append(f"{key}: {value}")
         elif value is None:
@@ -140,7 +139,7 @@ def create_webpage_frontmatter(
 
 def create_document_frontmatter(
     file_path: str,
-    format: str,
+    doc_format: str,
     pages: int,
     word_count: int,
     conversion_time_ms: int,
@@ -149,7 +148,7 @@ def create_document_frontmatter(
 
     Args:
         file_path: Original file path
-        format: Document format (pdf, docx, etc.)
+        doc_format: Document format (pdf, docx, etc.)
         pages: Number of pages
         word_count: Number of words in content
         conversion_time_ms: Conversion time in milliseconds
@@ -160,7 +159,7 @@ def create_document_frontmatter(
     metadata = {
         "source": file_path,
         "type": "document",
-        "format": format,
+        "format": doc_format,
         "pages": pages,
         "word_count": word_count,
         "conversion_time_ms": conversion_time_ms,

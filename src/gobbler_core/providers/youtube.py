@@ -142,7 +142,7 @@ class TranscriptAPIProvider(TranscriptProvider):
     def fetch(
         self,
         video_id: str,
-        language: str = "auto",
+        language: str = "auto",  # noqa: ARG002
     ) -> TranscriptResult:
         """Fetch transcript using TranscriptAPI.com."""
         headers = {
@@ -158,22 +158,27 @@ class TranscriptAPIProvider(TranscriptProvider):
         with httpx.Client(timeout=60) as client:
             response = client.get(self.BASE_URL, headers=headers, params=params)
 
-            if response.status_code == 401:
-                raise RuntimeError("TranscriptAPI: Invalid API key")
-            if response.status_code == 402:
+            if response.status_code == httpx.codes.UNAUTHORIZED:
+                msg = "TranscriptAPI: Invalid API key"
+                raise RuntimeError(msg)
+            if response.status_code == httpx.codes.PAYMENT_REQUIRED:
                 data = response.json()
                 detail = data.get("detail", {})
-                raise RuntimeError(
+                msg = (
                     f"TranscriptAPI: {detail.get('message', 'Payment required')}. "
                     f"Action: {detail.get('action_url', 'https://transcriptapi.com/billing')}"
                 )
-            if response.status_code == 404:
-                raise RuntimeError("TranscriptAPI: Transcript not available for this video")
-            if response.status_code == 429:
+                raise RuntimeError(msg)
+            if response.status_code == httpx.codes.NOT_FOUND:
+                msg = "TranscriptAPI: Transcript not available for this video"
+                raise RuntimeError(msg)
+            if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
                 retry_after = response.headers.get("Retry-After", "60")
-                raise RuntimeError(f"TranscriptAPI: Rate limited. Retry after {retry_after}s")
-            if response.status_code != 200:
-                raise RuntimeError(f"TranscriptAPI error: {response.status_code} {response.text}")
+                msg = f"TranscriptAPI: Rate limited. Retry after {retry_after}s"
+                raise RuntimeError(msg)
+            if response.status_code != httpx.codes.OK:
+                msg = f"TranscriptAPI error: {response.status_code} {response.text}"
+                raise RuntimeError(msg)
 
             data = response.json()
 
@@ -230,7 +235,9 @@ class AutoFallbackProvider(TranscriptProvider):
         except Exception as e:
             error_msg = str(e)
             if "IpBlocked" in error_msg or "blocked" in error_msg.lower() or "429" in error_msg:
-                logger.warning(f"Free API blocked ({error_msg}), falling back to TranscriptAPI.com")
+                logger.warning(
+                    "Free API blocked (%s), falling back to TranscriptAPI.com", error_msg
+                )
                 return self.paid_provider.fetch(video_id, language)
             raise
 
@@ -267,7 +274,7 @@ def create_proxy_config(
     if proxy_url:
         # Log proxy without credentials
         safe_url = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
-        logger.info(f"Using proxy for YouTube transcripts: {safe_url}")
+        logger.info("Using proxy for YouTube transcripts: %s", safe_url)
         return GenericProxyConfig(
             http_url=proxy_url,
             https_url=proxy_url,
@@ -297,9 +304,8 @@ def create_provider(
 
     if provider_name == "transcriptapi":
         if not api_key:
-            raise ValueError(
-                "TranscriptAPI requires an API key. Set TRANSCRIPTAPI_KEY environment variable."
-            )
+            msg = "TranscriptAPI requires an API key. Set TRANSCRIPTAPI_KEY environment variable."
+            raise ValueError(msg)
         return TranscriptAPIProvider(api_key=api_key)
 
     if provider_name == "auto":

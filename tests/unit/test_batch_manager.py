@@ -25,7 +25,7 @@ class TestBatchProcessor:
             return BatchResult(
                 item_id=item.id,
                 success=True,
-                output_file=f"/tmp/{item.source}.md",
+                output_file=f"/tmp/{item.source}.md",  # noqa: S108
                 metadata={"processed": True},
             )
 
@@ -71,7 +71,7 @@ class TestBatchProcessor:
             return BatchResult(
                 item_id=item.id,
                 success=True,
-                output_file=f"/tmp/{item.source}.md",
+                output_file=f"/tmp/{item.source}.md",  # noqa: S108
             )
 
         # Create processor
@@ -118,7 +118,7 @@ class TestBatchProcessor:
             return BatchResult(
                 item_id=item.id,
                 success=True,
-                output_file=f"/tmp/{item.source}.md",
+                output_file=f"/tmp/{item.source}.md",  # noqa: S108
             )
 
         # Create processor
@@ -144,7 +144,7 @@ class TestBatchProcessor:
     @pytest.mark.asyncio
     async def test_batch_concurrency_control(self, tmp_path):
         """Test that concurrency is properly controlled."""
-        import asyncio
+        import asyncio  # noqa: PLC0415
 
         # Track concurrent execution
         concurrent_count = 0
@@ -167,7 +167,7 @@ class TestBatchProcessor:
             return BatchResult(
                 item_id=item.id,
                 success=True,
-                output_file=f"/tmp/{item.source}.md",
+                output_file=f"/tmp/{item.source}.md",  # noqa: S108
             )
 
         # Create processor with concurrency=3
@@ -198,11 +198,12 @@ class TestBatchProcessor:
         async def process_item(item: BatchItem) -> BatchResult:
             """Processor that raises exception on item2."""
             if item.id == "2":
-                raise ValueError("Simulated exception")
+                msg = "Simulated exception"
+                raise ValueError(msg)
             return BatchResult(
                 item_id=item.id,
                 success=True,
-                output_file=f"/tmp/{item.source}.md",
+                output_file=f"/tmp/{item.source}.md",  # noqa: S108
             )
 
         processor = BatchProcessor(

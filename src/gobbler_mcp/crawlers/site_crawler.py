@@ -23,7 +23,7 @@ class SiteCrawler:
         self.visited_urls: set[str] = set()
         self.link_graph: dict[str, list[str]] = {}
 
-    async def crawl_site(
+    async def crawl_site(  # noqa: C901, PLR0915
         self,
         start_url: str,
         max_depth: int = 2,
@@ -106,7 +106,7 @@ class SiteCrawler:
 
                 # Check robots.txt
                 if robots_parser and not robots_parser.can_fetch("*", url):
-                    logger.debug(f"Robots.txt disallows: {url}")
+                    logger.debug("Robots.txt disallows: %s", url)
                     return
 
                 # Mark as visited
@@ -150,10 +150,10 @@ class SiteCrawler:
                             if link_url not in self.visited_urls:
                                 queue.append((link_url, depth + 1))
 
-                    logger.info(f"Crawled ({depth}): {url} - {len(link_urls)} links")
+                    logger.info("Crawled (%s): %s - %s links", depth, url, len(link_urls))
 
-                except Exception as e:
-                    logger.error(f"Failed to crawl {url}: {e}")
+                except Exception:
+                    logger.exception("Failed to crawl %s", url)
 
         # Process queue
         while queue and len(self.visited_urls) < max_pages:
@@ -168,7 +168,7 @@ class SiteCrawler:
 
         # Generate summary
         duration_ms = int((time.time() - start_time) * 1000)
-        domains = set(urlparse(url).netloc for url in self.visited_urls)
+        domains = {urlparse(url).netloc for url in self.visited_urls}
 
         summary = {
             "total_pages": len(pages),
@@ -178,7 +178,7 @@ class SiteCrawler:
             "max_depth_reached": max(p["depth"] for p in pages) if pages else 0,
         }
 
-        logger.info(f"Crawl complete: {len(pages)} pages, {len(self.link_graph)} nodes in graph")
+        logger.info("Crawl complete: %s pages, %s nodes in graph", len(pages), len(self.link_graph))
 
         return pages, summary
 
@@ -195,9 +195,9 @@ class SiteCrawler:
                 parser = RobotFileParser()
                 parser.parse(response.text.splitlines())
 
-                logger.debug(f"Loaded robots.txt from {robots_url}")
+                logger.debug("Loaded robots.txt from %s", robots_url)
                 return parser
 
         except Exception as e:
-            logger.debug(f"Could not fetch robots.txt from {robots_url}: {e}")
+            logger.debug("Could not fetch robots.txt from %s: %s", robots_url, e)
             return None

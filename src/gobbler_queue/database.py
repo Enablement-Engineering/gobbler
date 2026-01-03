@@ -158,10 +158,7 @@ class Database:
                 print(row["status"])
         """
         with self.connect() as conn:
-            if params:
-                cursor = conn.execute(query, params)
-            else:
-                cursor = conn.execute(query)
+            cursor = conn.execute(query, params) if params else conn.execute(query)
             return cursor.fetchone()
 
     def fetch_all(
@@ -188,10 +185,7 @@ class Database:
                 print(row["id"], row["command"])
         """
         with self.connect() as conn:
-            if params:
-                cursor = conn.execute(query, params)
-            else:
-                cursor = conn.execute(query)
+            cursor = conn.execute(query, params) if params else conn.execute(query)
             return cursor.fetchall()
 
     def close(self) -> None:

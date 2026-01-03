@@ -55,13 +55,14 @@ def _run_cli(cmd: list[str], timeout: int = 3600) -> tuple[bool, str]:
                 False,
                 result.stderr.strip() or f"Command failed with exit code {result.returncode}",
             )
-        return True, result.stdout
     except subprocess.TimeoutExpired:
         return False, f"Command timed out after {timeout} seconds"
     except FileNotFoundError:
         return False, "gobbler CLI not found. Ensure it's installed and in PATH."
     except Exception as e:
         return False, f"Failed to run command: {e!s}"
+    else:
+        return True, result.stdout
 
 
 def _parse_json_output(output: str) -> dict:
@@ -130,8 +131,9 @@ def _format_batch_report(data: dict) -> str:
                 lines.append(f"{i}. {source} -> {output}")
             else:
                 lines.append(f"{i}. {item}")
-        if len(success_details) > 10:
-            lines.append(f"... and {len(success_details) - 10} more")
+        max_display = 10
+        if len(success_details) > max_display:
+            lines.append(f"... and {len(success_details) - max_display} more")
         lines.append("")
 
     # Show failed items
@@ -145,8 +147,9 @@ def _format_batch_report(data: dict) -> str:
                 lines.append(f"{i}. {source} - {error}")
             else:
                 lines.append(f"{i}. {item}")
-        if len(failures) > 10:
-            lines.append(f"... and {len(failures) - 10} more")
+        max_display = 10
+        if len(failures) > max_display:
+            lines.append(f"... and {len(failures) - max_display} more")
         lines.append("")
 
     # Output location
@@ -157,7 +160,7 @@ def _format_batch_report(data: dict) -> str:
     return "\n".join(lines)
 
 
-def register_tools(mcp: FastMCP):
+def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
     """Register batch processing tools with the MCP server."""
 
     @mcp.tool()
@@ -221,7 +224,7 @@ def register_tools(mcp: FastMCP):
         return _format_batch_report(data)
 
     @mcp.tool()
-    async def batch_fetch_webpages(
+    async def batch_fetch_webpages(  # noqa: PLR0911
         urls: list[str],
         output_dir: str,
         timeout: int = 30,
@@ -249,7 +252,10 @@ def register_tools(mcp: FastMCP):
             return "Error: urls list cannot be empty"
 
         if len(urls) > MAX_BATCH_URLS:
-            return f"Error: Maximum {MAX_BATCH_URLS} URLs per batch. Please split into smaller batches."
+            return (
+                f"Error: Maximum {MAX_BATCH_URLS} URLs per batch. "
+                "Please split into smaller batches."
+            )
 
         if timeout < MIN_TIMEOUT or timeout > MAX_TIMEOUT:
             return f"Error: timeout must be between {MIN_TIMEOUT} and {MAX_TIMEOUT} seconds"

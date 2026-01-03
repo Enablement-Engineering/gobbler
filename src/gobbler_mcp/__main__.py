@@ -1,8 +1,11 @@
 """Entry point for Gobbler MCP server."""
 
+import logging
 import sys
 
 from .server import mcp
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -10,10 +13,10 @@ def main() -> None:
     try:
         mcp.run()
     except KeyboardInterrupt:
-        print("\nShutting down...", file=sys.stderr)
+        logger.info("Shutting down...")
         sys.exit(0)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+    except Exception:
+        logger.exception("Error running MCP server")
         sys.exit(1)
 
 

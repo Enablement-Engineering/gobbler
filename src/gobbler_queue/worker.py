@@ -56,7 +56,7 @@ class Worker:
         """
         if manager is None:
             # Lazy import to avoid circular imports
-            from .manager import JobManager
+            from .manager import JobManager  # noqa: PLC0415
 
             self.manager = JobManager()
         else:
@@ -102,8 +102,8 @@ class Worker:
                         self.running = False
                         break
 
-                except Exception as e:
-                    logger.exception("Error in worker loop: %s", e)
+                except Exception:
+                    logger.exception("Error in worker loop")
                     time.sleep(self.poll_interval)
         finally:
             logger.info("Worker stopped")
@@ -140,9 +140,9 @@ class Worker:
 
         try:
             self._execute_job(job)
-        except Exception as e:
-            logger.exception("Failed to execute job %s: %s", job.id, e)
-            self._fail_job(job.id, str(e))
+        except Exception:
+            logger.exception("Failed to execute job %s", job.id)
+            self._fail_job(job.id, "Job execution failed")
         finally:
             self._current_job_id = None
             self.current_process = None
@@ -182,7 +182,7 @@ class Worker:
         Args:
             job: The Job to execute.
         """
-        import shlex
+        import shlex  # noqa: PLC0415
 
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
@@ -235,9 +235,9 @@ class Worker:
 
             # Read any remaining stdout
             if self.current_process.stdout:
-                for line in self.current_process.stdout:
-                    line = line.rstrip("\n")
-                    self._process_output_line(job.id, line, stdout_lines)
+                for remaining_line in self.current_process.stdout:
+                    stripped_line = remaining_line.rstrip("\n")
+                    self._process_output_line(job.id, stripped_line, stdout_lines)
 
             # Read all stderr
             if self.current_process.stderr:
@@ -256,9 +256,9 @@ class Worker:
                 error_msg = "\n".join(stderr_lines) if stderr_lines else f"Exit code: {return_code}"
                 self._fail_job(job.id, error_msg)
 
-        except Exception as e:
-            logger.exception("Error executing job %s: %s", job.id, e)
-            self._fail_job(job.id, str(e))
+        except Exception:
+            logger.exception("Error executing job %s", job.id)
+            self._fail_job(job.id, "Error during job execution")
 
     def _process_output_line(
         self,
@@ -314,7 +314,7 @@ class Worker:
         signal.signal(signal.SIGTERM, self._handle_sigterm)
         signal.signal(signal.SIGINT, self._handle_sigint)
 
-    def _handle_sigterm(self, signum: int, frame) -> None:
+    def _handle_sigterm(self, signum: int, frame) -> None:  # noqa: ARG002
         """Handle SIGTERM - finish current job, then exit.
 
         Args:
@@ -328,7 +328,7 @@ class Worker:
         if not self.current_process:
             self.running = False
 
-    def _handle_sigint(self, signum: int, frame) -> None:
+    def _handle_sigint(self, signum: int, frame) -> None:  # noqa: ARG002
         """Handle SIGINT (Ctrl+C) - immediate stop.
 
         Terminates any running subprocess and exits immediately.

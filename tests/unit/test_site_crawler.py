@@ -1,5 +1,6 @@
 """Unit tests for site crawler."""
 
+import contextlib
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.robotparser import RobotFileParser
 
@@ -75,7 +76,7 @@ class TestMaxDepth:
             patch.object(crawler, "_get_robots_parser", return_value=None),
         ):
             # Request depth 10, should be capped to 5
-            pages, summary = await crawler.crawl_site(
+            pages, _summary = await crawler.crawl_site(
                 start_url="https://example.com",
                 max_depth=10,
                 max_pages=1,  # Limit to 1 page to keep test fast
@@ -113,18 +114,18 @@ class TestMaxPages:
     async def test_max_pages_capped_at_500(self, crawler):
         """Test that max_pages is capped at 500."""
         # This is a unit test - just verify the cap is applied
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector") as mock:
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector") as mock,
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
             mock.side_effect = Exception("Stop early")
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                try:
-                    await crawler.crawl_site(
-                        start_url="https://example.com",
-                        max_pages=1000,  # Request 1000
-                        crawl_delay=0,
-                    )
-                except Exception:
-                    pass
-                # The function should have capped to 500 internally
+            with contextlib.suppress(Exception):
+                await crawler.crawl_site(
+                    start_url="https://example.com",
+                    max_pages=1000,  # Request 1000
+                    crawl_delay=0,
+                )
+            # The function should have capped to 500 internally
 
 
 class TestUrlPatterns:
@@ -152,15 +153,17 @@ class TestUrlPatterns:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com/posts/intro",
-                    url_include_pattern=r"/posts/",
-                    max_depth=1,
-                    max_pages=10,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com/posts/intro",
+                url_include_pattern=r"/posts/",
+                max_depth=1,
+                max_pages=10,
+                crawl_delay=0,
+            )
 
         # Should only crawl pages matching /posts/
         for page in pages:
@@ -185,15 +188,17 @@ class TestUrlPatterns:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    url_exclude_pattern=r"/admin/",
-                    max_depth=1,
-                    max_pages=10,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                url_exclude_pattern=r"/admin/",
+                max_depth=1,
+                max_pages=10,
+                crawl_delay=0,
+            )
 
         # Should not crawl pages matching /admin/
         for page in pages:
@@ -208,7 +213,7 @@ class TestRobotsTxt:
         """Test that crawler respects robots.txt disallow rules."""
         # Create a mock robots parser that disallows /private/
         mock_parser = MagicMock(spec=RobotFileParser)
-        mock_parser.can_fetch.side_effect = lambda agent, url: "/private/" not in url
+        mock_parser.can_fetch.side_effect = lambda _agent, url: "/private/" not in url
 
         async def mock_convert(url, **kwargs):
             return (
@@ -225,14 +230,16 @@ class TestRobotsTxt:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=mock_parser):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    respect_robots_txt=True,
-                    max_depth=1,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=mock_parser),
+        ):
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                respect_robots_txt=True,
+                max_depth=1,
+                crawl_delay=0,
+            )
 
         # Should not have crawled /private/ pages
         for page in pages:
@@ -254,15 +261,17 @@ class TestRobotsTxt:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser") as mock_robots,
+        ):
             # _get_robots_parser should not be called
-            with patch.object(crawler, "_get_robots_parser") as mock_robots:
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    respect_robots_txt=False,
-                    max_depth=0,
-                    crawl_delay=0,
-                )
+            _pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                respect_robots_txt=False,
+                max_depth=0,
+                crawl_delay=0,
+            )
 
         # robots parser should not be fetched
         mock_robots.assert_not_called()
@@ -293,14 +302,16 @@ class TestCircularLinks:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=2,
-                    max_pages=10,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            _pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=2,
+                max_pages=10,
+                crawl_delay=0,
+            )
 
         # Each URL should only be visited once
         for url, count in visit_count.items():
@@ -324,14 +335,16 @@ class TestCircularLinks:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=2,
-                    max_pages=10,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=2,
+                max_pages=10,
+                crawl_delay=0,
+            )
 
         # Should only have one page
         assert len(pages) == 1
@@ -350,15 +363,17 @@ class TestConcurrency:
                 {"url": url, "links": {"internal_links": [], "external_links": []}},
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                # Request concurrency 20, should be capped to 10
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    concurrency=20,
-                    max_depth=0,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            # Request concurrency 20, should be capped to 10
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                concurrency=20,
+                max_depth=0,
+                crawl_delay=0,
+            )
 
         # Should still work (capped internally)
         assert len(pages) == 1
@@ -386,14 +401,16 @@ class TestCrossDomain:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=1,
-                    max_pages=10,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=1,
+                max_pages=10,
+                crawl_delay=0,
+            )
 
         # All pages should be on example.com
         for page in pages:
@@ -425,13 +442,15 @@ class TestLinkGraph:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=1,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            _pages, summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=1,
+                crawl_delay=0,
+            )
 
         link_graph = summary["link_graph"]
         assert "https://example.com" in link_graph
@@ -487,7 +506,8 @@ class TestCrawlErrors:
             nonlocal call_count
             call_count += 1
             if "fail" in url:
-                raise Exception("Page load failed")
+                msg = "Page load failed"
+                raise RuntimeError(msg)
             return (
                 f"# Content from {url}",
                 {
@@ -502,13 +522,15 @@ class TestCrawlErrors:
                 },
             )
 
-        with patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert):
-            with patch.object(crawler, "_get_robots_parser", return_value=None):
-                pages, summary = await crawler.crawl_site(
-                    start_url="https://example.com",
-                    max_depth=1,
-                    crawl_delay=0,
-                )
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.convert_webpage_with_selector", mock_convert),
+            patch.object(crawler, "_get_robots_parser", return_value=None),
+        ):
+            pages, _summary = await crawler.crawl_site(
+                start_url="https://example.com",
+                max_depth=1,
+                crawl_delay=0,
+            )
 
         # Should have crawled start page and success page
         assert len(pages) >= 1
@@ -529,7 +551,7 @@ class TestSummary:
             ),
             patch.object(crawler, "_get_robots_parser", return_value=None),
         ):
-            pages, summary = await crawler.crawl_site(
+            _pages, summary = await crawler.crawl_site(
                 start_url="https://example.com",
                 max_depth=0,
                 crawl_delay=0,

@@ -19,7 +19,7 @@ from ..constants import DEFAULT_SCRIPT_TIMEOUT, MAX_SCRIPT_TIMEOUT, MIN_SCRIPT_T
 logger = logging.getLogger(__name__)
 
 
-def register_tools(mcp: FastMCP):
+def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
     """Register browser automation tools with the MCP server."""
 
     @mcp.tool()
@@ -33,10 +33,13 @@ def register_tools(mcp: FastMCP):
             Connection status message
         """
         try:
-            from gobbler_relay.client import check_connection
+            from gobbler_relay.client import check_connection  # noqa: PLC0415
 
             status = await check_connection()
-
+        except Exception as e:
+            logger.exception("Error checking browser connection")
+            return f"Failed to check browser connection: {e!s}"
+        else:
             if status.get("status") == "ok":
                 conn_count = status.get("websocket_connections", 0)
                 if conn_count > 0:
@@ -53,9 +56,6 @@ def register_tools(mcp: FastMCP):
                 "The relay should start automatically. If it doesn't, run:\n"
                 "  python -m gobbler_relay.relay --daemon"
             )
-        except Exception as e:
-            logger.error(f"Error checking browser connection: {e}", exc_info=True)
-            return f"Failed to check browser connection: {e!s}"
 
     @mcp.tool()
     async def browser_navigate_to_url(url: str, wait_for_load: bool = True) -> str:
@@ -71,12 +71,12 @@ def register_tools(mcp: FastMCP):
         Returns:
             Success message with the URL navigated to
         """
-        try:
-            from gobbler_relay.client import send_command
+        # Validate URL
+        if not url.startswith(("http://", "https://")):
+            return "Error: URL must start with http:// or https://"
 
-            # Validate URL
-            if not url.startswith(("http://", "https://")):
-                return "Error: URL must start with http:// or https://"
+        try:
+            from gobbler_relay.client import send_command  # noqa: PLC0415
 
             # Send navigation command via HTTP client
             result = await send_command(
@@ -84,17 +84,16 @@ def register_tools(mcp: FastMCP):
                 params={"url": url, "wait_for_load": wait_for_load},
                 timeout=60.0,  # Long timeout for page loads
             )
-
+        except RuntimeError as e:
+            return str(e)
+        except Exception as e:
+            logger.exception("Error navigating browser")
+            return f"Failed to navigate browser: {e!s}"
+        else:
             if result.get("success"):
                 return f"Successfully navigated to: {url}"
             error = result.get("error", "Unknown error")
             return f"Failed to navigate: {error}"
-
-        except RuntimeError as e:
-            return str(e)
-        except Exception as e:
-            logger.error(f"Error navigating browser: {e}", exc_info=True)
-            return f"Failed to navigate browser: {e!s}"
 
     @mcp.tool()
     async def browser_execute_script(script: str, timeout: int = DEFAULT_SCRIPT_TIMEOUT) -> str:
@@ -116,21 +115,34 @@ def register_tools(mcp: FastMCP):
             browser_execute_script("document.title")
 
             Scroll and wait:
-            browser_execute_script("(async () => { window.scrollTo(0, document.body.scrollHeight); await new Promise(r => setTimeout(r, 1000)); return {scrolled: true}; })()")
+            browser_execute_script(
+                "(async () => { window.scrollTo(0, document.body.scrollHeight); "
+                "await new Promise(r => setTimeout(r, 1000)); return {scrolled: true}; })()"
+            )
 
             Extract data:
-            browser_execute_script("Array.from(document.querySelectorAll('h1')).map(h => h.textContent)")
+            browser_execute_script(
+                "Array.from(document.querySelectorAll('h1')).map(h => h.textContent)"
+            )
         """
-        try:
-            from gobbler_relay.client import execute_script
+        # Validate timeout
+        if timeout < MIN_SCRIPT_TIMEOUT or timeout > MAX_SCRIPT_TIMEOUT:
+            return (
+                f"Error: timeout must be between {MIN_SCRIPT_TIMEOUT} "
+                f"and {MAX_SCRIPT_TIMEOUT} seconds"
+            )
 
-            # Validate timeout
-            if timeout < MIN_SCRIPT_TIMEOUT or timeout > MAX_SCRIPT_TIMEOUT:
-                return f"Error: timeout must be between {MIN_SCRIPT_TIMEOUT} and {MAX_SCRIPT_TIMEOUT} seconds"
+        try:
+            from gobbler_relay.client import execute_script  # noqa: PLC0415
 
             # Send script execution command via HTTP client
             result = await execute_script(script=script, timeout=float(timeout))
-
+        except RuntimeError as e:
+            return str(e)
+        except Exception as e:
+            logger.exception("Error executing script")
+            return f"Failed to execute script: {e!s}"
+        else:
             if result.get("success"):
                 # Return the result as JSON
                 script_result = result.get("result")
@@ -144,12 +156,6 @@ def register_tools(mcp: FastMCP):
             error = result.get("error", "Unknown error")
             return f"Script execution failed: {error}"
 
-        except RuntimeError as e:
-            return str(e)
-        except Exception as e:
-            logger.error(f"Error executing script: {e}", exc_info=True)
-            return f"Failed to execute script: {e!s}"
-
     @mcp.tool()
     async def browser_extract_current_page(selector: str | None = None) -> str:
         """Extract the current page's content as markdown.
@@ -159,52 +165,58 @@ def register_tools(mcp: FastMCP):
         a specific part of the page.
 
         Args:
-            selector: Optional CSS selector to extract specific content (e.g., "article.main", ".content")
+            selector: CSS selector to extract specific content (e.g., "article.main")
 
         Returns:
             Markdown text with YAML frontmatter containing page metadata
         """
         try:
-            from gobbler_relay.client import extract_page
+            from gobbler_relay.client import extract_page  # noqa: PLC0415
 
             # Send extraction command via HTTP client
             result = await extract_page(selector=selector)
-
-            if result.get("success"):
-                markdown = result.get("markdown", "")
-                return markdown
-            error = result.get("error", "Unknown error")
-            return f"Failed to extract page: {error}"
-
         except RuntimeError as e:
             return str(e)
         except Exception as e:
-            logger.error(f"Error extracting page: {e}", exc_info=True)
+            logger.exception("Error extracting page")
             return f"Failed to extract page: {e!s}"
+        else:
+            if result.get("success"):
+                return result.get("markdown", "")
+            error = result.get("error", "Unknown error")
+            return f"Failed to extract page: {error}"
 
     @mcp.tool()
-    async def browser_list_tabs(filter: str | None = None) -> str:
+    async def browser_list_tabs(filter_type: str | None = None) -> str:
         """List all tabs in the Gobbler tab group with their IDs, titles, and URLs.
 
         Returns a list of tabs that Claude can interact with. Only tabs in the
         Gobbler group are accessible for security.
 
         Args:
-            filter: Optional filter - use 'notebooklm' to only show NotebookLM tabs
+            filter_type: Optional filter - use 'notebooklm' to only show NotebookLM tabs
 
         Returns:
             JSON list of tabs with tabId, title, url, and isActive fields
         """
         try:
-            from gobbler_relay.client import list_tabs
+            from gobbler_relay.client import list_tabs  # noqa: PLC0415
 
             # Send list tabs command via HTTP client
-            result = await list_tabs(filter_type=filter)
-
+            result = await list_tabs(filter_type=filter_type)
+        except RuntimeError as e:
+            return str(e)
+        except Exception as e:
+            logger.exception("Error listing tabs")
+            return f"Failed to list tabs: {e!s}"
+        else:
             if result.get("success"):
                 tabs = result.get("tabs", [])
                 if not tabs:
-                    return "No tabs in Gobbler group. Add tabs via extension popup or right-click menu."
+                    return (
+                        "No tabs in Gobbler group. "
+                        "Add tabs via extension popup or right-click menu."
+                    )
 
                 # Format as readable output
                 lines = [f"Found {len(tabs)} tab(s) in Gobbler group:\n"]
@@ -215,12 +227,6 @@ def register_tools(mcp: FastMCP):
                 return "\n".join(lines)
             error = result.get("error", "Unknown error")
             return f"Failed to list tabs: {error}"
-
-        except RuntimeError as e:
-            return str(e)
-        except Exception as e:
-            logger.error(f"Error listing tabs: {e}", exc_info=True)
-            return f"Failed to list tabs: {e!s}"
 
     @mcp.tool()
     async def browser_execute_script_in_tab(
@@ -240,17 +246,22 @@ def register_tools(mcp: FastMCP):
         Returns:
             JSON-serialized result of the script execution, or error message
         """
-        try:
-            from gobbler_relay.client import execute_script_in_tab
+        # Validate timeout
+        timeout = min(max(timeout, MIN_SCRIPT_TIMEOUT), MAX_SCRIPT_TIMEOUT)
 
-            # Validate timeout
-            timeout = min(max(timeout, MIN_SCRIPT_TIMEOUT), MAX_SCRIPT_TIMEOUT)
+        try:
+            from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
             # Send command via HTTP client
             result = await execute_script_in_tab(
                 tab_id=tab_id, script=script, timeout=float(timeout)
             )
-
+        except RuntimeError as e:
+            return str(e)
+        except Exception as e:
+            logger.exception("Error executing script in tab")
+            return f"Failed to execute script in tab: {e!s}"
+        else:
             if result.get("success"):
                 script_result = result.get("result")
                 executed_tab_id = result.get("tabId")
@@ -265,9 +276,3 @@ def register_tools(mcp: FastMCP):
                 return str(script_result)
             error = result.get("error", "Unknown error")
             return f"Script execution failed: {error}"
-
-        except RuntimeError as e:
-            return str(e)
-        except Exception as e:
-            logger.error(f"Error executing script in tab: {e}", exc_info=True)
-            return f"Failed to execute script in tab: {e!s}"

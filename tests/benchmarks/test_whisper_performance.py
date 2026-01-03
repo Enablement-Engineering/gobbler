@@ -9,16 +9,17 @@ import pytest
 class TestWhisperPerformance:
     """Benchmark Whisper transcription performance."""
 
+    @pytest.mark.usefixtures("benchmark")
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.audio._get_whisper_model")
     @patch("gobbler_core.converters.audio.os.path.getsize")
     @patch("gobbler_core.converters.audio.validate_input_path")
     @patch("gobbler_core.converters.audio.get_file_extension")
     async def test_transcription_speed_benchmark(
-        self, mock_ext, mock_validate, mock_getsize, mock_get_model, benchmark
+        self, mock_ext, mock_validate, mock_getsize, mock_get_model
     ):
         """Benchmark transcription speed with mocked model."""
-        from gobbler_core.converters.audio import convert_audio_to_markdown
+        from gobbler_core.converters.audio import convert_audio_to_markdown  # noqa: PLC0415
 
         # Mock setup
         mock_validate.return_value = None
@@ -35,13 +36,15 @@ class TestWhisperPerformance:
         mock_get_model.return_value = mock_model
 
         # Benchmark the conversion
+        test_file = "/tmp/test.mp3"  # noqa: S108
+
         async def run_transcription():
-            return await convert_audio_to_markdown("/tmp/test.mp3", model="tiny")
+            return await convert_audio_to_markdown(test_file, model="tiny")
 
         # Note: pytest-benchmark doesn't directly support async,
         # so we'll document expected performance instead
         result = await run_transcription()
-        markdown, metadata = result
+        _markdown, metadata = result
 
         # Performance expectations documented:
         # - Tiny model: < 1 second per minute of audio

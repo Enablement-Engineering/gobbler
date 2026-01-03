@@ -40,19 +40,15 @@ from gobbler_relay.relay import (
 )
 
 __all__ = [
-    # Core server
-    "start_relay_server",
-    "create_app",
-    # Daemon management
-    "ensure_relay_running",
-    "start_relay_daemon",
-    "stop_relay_daemon",
-    "is_relay_healthy",
-    # In-process communication (for tests/direct use)
-    "send_command_to_extension",
-    "websocket_connections",
-    "pending_commands",
-    # Constants
     "DEFAULT_HOST",
     "DEFAULT_PORT",
+    "create_app",
+    "ensure_relay_running",
+    "is_relay_healthy",
+    "pending_commands",
+    "send_command_to_extension",
+    "start_relay_daemon",
+    "start_relay_server",
+    "stop_relay_daemon",
+    "websocket_connections",
 ]

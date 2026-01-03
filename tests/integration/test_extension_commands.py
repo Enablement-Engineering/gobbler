@@ -3,6 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["websockets>=12.0"]
 # ///
+# ruff: noqa: T201, PLR0915
 """
 Test Gobbler browser extension commands via WebSocket.
 
@@ -13,12 +14,13 @@ and attempts to send commands, just like the browser extension would.
 import asyncio
 import json
 import sys
+import traceback
 import uuid
 
 import websockets
 
 
-async def send_command(websocket, command: str, params: dict = None, timeout: float = 10.0):
+async def send_command(websocket, command: str, params: dict | None = None, timeout: float = 10.0):
     """Send a command to the server and wait for response from extension."""
     command_id = str(uuid.uuid4())
 
@@ -141,8 +143,6 @@ async def test_commands():
 
     except Exception as e:
         print(f"✗ Error: {e}")
-        import traceback
-
         traceback.print_exc()
         return False
 

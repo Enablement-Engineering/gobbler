@@ -37,14 +37,12 @@ from gobbler_core.providers.youtube import (
 )
 
 __all__ = [
-    # Version
-    "__version__",
-    # YouTube providers
-    "TranscriptProvider",
-    "TranscriptSegment",
-    "TranscriptResult",
-    "YouTubeTranscriptAPIProvider",
-    "TranscriptAPIProvider",
     "AutoFallbackProvider",
+    "TranscriptAPIProvider",
+    "TranscriptProvider",
+    "TranscriptResult",
+    "TranscriptSegment",
+    "YouTubeTranscriptAPIProvider",
+    "__version__",
     "create_provider",
 ]

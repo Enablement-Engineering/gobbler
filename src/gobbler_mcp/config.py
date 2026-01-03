@@ -3,7 +3,7 @@
 import logging
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import yaml
 
@@ -14,7 +14,7 @@ class Config:
     """Configuration loader and manager."""
 
     # Default configuration
-    DEFAULTS: dict[str, Any] = {
+    DEFAULTS: ClassVar[dict[str, Any]] = {
         "whisper": {
             "model": "small",
             "language": "auto",
@@ -91,17 +91,17 @@ class Config:
         # Try to load user config
         if self.config_path.exists():
             try:
-                with open(self.config_path) as f:
+                with self.config_path.open() as f:
                     user_config = yaml.safe_load(f)
                     if user_config:
                         # Deep merge user config over defaults
                         config = self._deep_merge(config, user_config)
-                        logger.info(f"Loaded configuration from {self.config_path}")
-            except Exception as e:
-                logger.warning(f"Failed to load config from {self.config_path}: {e}")
+                        logger.info("Loaded configuration from %s", self.config_path)
+            except Exception:
+                logger.warning("Failed to load config from %s", self.config_path, exc_info=True)
                 logger.info("Using default configuration")
         else:
-            logger.info(f"No config file found at {self.config_path}, using defaults")
+            logger.info("No config file found at %s, using defaults", self.config_path)
 
         return config
 
@@ -167,18 +167,19 @@ class Config:
             # Load new config
             try:
                 new_config = self._load_config()
-            except Exception as e:
-                logger.error(f"Failed to load config during reload: {e}")
+            except Exception:
+                logger.exception("Failed to load config during reload")
                 return
 
             # Validate new config
-            from .config_watcher import ConfigWatcher
+            from .config_watcher import ConfigWatcher  # noqa: PLC0415
 
             validation_errors = ConfigWatcher.validate_config(new_config)
             if validation_errors:
+                error_list = "\n".join(f"  - {err}" for err in validation_errors)
                 logger.error(
-                    "Config validation failed. Keeping current config. Errors:\n"
-                    + "\n".join(f"  - {err}" for err in validation_errors)
+                    "Config validation failed. Keeping current config. Errors:\n%s",
+                    error_list,
                 )
                 return
 
@@ -186,14 +187,14 @@ class Config:
             changes = self._detect_changes(self.data, new_config)
 
             # Apply new config atomically
-            old_config = self.data
             self.data = new_config
 
             # Log reload success
             if changes:
+                change_list = "\n".join(f"  - {change}" for change in changes)
                 logger.info(
-                    "Configuration reloaded successfully. Changes:\n"
-                    + "\n".join(f"  - {change}" for change in changes)
+                    "Configuration reloaded successfully. Changes:\n%s",
+                    change_list,
                 )
             else:
                 logger.info("Configuration reloaded (no changes detected)")
@@ -226,10 +227,10 @@ class Config:
                 changes.append(f"{full_key}: {old_value} → {new[key]}")
 
         # Check for new keys
-        for key in new:
+        for key, value in new.items():
             if key not in old:
                 full_key = f"{prefix}.{key}" if prefix else key
-                changes.append(f"{full_key} added: {new[key]}")
+                changes.append(f"{full_key} added: {value}")
 
         return changes
 
@@ -246,7 +247,7 @@ class Config:
             logger.warning("Config hot-reload already enabled")
             return
 
-        from .config_watcher import ConfigWatcher
+        from .config_watcher import ConfigWatcher  # noqa: PLC0415
 
         self._watcher = ConfigWatcher(
             config_path=self.config_path,
@@ -273,7 +274,7 @@ def get_config() -> Config:
     Returns:
         Config instance
     """
-    global _config
+    global _config  # noqa: PLW0603
     if _config is None:
         _config = Config()
     return _config

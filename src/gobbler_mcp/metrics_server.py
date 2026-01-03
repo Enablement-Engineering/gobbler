@@ -11,11 +11,11 @@ from .metrics import get_metrics
 logger = logging.getLogger(__name__)
 
 
-async def metrics_handler(request: web.Request) -> web.Response:
+async def metrics_handler(_request: web.Request) -> web.Response:
     """Handle /metrics endpoint for Prometheus scraping.
 
     Args:
-        request: aiohttp request object
+        _request: aiohttp request object (unused)
 
     Returns:
         Response with Prometheus metrics
@@ -27,16 +27,16 @@ async def metrics_handler(request: web.Request) -> web.Response:
         # aiohttp wants content_type without charset (charset is separate param)
         content_type = content_type_full.split(";")[0].strip()
         return web.Response(body=metrics_data, content_type=content_type, charset="utf-8")
-    except Exception as e:
-        logger.error(f"Error generating metrics: {e}")
+    except Exception:
+        logger.exception("Error generating metrics")
         return web.Response(text="Error generating metrics", status=500)
 
 
-async def health_handler(request: web.Request) -> web.Response:
+async def health_handler(_request: web.Request) -> web.Response:
     """Handle /health endpoint for health checks.
 
     Args:
-        request: aiohttp request object
+        _request: aiohttp request object (unused)
 
     Returns:
         JSON response with health status
@@ -84,17 +84,17 @@ class MetricsServer:
             self.site = web.TCPSite(self.runner, self.host, self.port)
             await self.site.start()
 
-            logger.info(f"Metrics server started on http://{self.host}:{self.port}")
-            logger.info(f"  - Metrics: http://{self.host}:{self.port}/metrics")
-            logger.info(f"  - Health:  http://{self.host}:{self.port}/health")
+            logger.info("Metrics server started on http://%s:%d", self.host, self.port)
+            logger.info("  - Metrics: http://%s:%d/metrics", self.host, self.port)
+            logger.info("  - Health:  http://%s:%d/health", self.host, self.port)
 
             # Wait for stop signal
             if self._stop_event:
                 while not self._stop_event.is_set():
                     await asyncio.sleep(0.1)
 
-        except Exception as e:
-            logger.error(f"Metrics server error: {e}")
+        except Exception:
+            logger.exception("Metrics server error")
             raise
 
     def _run_in_thread(self) -> None:
@@ -105,8 +105,8 @@ class MetricsServer:
 
         try:
             self._loop.run_until_complete(self._run_server())
-        except Exception as e:
-            logger.error(f"Metrics server thread error: {e}")
+        except Exception:
+            logger.exception("Metrics server thread error")
         finally:
             # Cleanup
             if self._loop and not self._loop.is_closed():
@@ -123,7 +123,7 @@ class MetricsServer:
         self._thread.start()
 
         # Give server a moment to start
-        import time
+        import time  # noqa: PLC0415
 
         time.sleep(0.5)
 
@@ -170,9 +170,9 @@ def get_metrics_server() -> MetricsServer:
     Returns:
         MetricsServer instance
     """
-    global _metrics_server
+    global _metrics_server  # noqa: PLW0603
     if _metrics_server is None:
-        from .config import get_config
+        from .config import get_config  # noqa: PLC0415
 
         config = get_config()
         host = config.get("monitoring.metrics_host", "0.0.0.0")  # noqa: S104  # nosec B104

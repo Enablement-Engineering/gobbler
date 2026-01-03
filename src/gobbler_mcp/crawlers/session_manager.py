@@ -18,7 +18,7 @@ class SessionManager:
         config_dir = Path(config.config_path).parent
         self.sessions_dir = config_dir / "sessions"
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Session storage directory: {self.sessions_dir}")
+        logger.debug("Session storage directory: %s", self.sessions_dir)
 
     async def create_session(
         self,
@@ -67,11 +67,17 @@ class SessionManager:
         session_file = self.sessions_dir / f"{session_id}.json"
 
         try:
-            with open(session_file, "w") as f:
+            with session_file.open("w") as f:
                 json.dump(session_data, f, indent=2)
-
+        except Exception as e:
+            logger.exception("Failed to create session '%s'", session_id)
+            msg = f"Failed to save session: {e}"
+            raise RuntimeError(msg) from e
+        else:
             logger.info(
-                f"Created session '{session_id}' with {len(session_data['cookies'])} cookies"
+                "Created session '%s' with %d cookies",
+                session_id,
+                len(session_data["cookies"]),
             )
 
             return {
@@ -81,10 +87,6 @@ class SessionManager:
                 "local_storage_keys": list(session_data["local_storage"].keys()),
                 "has_user_agent": user_agent is not None,
             }
-
-        except Exception as e:
-            logger.error(f"Failed to create session '{session_id}': {e}")
-            raise RuntimeError(f"Failed to save session: {e}")
 
     async def load_session(self, session_id: str) -> dict:
         """Load session from disk.
@@ -101,21 +103,24 @@ class SessionManager:
         session_file = self.sessions_dir / f"{session_id}.json"
 
         if not session_file.exists():
-            raise FileNotFoundError(f"Session '{session_id}' not found")
+            msg = f"Session '{session_id}' not found"
+            raise FileNotFoundError(msg)
 
         try:
-            with open(session_file) as f:
+            with session_file.open() as f:
                 session_data = json.load(f)
-
+        except json.JSONDecodeError as e:
+            logger.exception("Failed to parse session '%s'", session_id)
+            msg = f"Invalid session file: {e}"
+            raise RuntimeError(msg) from e
+        else:
             logger.info(
-                f"Loaded session '{session_id}' with {len(session_data.get('cookies', []))} cookies"
+                "Loaded session '%s' with %d cookies",
+                session_id,
+                len(session_data.get("cookies", [])),
             )
 
             return session_data
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse session '{session_id}': {e}")
-            raise RuntimeError(f"Invalid session file: {e}")
 
     async def list_sessions(self) -> list[str]:
         """List all saved session IDs.
@@ -126,7 +131,7 @@ class SessionManager:
         session_files = self.sessions_dir.glob("*.json")
         session_ids = [f.stem for f in session_files]
 
-        logger.debug(f"Found {len(session_ids)} sessions")
+        logger.debug("Found %d sessions", len(session_ids))
         return sorted(session_ids)
 
     async def delete_session(self, session_id: str) -> bool:
@@ -141,17 +146,18 @@ class SessionManager:
         session_file = self.sessions_dir / f"{session_id}.json"
 
         if not session_file.exists():
-            logger.warning(f"Session '{session_id}' not found for deletion")
+            logger.warning("Session '%s' not found for deletion", session_id)
             return False
 
         try:
             session_file.unlink()
-            logger.info(f"Deleted session '{session_id}'")
-            return True
-
         except Exception as e:
-            logger.error(f"Failed to delete session '{session_id}': {e}")
-            raise RuntimeError(f"Failed to delete session: {e}")
+            logger.exception("Failed to delete session '%s'", session_id)
+            msg = f"Failed to delete session: {e}"
+            raise RuntimeError(msg) from e
+        else:
+            logger.info("Deleted session '%s'", session_id)
+            return True
 
     async def update_session(
         self,
@@ -192,10 +198,14 @@ class SessionManager:
         session_file = self.sessions_dir / f"{session_id}.json"
 
         try:
-            with open(session_file, "w") as f:
+            with session_file.open("w") as f:
                 json.dump(session_data, f, indent=2)
-
-            logger.info(f"Updated session '{session_id}'")
+        except Exception as e:
+            logger.exception("Failed to update session '%s'", session_id)
+            msg = f"Failed to update session: {e}"
+            raise RuntimeError(msg) from e
+        else:
+            logger.info("Updated session '%s'", session_id)
 
             return {
                 "session_id": session_id,
@@ -204,7 +214,3 @@ class SessionManager:
                 "local_storage_keys": list(session_data["local_storage"].keys()),
                 "has_user_agent": session_data.get("user_agent") is not None,
             }
-
-        except Exception as e:
-            logger.error(f"Failed to update session '{session_id}': {e}")
-            raise RuntimeError(f"Failed to update session: {e}")

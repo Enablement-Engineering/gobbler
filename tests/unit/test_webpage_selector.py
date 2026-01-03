@@ -88,7 +88,7 @@ async def test_convert_webpage_with_extracted_content(mock_crawl4ai_response):
 
         setup_mock_client(client_instance, response_with_extracted)
 
-        markdown, metadata = await convert_webpage_with_selector(
+        markdown, _metadata = await convert_webpage_with_selector(
             url="https://example.com", css_selector="article"
         )
 
@@ -120,7 +120,7 @@ async def test_convert_webpage_with_link_extraction(mock_crawl4ai_response):
 
         setup_mock_client(client_instance, response_with_html)
 
-        markdown, metadata = await convert_webpage_with_selector(
+        _markdown, metadata = await convert_webpage_with_selector(
             url="https://example.com", extract_links=True
         )
 
@@ -152,7 +152,7 @@ async def test_convert_webpage_with_session(mock_crawl4ai_response):
         mock_client.return_value.__aenter__.return_value = client_instance
         setup_mock_client(client_instance, mock_crawl4ai_response)
 
-        markdown, metadata = await convert_webpage_with_selector(
+        _markdown, metadata = await convert_webpage_with_selector(
             url="https://example.com", session_id="test-session"
         )
 
@@ -252,7 +252,7 @@ async def test_convert_webpage_without_images(mock_crawl4ai_response):
 
         setup_mock_client(client_instance, response_with_images)
 
-        markdown, metadata = await convert_webpage_with_selector(
+        markdown, _metadata = await convert_webpage_with_selector(
             url="https://example.com", include_images=False
         )
 

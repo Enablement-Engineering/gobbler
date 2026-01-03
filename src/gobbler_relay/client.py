@@ -39,9 +39,10 @@ def is_port_in_use(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST) -> bool:
         try:
             s.settimeout(1)
             s.connect((host, port))
-            return True
         except (ConnectionRefusedError, TimeoutError, OSError):
             return False
+        else:
+            return True
 
 
 async def is_relay_running(
@@ -57,10 +58,11 @@ async def is_relay_running(
     Returns:
         True if relay is running and responding, False otherwise
     """
+    http_ok = 200
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(f"{get_relay_url(host, port)}/health")
-            return response.status_code == 200
+            return response.status_code == http_ok
     except (httpx.ConnectError, httpx.TimeoutException):
         return False
 
@@ -89,7 +91,7 @@ async def ensure_relay_running(
         return True
 
     # Lazy import to avoid circular imports
-    from gobbler_relay.relay import start_relay_daemon
+    from gobbler_relay.relay import start_relay_daemon  # noqa: PLC0415
 
     # Start the relay daemon
     start_relay_daemon(host, port)
@@ -101,9 +103,10 @@ async def ensure_relay_running(
         if await is_relay_running(host, port):
             return True
 
-    raise RuntimeError(
+    msg = (
         f"Failed to start relay server within {timeout} seconds. Check if port {port} is available."
     )
+    raise RuntimeError(msg)
 
 
 async def get_connection_count(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
@@ -125,8 +128,9 @@ async def get_connection_count(host: str = DEFAULT_HOST, port: int = DEFAULT_POR
             response.raise_for_status()
             data = response.json()
             return data.get("websocket_connections", 0)
-        except httpx.ConnectError:
-            raise RuntimeError("Relay server is not running")
+        except httpx.ConnectError as err:
+            msg = "Relay server is not running"
+            raise RuntimeError(msg) from err
 
 
 async def send_command(
@@ -168,7 +172,8 @@ async def send_command(
                 },
             )
 
-            if response.status_code == 503:
+            http_unavailable = 503
+            if response.status_code == http_unavailable:
                 # Service unavailable - likely no extension connected
                 error_data = response.json()
                 raise RuntimeError(error_data.get("error", "Service unavailable"))
@@ -176,11 +181,12 @@ async def send_command(
             response.raise_for_status()
             return response.json()
 
-        except httpx.ConnectError:
-            raise RuntimeError(
+        except httpx.ConnectError as err:
+            msg = (
                 f"Cannot connect to relay at {get_relay_url(host, port)}. "
                 "Is the relay server running?"
             )
+            raise RuntimeError(msg) from err
 
 
 # Convenience functions for common commands

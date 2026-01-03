@@ -36,13 +36,14 @@ def _parse_status(status_str: str | None) -> JobStatus | None:
         return None
     try:
         return JobStatus(status_str.lower())
-    except ValueError:
+    except ValueError as err:
         valid = ", ".join(s.value for s in JobStatus)
-        raise typer.BadParameter(f"Invalid status '{status_str}'. Valid: {valid}")
+        msg = f"Invalid status '{status_str}'. Valid: {valid}"
+        raise typer.BadParameter(msg) from err
 
 
-@app.command()
-def list(
+@app.command("list")
+def list_jobs_cmd(
     status_filter: Annotated[
         str | None,
         typer.Option(
@@ -66,7 +67,7 @@ def list(
     try:
         # Show worker status
         print_info(_get_worker_status_line())
-        print()
+        print_info("")  # Blank line
 
         # Parse status filter
         status = _parse_status(status_filter)
@@ -76,20 +77,20 @@ def list(
         jobs = manager.list_jobs(status=status, limit=limit)
 
         # Format and display
-        output = format_job_table(jobs)
-        print(output)
+        table_output = format_job_table(jobs)
+        print_info(table_output)
 
     except typer.BadParameter:
         raise
     except Exception as e:
         print_error(f"Failed to list jobs: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
 def get(
     job_id: Annotated[str, typer.Argument(help="Job ID")],
-    show_result: Annotated[
+    show_result: Annotated[  # noqa: ARG001 - Reserved for future use
         bool,
         typer.Option("--result/--no-result", help="Show job result if completed"),
     ] = False,
@@ -106,17 +107,17 @@ def get(
 
         if job is None:
             print_error(f"Job not found: {job_id}")
-            raise typer.Exit(1)
+            raise typer.Exit(1)  # noqa: TRY301
 
         # Format and display job details
-        output = format_job_detail(job)
-        print(output)
+        detail_output = format_job_detail(job)
+        print_info(detail_output)
 
     except typer.Exit:
         raise
     except Exception as e:
         print_error(f"Failed to get job: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -140,7 +141,7 @@ def cancel(
         job = manager.get_job(job_id)
         if job is None:
             print_error(f"Job not found: {job_id}")
-            raise typer.Exit(1)
+            raise typer.Exit(1)  # noqa: TRY301
 
         # Check if job is already terminal
         if job.is_terminal:
@@ -165,13 +166,13 @@ def cancel(
             print_success(f"Job {job_id} cancelled successfully")
         else:
             print_error(f"Failed to cancel job {job_id}")
-            raise typer.Exit(1)
+            raise typer.Exit(1)  # noqa: TRY301
 
     except typer.Exit:
         raise
     except Exception as e:
         print_error(f"Failed to cancel job: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -234,7 +235,7 @@ def clear(
         raise
     except Exception as e:
         print_error(f"Failed to clear jobs: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -250,19 +251,19 @@ def count() -> None:
 
         # Show worker status
         print_info(_get_worker_status_line())
-        print()
+        print_info("")  # Blank line
 
         # Display counts
-        print("Job Counts")
-        print("==========")
+        print_info("Job Counts")
+        print_info("==========")
         for status in JobStatus:
             count_val = counts.get(status.value, 0)
-            print(f"  {status.value.capitalize():12} {count_val:>5}")
-        print(f"  {'Total':12} {counts.get('total', 0):>5}")
+            print_info(f"  {status.value.capitalize():12} {count_val:>5}")
+        print_info(f"  {'Total':12} {counts.get('total', 0):>5}")
 
     except Exception as e:
         print_error(f"Failed to count jobs: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 # Worker subcommand group
@@ -286,10 +287,10 @@ def worker_start() -> None:
 
     except RuntimeError as e:
         print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except Exception as e:
         print_error(f"Failed to start worker: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @worker_app.command("stop")
@@ -310,11 +311,11 @@ def worker_stop() -> None:
             print_success("Worker stopped")
         else:
             print_error("Failed to stop worker")
-            raise typer.Exit(1)
+            raise typer.Exit(1)  # noqa: TRY301
 
     except Exception as e:
         print_error(f"Failed to stop worker: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @worker_app.command("status")

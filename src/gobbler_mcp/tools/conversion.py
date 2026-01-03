@@ -45,21 +45,22 @@ def _run_cli(cmd: list[str], timeout: int = 300) -> tuple[bool, str]:
             text=True,
             timeout=timeout,
         )
-        if result.returncode != 0:
-            return (
-                False,
-                result.stderr.strip() or f"Command failed with exit code {result.returncode}",
-            )
-        return True, result.stdout
     except subprocess.TimeoutExpired:
         return False, f"Command timed out after {timeout} seconds"
     except FileNotFoundError:
         return False, "gobbler CLI not found. Ensure it's installed and in PATH."
     except Exception as e:
         return False, f"Failed to run command: {e!s}"
+    else:
+        if result.returncode != 0:
+            return (
+                False,
+                result.stderr.strip() or f"Command failed with exit code {result.returncode}",
+            )
+        return True, result.stdout
 
 
-def register_tools(mcp: FastMCP):
+def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
     """Register conversion tools with the MCP server."""
 
     @mcp.tool()
@@ -76,10 +77,10 @@ def register_tools(mcp: FastMCP):
         about the video and transcript.
 
         Args:
-            video_url: YouTube video URL (youtube.com/watch?v=ID or youtu.be/ID format)
-            include_timestamps: Include timestamp markers in the transcript (default: False)
-            language: Transcript language code (ISO 639-1) or 'auto' for video default (default: 'auto')
-            output_file: Optional directory path or full file path to save markdown. If a directory is provided, the file will be named using the video title.
+            video_url: YouTube video URL (youtube.com/watch?v=ID or youtu.be/ID)
+            include_timestamps: Include timestamp markers in transcript (default: False)
+            language: Language code (ISO 639-1) or 'auto' for default (default: 'auto')
+            output_file: Optional path to save markdown. If a directory, uses video title.
 
         Returns:
             Markdown text with YAML frontmatter if output_file not provided,
@@ -140,7 +141,7 @@ def register_tools(mcp: FastMCP):
         return output
 
     @mcp.tool()
-    async def fetch_webpage_with_selector(
+    async def fetch_webpage_with_selector(  # noqa: C901, PLR0911, PLR0912
         url: str,
         css_selector: str | None = None,
         xpath: str | None = None,
@@ -160,8 +161,8 @@ def register_tools(mcp: FastMCP):
 
         Args:
             url: The full HTTP/HTTPS URL of the web page to convert
-            css_selector: CSS selector to extract specific content (e.g., "article.main", "div.content")
-            xpath: XPath expression to extract content (alternative to css_selector, cannot use both)
+            css_selector: CSS selector to extract content (e.g., "article.main")
+            xpath: XPath expression to extract content (alternative to css_selector)
             include_images: Include image alt text and references in markdown output (default: True)
             extract_links: Extract and categorize links as internal/external (default: False)
             session_id: Session ID for authenticated crawling (loads saved cookies/localStorage)
@@ -187,7 +188,7 @@ def register_tools(mcp: FastMCP):
             "Get content from https://docs.example.com using selector 'div.content'"
 
             Extract with links:
-            "Extract content from https://blog.example.com with selector '.post' and extract all links"
+            "Extract content from https://blog.example.com with '.post' selector"
         """
         # Keep existing implementation since CLI doesn't fully support all options yet
         try:
@@ -222,10 +223,12 @@ def register_tools(mcp: FastMCP):
                     # Add link summary if links were extracted
                     if extract_links and metadata.get("links"):
                         links_info = metadata["links"]
+                        int_count = links_info["internal_count"]
+                        ext_count = links_info["external_count"]
                         return (
                             f"Web page with selector saved to: {output_file}\n"
                             f"Extracted {links_info['total_count']} links "
-                            f"({links_info['internal_count']} internal, {links_info['external_count']} external)"
+                            f"({int_count} internal, {ext_count} external)"
                         )
                     return f"Web page with selector saved to: {output_file}"
                 return f"Failed to write file: Permission denied for {output_file}"
@@ -233,12 +236,14 @@ def register_tools(mcp: FastMCP):
             result = markdown
             if extract_links and metadata.get("links"):
                 links_info = metadata["links"]
+                int_count = links_info["internal_count"]
+                ext_count = links_info["external_count"]
                 link_summary = (
                     f"\n\n---\n\n**Links Extracted**: {links_info['total_count']} total "
-                    f"({links_info['internal_count']} internal, {links_info['external_count']} external)"
+                    f"({int_count} internal, {ext_count} external)"
                 )
                 result += link_summary
-            return result
+            return result  # noqa: TRY300
 
         except ValueError as e:
             # Validation errors
@@ -266,10 +271,15 @@ def register_tools(mcp: FastMCP):
             )
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code
-            if status_code == 404:
+            http_not_found = 404
+            http_server_error = 500
+            if status_code == http_not_found:
                 return f"HTTP 404: Page not found at {url}"
-            if status_code >= 500:
-                return f"HTTP {status_code}: Server error at {url}. The target server may be experiencing issues."
+            if status_code >= http_server_error:
+                return (
+                    f"HTTP {status_code}: Server error at {url}. "
+                    "The target server may be experiencing issues."
+                )
             return f"HTTP {status_code}: Failed to fetch {url}"
         except RuntimeError as e:
             error_msg = str(e)
@@ -278,7 +288,7 @@ def register_tools(mcp: FastMCP):
             # Crawl4AI errors
             return f"Crawl4AI error: {error_msg}"
         except Exception as e:
-            logger.error(f"Unexpected error in fetch_webpage_with_selector: {e}", exc_info=True)
+            logger.exception("Unexpected error in fetch_webpage_with_selector")
             return f"Failed to convert web page with selector: {e!s}"
 
     @mcp.tool()
@@ -294,8 +304,8 @@ def register_tools(mcp: FastMCP):
 
         Args:
             file_path: Absolute path to the document file to convert
-            enable_ocr: Enable OCR for scanned documents (slower but handles image-based PDFs, default: True)
-            output_file: Optional absolute path to save markdown file (includes frontmatter)
+            enable_ocr: Enable OCR for scanned PDFs (slower, default: True)
+            output_file: Optional path to save markdown file (includes frontmatter)
 
         Returns:
             Markdown text with YAML frontmatter if output_file not provided,
@@ -331,9 +341,9 @@ def register_tools(mcp: FastMCP):
 
         Args:
             file_path: Absolute path to the audio or video file to transcribe
-            model: Whisper model size - larger = more accurate but slower (default: 'small', options: tiny, base, small, medium, large)
-            language: Audio language code (ISO 639-1) or 'auto' for automatic detection (default: 'auto')
-            output_file: Optional absolute path to save markdown file (includes frontmatter)
+            model: Whisper model size (default: 'small', options: tiny/base/small/medium/large)
+            language: Audio language code (ISO 639-1) or 'auto' (default: 'auto')
+            output_file: Optional path to save markdown file (includes frontmatter)
 
         Returns:
             Markdown text with YAML frontmatter if output_file not provided,

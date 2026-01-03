@@ -16,11 +16,11 @@ from ..constants import DEFAULT_JOBS_LIST, MAX_JOBS_LIST
 logger = logging.getLogger(__name__)
 
 
-def register_tools(mcp: FastMCP):
+def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
     """Register queue management tools with the MCP server."""
 
     @mcp.tool()
-    async def get_job_status(job_id: str) -> str:
+    async def get_job_status(job_id: str) -> str:  # noqa: C901, PLR0912
         """Check status and result of a queued job.
 
         Retrieves current status, progress, and result (if completed) for a job
@@ -37,7 +37,7 @@ def register_tools(mcp: FastMCP):
             - Error message (if failed)
         """
         try:
-            from gobbler_queue.manager import JobManager
+            from gobbler_queue.manager import JobManager  # noqa: PLC0415
 
             manager = JobManager()
             job = manager.get_job(job_id)
@@ -85,7 +85,7 @@ def register_tools(mcp: FastMCP):
         except ImportError:
             return "Job queue system not available. Use 'gobbler jobs get' CLI command instead."
         except Exception as e:
-            logger.error(f"Error getting job status: {e}", exc_info=True)
+            logger.exception("Error getting job status")
             return f"Failed to get job status: {e!s}"
 
     @mcp.tool()
@@ -99,15 +99,16 @@ def register_tools(mcp: FastMCP):
         Useful for monitoring background tasks.
 
         Args:
-            status: Filter by status - 'all', 'pending', 'running', 'completed', 'failed', 'cancelled' (default: 'all')
+            status: Filter by status - 'all', 'pending', 'running', 'completed',
+                'failed', 'cancelled' (default: 'all')
             limit: Maximum number of jobs to return (default: 20, max: 100)
 
         Returns:
             List of jobs with status, ID, and created time
         """
         try:
-            from gobbler_queue.manager import JobManager
-            from gobbler_queue.models import JobStatus
+            from gobbler_queue.manager import JobManager  # noqa: PLC0415
+            from gobbler_queue.models import JobStatus  # noqa: PLC0415
 
             manager = JobManager()
 
@@ -119,7 +120,8 @@ def register_tools(mcp: FastMCP):
                 try:
                     status_filter = JobStatus(status)
                 except ValueError:
-                    return f"Invalid status: {status}. Use: all, pending, running, completed, failed, cancelled"
+                    valid = "all, pending, running, completed, failed, cancelled"
+                    return f"Invalid status: {status}. Use: {valid}"
 
             jobs = manager.list_jobs(status=status_filter, limit=limit)
 
@@ -152,5 +154,5 @@ def register_tools(mcp: FastMCP):
         except ImportError:
             return "Job queue system not available. Use 'gobbler jobs list' CLI command instead."
         except Exception as e:
-            logger.error(f"Error listing jobs: {e}", exc_info=True)
+            logger.exception("Error listing jobs")
             return f"Failed to list jobs: {e!s}"

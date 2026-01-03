@@ -28,7 +28,7 @@ _auto_start_enabled = True
 
 def set_auto_start(enabled: bool) -> None:
     """Set whether relay auto-start is enabled."""
-    global _auto_start_enabled
+    global _auto_start_enabled  # noqa: PLW0603
     _auto_start_enabled = enabled
 
 
@@ -56,7 +56,8 @@ CHECK_API_JS = "typeof window.gobblerChatGPT !== 'undefined'"
 ASK_JS = """
 (async () => {
     if (typeof window.gobblerChatGPT === 'undefined') {
-        return {success: false, error: "Gobbler ChatGPT API not injected. Ensure the tab is in the Gobbler group."};
+        return {success: false,
+            error: "Gobbler ChatGPT API not injected. Ensure the tab is in the Gobbler group."};
     }
     return await window.gobblerChatGPT.ask(%s, %d);
 })()
@@ -106,7 +107,8 @@ GET_CHAT_HISTORY_JS = """
             return {
                 totalMessages: messages.length,
                 returned: selected.length,
-                messages: selected.map((m, i) => ({index: startIdx + i, role: m.role, text: m.content}))
+                messages: selected.map((m, i) => (
+                    {index: startIdx + i, role: m.role, text: m.content}))
             };
         }
         return result;
@@ -118,7 +120,7 @@ GET_CHAT_HISTORY_JS = """
 
 async def _get_chatgpt_tabs() -> list[dict]:
     """Get list of ChatGPT tabs in the Gobbler group."""
-    from gobbler_relay.client import list_tabs
+    from gobbler_relay.client import list_tabs  # noqa: PLC0415
 
     result = await list_tabs(filter_type="chatgpt")
 
@@ -131,7 +133,11 @@ async def _get_chatgpt_tabs() -> list[dict]:
 
 async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     """Check if relay is running and extension is connected."""
-    from gobbler_relay.client import check_connection, ensure_relay_running, is_relay_running
+    from gobbler_relay.client import (  # noqa: PLC0415
+        check_connection,
+        ensure_relay_running,
+        is_relay_running,
+    )
 
     relay_auto_started = False
 
@@ -206,7 +212,7 @@ def info(
 
 async def _info(tab_id: int | None) -> None:
     """Async implementation of info."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -258,9 +264,11 @@ def query(
     asyncio.run(_query(message, tab_id, timeout))
 
 
-async def _query(message: str, tab_id: int | None, timeout: int) -> None:
+async def _query(  # noqa: C901, PLR0912, PLR0915
+    message: str, tab_id: int | None, timeout: int
+) -> None:
     """Async implementation of query."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -304,7 +312,7 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
-            print(data)
+            print(data)  # noqa: T201
             return
 
     if isinstance(data, dict):
@@ -315,18 +323,18 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
 
             if response:
                 console.print("[bold green]Response:[/bold green]\n")
-                print(response)
-                print()
+                print(response)  # noqa: T201
+                print()  # noqa: T201
 
             if has_images and images:
                 console.print(f"[bold cyan]Images Generated:[/bold cyan] {len(images)}\n")
                 for i, img_url in enumerate(images, 1):
                     console.print(f"  [dim]Image {i}:[/dim] {img_url[:80]}...")
-                print()
+                print()  # noqa: T201
                 print_info("Use 'gobbler chatgpt download' to save images")
 
             if not response and not has_images:
-                print("No response")
+                print("No response")  # noqa: T201
 
             if data.get("partial"):
                 print_warning("Response may be incomplete (timeout reached)")
@@ -335,7 +343,7 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
             print_error(data.get("error", "Unknown error"))
             raise typer.Exit(1)
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201
 
 
 @app.command()
@@ -349,9 +357,9 @@ def last(
     asyncio.run(_last(tab_id))
 
 
-async def _last(tab_id: int | None) -> None:
+async def _last(tab_id: int | None) -> None:  # noqa: C901, PLR0912
     """Async implementation of last."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -381,7 +389,7 @@ async def _last(tab_id: int | None) -> None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
-            print(data)
+            print(data)  # noqa: T201
             return
 
     if isinstance(data, dict):
@@ -398,19 +406,19 @@ async def _last(tab_id: int | None) -> None:
 
         if response_text:
             console.print("[bold]Last Response:[/bold]\n")
-            print(response_text)
+            print(response_text)  # noqa: T201
 
         if has_images and images:
             console.print(f"\n[bold cyan]Images:[/bold cyan] {len(images)}\n")
             for i, img_url in enumerate(images, 1):
                 console.print(f"  [dim]Image {i}:[/dim] {img_url[:80]}...")
-            print()
+            print()  # noqa: T201
             print_info("Use 'gobbler chatgpt download' to save images")
 
         if not response_text and not has_images:
-            print("No response")
+            print("No response")  # noqa: T201
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201
 
 
 @app.command()
@@ -434,7 +442,7 @@ def history(
 
 async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
     """Async implementation of history."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -467,7 +475,7 @@ async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
-            print(data)
+            print(data)  # noqa: T201
             return
 
     if isinstance(data, dict):
@@ -487,10 +495,10 @@ async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
             text = msg.get("text", "")
             role_color = "cyan" if role == "user" else "green"
             console.print(f"\n[bold {role_color}]{role.upper()}[/bold {role_color}]\n")
-            print(text)
+            print(text)  # noqa: T201
             console.print("\n" + "-" * 60)
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201
 
 
 @app.command()
@@ -508,9 +516,11 @@ def download(
     asyncio.run(_download(output_dir, tab_id))
 
 
-async def _download(output_dir: str | None, tab_id: int | None) -> None:
+async def _download(  # noqa: C901, PLR0912, PLR0915
+    output_dir: str | None, tab_id: int | None
+) -> None:
     """Async implementation of download."""
-    from gobbler_relay.client import execute_script_in_tab, send_command
+    from gobbler_relay.client import execute_script_in_tab, send_command  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -571,7 +581,7 @@ async def _download(output_dir: str | None, tab_id: int | None) -> None:
         (async () => {
             const img = document.querySelector('img');
             if (!img) return {error: 'No image found'};
-            
+
             // Wait for image to load
             if (!img.complete) {
                 await new Promise(resolve => {
@@ -579,13 +589,13 @@ async def _download(output_dir: str | None, tab_id: int | None) -> None:
                     img.onerror = resolve;
                 });
             }
-            
+
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
-            
+
             try {
                 const dataUrl = canvas.toDataURL('image/png');
                 return {

@@ -4,7 +4,7 @@ import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -51,25 +51,26 @@ class ConfigFileHandler(FileSystemEventHandler):
         current_time = time.time()
         if current_time - self.last_reload_time < self.debounce_seconds:
             logger.debug(
-                f"Ignoring config change (debounce): {current_time - self.last_reload_time:.2f}s since last reload"
+                "Ignoring config change (debounce): %.2fs since last reload",
+                current_time - self.last_reload_time,
             )
             return
 
-        logger.info(f"Config file changed: {self.config_path}")
+        logger.info("Config file changed: %s", self.config_path)
         self.last_reload_time = current_time
 
         # Trigger reload
         try:
             self.on_change_callback()
-        except Exception as e:
-            logger.error(f"Error in config reload callback: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error in config reload callback")
 
 
 class ConfigWatcher:
     """Watches configuration file and triggers hot-reload on changes."""
 
     # Validation rules for config values
-    VALID_WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
+    VALID_WHISPER_MODELS: ClassVar[list[str]] = ["tiny", "base", "small", "medium", "large"]
     TIMEOUT_MIN = 5
     TIMEOUT_MAX = 300
     PORT_MIN = 1
@@ -106,7 +107,7 @@ class ConfigWatcher:
         # Ensure config file exists
         if not self.config_path.exists():
             logger.warning(
-                f"Config file does not exist: {self.config_path}. Watcher will not start."
+                "Config file does not exist: %s. Watcher will not start.", self.config_path
             )
             return
 
@@ -123,7 +124,7 @@ class ConfigWatcher:
         self.observer.schedule(self.handler, str(watch_dir), recursive=False)
         self.observer.start()
 
-        logger.info(f"Config hot-reload enabled: watching {self.config_path}")
+        logger.info("Config hot-reload enabled: watching %s", self.config_path)
 
     def stop(self) -> None:
         """Stop watching configuration file."""

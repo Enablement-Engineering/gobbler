@@ -53,48 +53,50 @@ def completion(
         # Fish
         gobbler completion fish > ~/.config/fish/completions/gobbler.fish
     """
-    from typer.main import get_command
+    from typer.main import get_command  # noqa: PLC0415
 
     click_app = get_command(app)
 
     # Use click-shell-completion for generating completion scripts
     try:
         if shell == "bash":
-            from click.shell_completion import BashComplete
+            from click.shell_completion import BashComplete  # noqa: PLC0415
 
             complete = BashComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "zsh":
-            from click.shell_completion import ZshComplete
+            from click.shell_completion import ZshComplete  # noqa: PLC0415
 
             complete = ZshComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "fish":
-            from click.shell_completion import FishComplete
+            from click.shell_completion import FishComplete  # noqa: PLC0415
 
             complete = FishComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "powershell":
             typer.echo(
-                "PowerShell completion not supported in this version. Use --install-completion instead.",
+                "PowerShell completion not supported. Use --install-completion.",
                 err=True,
             )
-            raise typer.Exit(1)
+            raise typer.Exit(1)  # noqa: TRY301
         else:
             typer.echo(f"Unsupported shell: {shell}", err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(1)  # noqa: TRY301
 
         typer.echo(completion_script)
+    except typer.Exit:
+        raise
     except Exception as e:
         typer.echo(f"Error generating completion script: {e}", err=True)
         typer.echo("Try using 'gobbler --install-completion' instead.", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def cli() -> None:
     """Entry point for the CLI."""
     # Import command modules here to register them
-    from gobbler_cli.commands import (
+    from gobbler_cli.commands import (  # noqa: PLC0415
         batch,
         browser,
         chatgpt,

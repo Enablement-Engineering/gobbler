@@ -20,11 +20,9 @@ from gobbler_core.converters import (
 from .webpage_selector import convert_webpage_with_selector
 
 __all__ = [
-    # Core converters (re-exported from gobbler_core)
     "convert_audio_to_markdown",
     "convert_document_to_markdown",
     "convert_webpage_to_markdown",
-    "convert_youtube_to_markdown",
-    # MCP-specific converters
     "convert_webpage_with_selector",
+    "convert_youtube_to_markdown",
 ]

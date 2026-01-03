@@ -3,6 +3,9 @@
 import logging
 import time
 from collections.abc import Callable
+from pathlib import Path
+
+import aiofiles
 
 from gobbler_core.utils.file_handler import get_file_extension, validate_input_path
 from gobbler_core.utils.frontmatter import count_words, create_document_frontmatter
@@ -30,7 +33,8 @@ async def convert_document_to_markdown(
         file_path: Absolute path to document file
         enable_ocr: Enable OCR for scanned documents
         service_url: Docling service URL (default: "http://localhost:5001")
-        metrics_callback: Optional callback for metrics tracking, called with (converter_type, size_bytes)
+        metrics_callback: Optional callback for metrics tracking,
+            called with (converter_type, size_bytes)
         logger_instance: Optional custom logger instance
 
     Returns:
@@ -64,21 +68,18 @@ async def convert_document_to_markdown(
 
     # Read file asynchronously
     try:
-        import aiofiles
-
         async with aiofiles.open(file_path, "rb") as f:
             file_data = await f.read()
     except Exception as e:
-        raise RuntimeError(f"Failed to read document file: {e}")
+        msg = f"Failed to read document file: {e}"
+        raise RuntimeError(msg) from e
 
     # Prepare multipart file upload
     # Docling-serve API expects:
     # POST /v1/convert/file
     # Content-Type: multipart/form-data
     # Body: files (multipart), optional: to_formats, do_ocr, ocr_engine
-    import os
-
-    filename = os.path.basename(file_path)
+    filename = Path(file_path).name
 
     try:
         async with RetryableHTTPClient(timeout=120.0) as client:
@@ -99,11 +100,13 @@ async def convert_document_to_markdown(
     except Exception as e:
         # Check if service is unavailable
         if "ConnectError" in str(type(e).__name__) or "Connection" in str(e):
-            raise RuntimeError(
+            msg = (
                 "Docling service unavailable. The service may not be running. "
                 "Start with: docker-compose up -d docling"
             )
-        raise RuntimeError(f"Document conversion failed: {e}")
+            raise RuntimeError(msg) from e
+        msg = f"Document conversion failed: {e}"
+        raise RuntimeError(msg) from e
 
     # Calculate conversion time
     conversion_time_ms = int((time.time() - start_time) * 1000)
@@ -112,34 +115,32 @@ async def convert_document_to_markdown(
     # Response format: {"document": {"md_content": "..."}, "status": "success", ...}
     if result.get("status") == "failure":
         errors = result.get("errors", ["Unknown error"])
-        raise RuntimeError(f"Document conversion failed: {'; '.join(errors)}")
+        msg = f"Document conversion failed: {'; '.join(errors)}"
+        raise RuntimeError(msg)
 
     if result.get("status") == "skipped":
-        raise RuntimeError(
+        msg = (
             "Document conversion was skipped. The file may be corrupted or "
             "use an unsupported format variation."
         )
+        raise RuntimeError(msg)
 
     document_data = result.get("document", {})
     markdown_content = document_data.get("md_content", "")
 
     if not markdown_content:
-        raise RuntimeError(
+        msg = (
             "Failed to extract markdown from document. The document may be "
             "corrupted or password-protected."
         )
+        raise RuntimeError(msg)
 
     # Count words in the markdown
     word_count = count_words(markdown_content)
 
     # Estimate page count from content (Docling doesn't always provide page count)
     # We'll look for page markers or estimate based on content length
-    pages = 0
-    if "pages" in result:
-        pages = result.get("pages", 0)
-    else:
-        # Rough estimate: average 300 words per page
-        pages = max(1, word_count // 300)
+    pages = result.get("pages", 0) if "pages" in result else max(1, word_count // 300)
 
     # Create frontmatter
     frontmatter = create_document_frontmatter(

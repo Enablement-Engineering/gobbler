@@ -20,7 +20,9 @@ Endpoints:
     GET  /health   - Health check with connection count
 """
 
+import argparse
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -28,9 +30,10 @@ import re
 import signal
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 import httpx
 from aiohttp import web
@@ -38,9 +41,6 @@ from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ auto_shutdown_task: asyncio.Task | None = None
 
 
 async def extract_handler(request: web.Request) -> web.Response:
-    """Handle page extraction requests from browser extension.
+    r"""Handle page extraction requests from browser extension.
 
     Expects JSON body with:
     {
@@ -151,7 +151,7 @@ async def extract_handler(request: web.Request) -> web.Response:
         if selector:
             metadata["selector"] = selector
 
-        logger.info(f"Extracted content from browser extension: {url}")
+        logger.info("Extracted content from browser extension: %s", url)
 
         return web.json_response({"markdown": full_markdown, "metadata": metadata})
 
@@ -160,7 +160,7 @@ async def extract_handler(request: web.Request) -> web.Response:
         return web.json_response({"error": str(e)}, status=500)
 
 
-async def health_handler(request: web.Request) -> web.Response:
+async def health_handler(_request: web.Request) -> web.Response:
     """Health check endpoint."""
     return web.json_response({"status": "ok", "websocket_connections": len(websocket_connections)})
 
@@ -175,7 +175,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     await ws.prepare(request)
 
     websocket_connections.add(ws)
-    logger.info(f"WebSocket connected. Total connections: {len(websocket_connections)}")
+    logger.info("WebSocket connected. Total connections: %s", len(websocket_connections))
 
     try:
         async for msg in ws:
@@ -201,14 +201,14 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         logger.info("Extension registered via WebSocket")
 
                 except json.JSONDecodeError:
-                    logger.error(f"Invalid JSON received: {msg.data}")
+                    logger.exception("Invalid JSON received: %s", msg.data)
 
             elif msg.type == web.WSMsgType.ERROR:
-                logger.error(f"WebSocket error: {ws.exception()}")
+                logger.error("WebSocket error: %s", ws.exception())
 
     finally:
         websocket_connections.discard(ws)
-        logger.info(f"WebSocket disconnected. Total connections: {len(websocket_connections)}")
+        logger.info("WebSocket disconnected. Total connections: %s", len(websocket_connections))
 
     return ws
 
@@ -232,7 +232,8 @@ async def send_command_to_extension(
         RuntimeError: If no extension is connected or command times out
     """
     if not websocket_connections:
-        raise RuntimeError("No browser extension connected")
+        msg = "No browser extension connected"
+        raise RuntimeError(msg)
 
     # Generate unique command ID
     command_id = str(uuid.uuid4())
@@ -255,7 +256,7 @@ async def send_command_to_extension(
         if websocket_connections:
             ws = next(iter(websocket_connections))
             await ws.send_json(message)
-            logger.info(f"Sent command '{command}' to extension (id: {command_id})")
+            logger.info("Sent command '%s' to extension (id: %s)", command, command_id)
 
         # Wait for response with timeout
         try:
@@ -263,12 +264,13 @@ async def send_command_to_extension(
             response = pending_commands[command_id]["response"]
 
             if response is None:
-                raise RuntimeError("Extension response was empty")
-
+                msg = "Extension response was empty"
+                raise RuntimeError(msg)
+        except TimeoutError as err:
+            msg = f"Command '{command}' timed out after {timeout} seconds"
+            raise RuntimeError(msg) from err
+        else:
             return response
-
-        except TimeoutError:
-            raise RuntimeError(f"Command '{command}' timed out after {timeout} seconds")
 
     finally:
         # Cleanup
@@ -315,8 +317,7 @@ async def command_handler(request: web.Request) -> web.Response:
 
 def update_activity() -> None:
     """Update the last activity timestamp."""
-    global last_activity_time
-    import time
+    global last_activity_time  # noqa: PLW0603
 
     last_activity_time = time.time()
 
@@ -376,6 +377,9 @@ def create_app(
     return app
 
 
+_SHUTDOWN_WARNING_THRESHOLD = 60  # Warn when less than 60 seconds remain
+
+
 async def auto_shutdown_monitor(
     shutdown_event: asyncio.Event, timeout: int = AUTO_SHUTDOWN_TIMEOUT
 ) -> None:
@@ -385,9 +389,7 @@ async def auto_shutdown_monitor(
         shutdown_event: Event to set when shutdown should occur
         timeout: Inactivity timeout in seconds
     """
-    import time
-
-    logger.info(f"Auto-shutdown monitor started (timeout: {timeout}s)")
+    logger.info("Auto-shutdown monitor started (timeout: %ss)", timeout)
     update_activity()  # Initialize activity time
 
     while not shutdown_event.is_set():
@@ -400,11 +402,11 @@ async def auto_shutdown_monitor(
         remaining = timeout - elapsed
 
         if remaining <= 0:
-            logger.info(f"No activity for {timeout}s, initiating auto-shutdown...")
+            logger.info("No activity for %ss, initiating auto-shutdown...", timeout)
             shutdown_event.set()
             break
-        if remaining < 60:
-            logger.debug(f"Auto-shutdown in {int(remaining)}s unless activity detected")
+        if remaining < _SHUTDOWN_WARNING_THRESHOLD:
+            logger.debug("Auto-shutdown in %ss unless activity detected", int(remaining))
 
 
 async def start_relay_server(host: str = "127.0.0.1", port: int = 4625) -> web.AppRunner:
@@ -424,7 +426,7 @@ async def start_relay_server(host: str = "127.0.0.1", port: int = 4625) -> web.A
     site = web.TCPSite(runner, host, port)
     await site.start()
 
-    logger.info(f"Gobbler relay server started on http://{host}:{port}")
+    logger.info("Gobbler relay server started on http://%s:%s", host, port)
     logger.info("Browser extension can now connect via WebSocket at /ws")
     logger.info("Skills can send commands via HTTP POST to /command")
 
@@ -446,7 +448,7 @@ def write_pidfile(pid: int) -> None:
     pidfile = get_pidfile_path()
     pidfile.parent.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(str(pid))
-    logger.info(f"Wrote PID {pid} to {pidfile}")
+    logger.info("Wrote PID %s to %s", pid, pidfile)
 
 
 def read_pidfile() -> int | None:
@@ -465,18 +467,19 @@ def remove_pidfile() -> None:
     pidfile = get_pidfile_path()
     try:
         pidfile.unlink(missing_ok=True)
-        logger.info(f"Removed pidfile {pidfile}")
+        logger.info("Removed pidfile %s", pidfile)
     except OSError as e:
-        logger.warning(f"Failed to remove pidfile: {e}")
+        logger.warning("Failed to remove pidfile: %s", e)
 
 
 def is_process_running(pid: int) -> bool:
     """Check if a process with the given PID is running."""
     try:
         os.kill(pid, 0)
-        return True
     except (OSError, ProcessLookupError):
         return False
+    else:
+        return True
 
 
 async def is_relay_healthy(
@@ -495,7 +498,7 @@ async def is_relay_healthy(
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(f"http://{host}:{port}/health")
-            return response.status_code == 200
+            return response.status_code == httpx.codes.OK
     except (httpx.ConnectError, httpx.TimeoutException, Exception):
         return False
 
@@ -538,11 +541,11 @@ def start_relay_daemon(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> in
         start_new_session=True,  # Detach from parent process group
     )
 
-    logger.info(f"Started relay daemon with PID {process.pid}")
+    logger.info("Started relay daemon with PID %s", process.pid)
     return process.pid
 
 
-async def ensure_relay_running(
+async def ensure_relay_running(  # noqa: PLR0911
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
     start_if_missing: bool = True,
@@ -571,12 +574,12 @@ async def ensure_relay_running(
     existing_pid = read_pidfile()
     if existing_pid and is_process_running(existing_pid):
         # Process exists but not responding - wait a bit and retry
-        logger.info(f"Relay process {existing_pid} exists, waiting for it to become healthy...")
+        logger.info("Relay process %s exists, waiting for it to become healthy...", existing_pid)
         for _ in range(int(wait_timeout)):
             await asyncio.sleep(1)
             if await is_relay_healthy(host, port):
                 return True
-        logger.warning(f"Relay process {existing_pid} not responding, may need restart")
+        logger.warning("Relay process %s not responding, may need restart", existing_pid)
         return False
 
     # No relay running
@@ -592,18 +595,18 @@ async def ensure_relay_running(
     logger.info("Starting relay daemon...")
     try:
         start_relay_daemon(host, port)
-    except Exception as e:
-        logger.error(f"Failed to start relay daemon: {e}")
+    except Exception:
+        logger.exception("Failed to start relay daemon")
         return False
 
     # Wait for it to become healthy
-    for i in range(int(wait_timeout * 2)):  # Check every 0.5 seconds
+    for _i in range(int(wait_timeout * 2)):  # Check every 0.5 seconds
         await asyncio.sleep(0.5)
         if await is_relay_healthy(host, port):
             logger.info("Relay daemon started successfully")
             return True
 
-    logger.error(f"Relay daemon did not become healthy within {wait_timeout} seconds")
+    logger.error("Relay daemon did not become healthy within %s seconds", wait_timeout)
     return False
 
 
@@ -619,13 +622,13 @@ def stop_relay_daemon() -> bool:
         return False
 
     if not is_process_running(pid):
-        logger.info(f"Relay daemon (PID {pid}) not running, cleaning up pidfile")
+        logger.info("Relay daemon (PID %s) not running, cleaning up pidfile", pid)
         remove_pidfile()
         return False
 
     try:
         os.kill(pid, signal.SIGTERM)
-        logger.info(f"Sent SIGTERM to relay daemon (PID {pid})")
+        logger.info("Sent SIGTERM to relay daemon (PID %s)", pid)
 
         # Wait for process to exit
         for _ in range(10):
@@ -638,13 +641,13 @@ def stop_relay_daemon() -> bool:
         # Force kill if still running
         os.kill(pid, signal.SIGKILL)
         remove_pidfile()
-        logger.info(f"Force killed relay daemon (PID {pid})")
-        return True
-
-    except (OSError, ProcessLookupError) as e:
-        logger.error(f"Failed to stop relay daemon: {e}")
+        logger.info("Force killed relay daemon (PID %s)", pid)
+    except (OSError, ProcessLookupError):
+        logger.exception("Failed to stop relay daemon")
         remove_pidfile()
         return False
+    else:
+        return True
 
 
 # =============================================================================
@@ -675,8 +678,8 @@ async def run_as_daemon(
     # Set up signal handlers for graceful shutdown
     shutdown_event = asyncio.Event()
 
-    def handle_signal(sig: int, frame) -> None:
-        logger.info(f"Received signal {sig}, shutting down...")
+    def handle_signal(sig: int, _frame: Any) -> None:
+        logger.info("Received signal %s, shutting down...", sig)
         shutdown_event.set()
 
     signal.signal(signal.SIGTERM, handle_signal)
@@ -691,9 +694,9 @@ async def run_as_daemon(
     site = web.TCPSite(runner, host, port)
     await site.start()
 
-    logger.info(f"Gobbler relay daemon started on http://{host}:{port}")
+    logger.info("Gobbler relay daemon started on http://%s:%s", host, port)
     if auto_shutdown:
-        logger.info(f"Auto-shutdown enabled (timeout: {shutdown_timeout}s of inactivity)")
+        logger.info("Auto-shutdown enabled (timeout: %ss of inactivity)", shutdown_timeout)
 
     # Start auto-shutdown monitor if enabled
     monitor_task = None
@@ -707,10 +710,8 @@ async def run_as_daemon(
         logger.info("Cleaning up...")
         if monitor_task:
             monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await monitor_task
-            except asyncio.CancelledError:
-                pass
         await runner.cleanup()
         remove_pidfile()
         logger.info("Relay daemon stopped")
@@ -725,18 +726,16 @@ async def main() -> None:
 
     runner = await start_relay_server()
     try:
-        print("Relay server running. Press Ctrl+C to stop.")
+        logger.info("Relay server running. Press Ctrl+C to stop.")
         await asyncio.Event().wait()  # Run forever
     except KeyboardInterrupt:
-        print("\nShutting down...")
+        logger.info("Shutting down...")
     finally:
         await runner.cleanup()
 
 
 def cli_main() -> None:
     """Command-line entry point with argument parsing."""
-    import argparse
-
     parser = argparse.ArgumentParser(description="Gobbler Browser Extension Relay Server")
     parser.add_argument("--daemon", action="store_true", help="Run as background daemon")
     parser.add_argument(
@@ -771,22 +770,22 @@ def cli_main() -> None:
     if args.status:
         pid = read_pidfile()
         if pid and is_process_running(pid):
-            print(f"Relay daemon is running (PID {pid})")
+            logger.info("Relay daemon is running (PID %s)", pid)
             # Check if healthy
             healthy = asyncio.run(is_relay_healthy(args.host, args.port))
             if healthy:
-                print(f"Relay is healthy at http://{args.host}:{args.port}")
+                logger.info("Relay is healthy at http://%s:%s", args.host, args.port)
             else:
-                print("Relay process exists but not responding to health checks")
+                logger.warning("Relay process exists but not responding to health checks")
         else:
-            print("Relay daemon is not running")
+            logger.info("Relay daemon is not running")
         return
 
     if args.stop:
         if stop_relay_daemon():
-            print("Relay daemon stopped")
+            logger.info("Relay daemon stopped")
         else:
-            print("Relay daemon was not running")
+            logger.info("Relay daemon was not running")
         return
 
     if args.daemon:

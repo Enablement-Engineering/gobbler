@@ -28,7 +28,7 @@ _auto_start_enabled = True
 
 def set_auto_start(enabled: bool) -> None:
     """Set whether relay auto-start is enabled."""
-    global _auto_start_enabled
+    global _auto_start_enabled  # noqa: PLW0603
     _auto_start_enabled = enabled
 
 
@@ -49,11 +49,11 @@ def browser_callback(
 def read_urls_from_file(filepath: Path) -> list[str]:
     """Read URLs from a file, one per line. Skips empty lines and comments."""
     urls = []
-    with open(filepath) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                urls.append(line)
+    with filepath.open() as f:
+        for raw_line in f:
+            stripped = raw_line.strip()
+            if stripped and not stripped.startswith("#"):
+                urls.append(stripped)
     return urls
 
 
@@ -63,7 +63,11 @@ async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     Returns:
         Tuple of (success, relay_was_auto_started, message)
     """
-    from gobbler_relay.client import check_connection, ensure_relay_running, is_relay_running
+    from gobbler_relay.client import (  # noqa: PLC0415
+        check_connection,
+        ensure_relay_running,
+        is_relay_running,
+    )
 
     relay_auto_started = False
 
@@ -114,9 +118,11 @@ def status(
 
 async def _status() -> None:
     """Async implementation of status check."""
-    from gobbler_relay.client import check_connection, ensure_relay_running, is_relay_running
-
-    relay_auto_started = False
+    from gobbler_relay.client import (  # noqa: PLC0415
+        check_connection,
+        ensure_relay_running,
+        is_relay_running,
+    )
 
     # Check/start relay
     if _auto_start_enabled:
@@ -124,13 +130,12 @@ async def _status() -> None:
             was_running = await is_relay_running()
             await ensure_relay_running()
             if not was_running:
-                relay_auto_started = True
                 print_success("Relay server started automatically")
             else:
                 print_success("Relay server is running")
         except RuntimeError as e:
             print_error(f"Failed to start relay: {e}")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from None
     else:
         relay_running = await is_relay_running()
         if relay_running:
@@ -168,7 +173,7 @@ def list_tabs(
 
 async def _list_tabs(filter_type: str | None, json_output: bool) -> None:
     """Async implementation of list tabs."""
-    from gobbler_relay.client import list_tabs
+    from gobbler_relay.client import list_tabs  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -211,7 +216,7 @@ async def _list_tabs(filter_type: str | None, json_output: bool) -> None:
 
     except RuntimeError as e:
         print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -224,7 +229,7 @@ def navigate(
 
 async def _navigate(url: str) -> None:
     """Async implementation of navigate."""
-    from gobbler_relay.client import navigate
+    from gobbler_relay.client import navigate  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -244,7 +249,7 @@ async def _navigate(url: str) -> None:
 
     except RuntimeError as e:
         print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -270,14 +275,14 @@ def extract(
     asyncio.run(_extract(selector, output, tab_id, json_output))
 
 
-async def _extract(
+async def _extract(  # noqa: PLR0912
     selector: str | None,
     output: Path | None,
     tab_id: int | None,
     json_output: bool = False,
 ) -> None:
     """Async implementation of extract."""
-    from gobbler_relay.client import extract_page
+    from gobbler_relay.client import extract_page  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started and not json_output:
@@ -343,7 +348,7 @@ async def _extract(
             console.print_json(json.dumps(json_result))
         else:
             print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("exec")
@@ -368,7 +373,7 @@ def execute(
 
 async def _execute(script: str, tab_id: int | None, timeout: int, json_output: bool) -> None:
     """Async implementation of execute."""
-    from gobbler_relay.client import execute_script, execute_script_in_tab
+    from gobbler_relay.client import execute_script, execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -401,7 +406,7 @@ async def _execute(script: str, tab_id: int | None, timeout: int, json_output: b
 
     except RuntimeError as e:
         print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("open")
@@ -429,9 +434,11 @@ def open_tabs(
     asyncio.run(_open_tabs(urls or [], file, json_output))
 
 
-async def _open_tabs(urls: list[str], file: Path | None, json_output: bool) -> None:
+async def _open_tabs(  # noqa: C901, PLR0912
+    urls: list[str], file: Path | None, json_output: bool
+) -> None:
     """Async implementation of open tabs."""
-    from gobbler_relay.client import open_tabs
+    from gobbler_relay.client import open_tabs  # noqa: PLC0415
 
     # Collect URLs from arguments and file
     all_urls = list(urls)
@@ -439,12 +446,12 @@ async def _open_tabs(urls: list[str], file: Path | None, json_output: bool) -> N
     if file:
         if str(file) == "-":
             # Read from stdin
-            import sys
+            import sys  # noqa: PLC0415
 
-            for line in sys.stdin:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    all_urls.append(line)
+            for raw_line in sys.stdin:
+                stripped = raw_line.strip()
+                if stripped and not stripped.startswith("#"):
+                    all_urls.append(stripped)
         else:
             all_urls.extend(read_urls_from_file(file))
 
@@ -490,4 +497,4 @@ async def _open_tabs(urls: list[str], file: Path | None, json_output: bool) -> N
 
     except RuntimeError as e:
         print_error(str(e))
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None

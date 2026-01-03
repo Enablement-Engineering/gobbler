@@ -9,14 +9,19 @@ Tests cover:
 """
 
 import asyncio
+import contextlib
 import os
 import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
+
+# Import frontmatter utilities at module level to avoid PLC0415
+from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
 
 # Import the module under test
 from gobbler_relay import relay
@@ -29,8 +34,7 @@ from gobbler_relay import relay
 @pytest.fixture
 def temp_pidfile(tmp_path):
     """Create a temporary pidfile path for testing."""
-    pidfile = tmp_path / "test_relay.pid"
-    return pidfile
+    return tmp_path / "test_relay.pid"
 
 
 @pytest.fixture
@@ -195,10 +199,8 @@ class TestAutoShutdown:
             # Cancel if still running
             if not task.done():
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
 
     @pytest.mark.asyncio
     async def test_auto_shutdown_monitor_respects_shutdown_event(self):
@@ -238,7 +240,7 @@ class TestWebSocketMessageHandling:
         # Set up a response
         async def simulate_response():
             await asyncio.sleep(0.01)
-            for cmd_id, cmd_data in relay.pending_commands.items():
+            for _cmd_id, cmd_data in relay.pending_commands.items():
                 cmd_data["response"] = {"success": True}
                 cmd_data["event"].set()
 
@@ -274,7 +276,7 @@ class TestWebSocketMessageHandling:
         # Set up immediate response
         async def simulate_response():
             await asyncio.sleep(0.005)
-            for cmd_id, cmd_data in list(relay.pending_commands.items()):
+            for _cmd_id, cmd_data in list(relay.pending_commands.items()):
                 cmd_data["response"] = {"result": "ok"}
                 cmd_data["event"].set()
 
@@ -504,32 +506,22 @@ class TestCountWords:
 
     def test_count_words_empty_string(self):
         """Test word count of empty string."""
-        from gobbler_core.utils.frontmatter import count_words
-
         assert count_words("") == 0
 
     def test_count_words_single_word(self):
         """Test word count of single word."""
-        from gobbler_core.utils.frontmatter import count_words
-
         assert count_words("hello") == 1
 
     def test_count_words_multiple_words(self):
         """Test word count of multiple words."""
-        from gobbler_core.utils.frontmatter import count_words
-
         assert count_words("hello world foo bar") == 4
 
     def test_count_words_with_newlines(self):
         """Test word count with newlines."""
-        from gobbler_core.utils.frontmatter import count_words
-
         assert count_words("hello\nworld\nfoo") == 3
 
     def test_count_words_with_multiple_spaces(self):
         """Test word count ignores multiple spaces."""
-        from gobbler_core.utils.frontmatter import count_words
-
         assert count_words("hello    world") == 2
 
 
@@ -538,8 +530,6 @@ class TestCreateWebpageFrontmatter:
 
     def test_creates_valid_frontmatter(self):
         """Test that valid YAML frontmatter is created."""
-        from gobbler_core.utils.frontmatter import create_webpage_frontmatter
-
         result = create_webpage_frontmatter(
             url="https://example.com",
             title="Test Title",
@@ -558,8 +548,6 @@ class TestCreateWebpageFrontmatter:
 
     def test_frontmatter_includes_timestamp(self):
         """Test that frontmatter includes converted_at timestamp."""
-        from gobbler_core.utils.frontmatter import create_webpage_frontmatter
-
         result = create_webpage_frontmatter(
             url="https://example.com",
             title="Test",
@@ -571,8 +559,6 @@ class TestCreateWebpageFrontmatter:
 
     def test_frontmatter_escapes_special_characters(self):
         """Test that frontmatter properly escapes titles with special chars."""
-        from gobbler_core.utils.frontmatter import create_webpage_frontmatter
-
         result = create_webpage_frontmatter(
             url="https://example.com",
             title="Test: With Colon",
@@ -718,8 +704,6 @@ class TestRelayHealthCheck:
         """Test that is_relay_healthy returns False on connection error."""
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            import httpx
-
             mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
@@ -731,8 +715,6 @@ class TestRelayHealthCheck:
         """Test that is_relay_healthy returns False on timeout."""
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            import httpx
-
             mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
@@ -750,10 +732,12 @@ class TestDaemonManagement:
 
     def test_stop_relay_daemon_returns_false_when_no_pidfile(self, temp_pidfile):
         """Test that stop_relay_daemon returns False when no pidfile exists."""
-        with patch.object(relay, "get_pidfile_path", return_value=temp_pidfile):
-            with patch.object(relay, "read_pidfile", return_value=None):
-                result = relay.stop_relay_daemon()
-                assert result is False
+        with (
+            patch.object(relay, "get_pidfile_path", return_value=temp_pidfile),
+            patch.object(relay, "read_pidfile", return_value=None),
+        ):
+            result = relay.stop_relay_daemon()
+            assert result is False
 
     def test_stop_relay_daemon_cleans_up_stale_pidfile(self, temp_pidfile):
         """Test that stop_relay_daemon cleans up stale pidfile."""

@@ -24,10 +24,10 @@ sys.modules["rq"] = _rq_mock
 sys.modules["rq.job"] = _rq_mock.job
 sys.modules["gobbler_mcp.converters.audio"] = MagicMock()
 
-from fastmcp import FastMCP
+from fastmcp import FastMCP  # noqa: E402
 
-from gobbler_mcp.constants import MAX_TIMEOUT, MIN_TIMEOUT
-from gobbler_mcp.tools.conversion import (
+from gobbler_mcp.constants import MAX_TIMEOUT, MIN_TIMEOUT  # noqa: E402
+from gobbler_mcp.tools.conversion import (  # noqa: E402
     _run_cli,
     register_tools,
 )
@@ -211,7 +211,7 @@ class TestTranscribeYoutube:
         mock_run_cli.return_value = (True, f"Saved to {output_file}")
 
         tool = mcp._tool_manager._tools["transcribe_youtube"]
-        result = await tool.fn(
+        await tool.fn(
             video_url="https://youtube.com/watch?v=TEST",
             output_file=output_file,
         )

@@ -1,10 +1,12 @@
 """Unit tests for audio/video transcription module."""
 
 import subprocess
+import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import gobbler_core.converters.audio as audio_module
 from gobbler_core.converters.audio import (
     MAX_FILE_SIZE_BYTES,
     SUPPORTED_EXTENSIONS,
@@ -13,6 +15,9 @@ from gobbler_core.converters.audio import (
     _get_whisper_model,
     convert_audio_to_markdown,
 )
+
+# Use tempfile.gettempdir() for S108 compliance
+_TEMP_DIR = tempfile.gettempdir()
 
 
 class TestAudioExtraction:
@@ -25,14 +30,15 @@ class TestAudioExtraction:
     async def test_extract_audio_success(self, mock_close, mock_mkstemp, mock_run):
         """Test successful audio extraction from video."""
         # Mock temp file creation
-        mock_mkstemp.return_value = (999, "/tmp/gobbler_audio_test.mp3")
+        temp_audio_path = f"{_TEMP_DIR}/gobbler_audio_test.mp3"
+        mock_mkstemp.return_value = (999, temp_audio_path)
 
         # Mock successful ffmpeg run
         mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
 
         result = await _extract_audio("/path/to/video.mp4")
 
-        assert result == "/tmp/gobbler_audio_test.mp3"
+        assert result == temp_audio_path
         mock_close.assert_called_once_with(999)
 
         # Verify ffmpeg command
@@ -55,10 +61,16 @@ class TestAudioExtraction:
     @patch("gobbler_core.converters.audio.os.path.exists")
     @patch("gobbler_core.converters.audio.os.unlink")
     async def test_extract_audio_ffmpeg_failure(
-        self, mock_unlink, mock_exists, mock_close, mock_mkstemp, mock_run
+        self,
+        mock_unlink,
+        mock_exists,
+        _mock_close,  # noqa: PT019
+        mock_mkstemp,
+        mock_run,
     ):
         """Test handling of ffmpeg extraction failure."""
-        mock_mkstemp.return_value = (999, "/tmp/gobbler_audio_test.mp3")
+        temp_audio_path = f"{_TEMP_DIR}/gobbler_audio_test.mp3"
+        mock_mkstemp.return_value = (999, temp_audio_path)
         mock_exists.return_value = True
 
         # Mock ffmpeg failure
@@ -68,7 +80,7 @@ class TestAudioExtraction:
             await _extract_audio("/path/to/video.mp4")
 
         # Verify temp file cleanup (may be called multiple times in error handling)
-        mock_unlink.assert_called_with("/tmp/gobbler_audio_test.mp3")
+        mock_unlink.assert_called_with(temp_audio_path)
 
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.audio.subprocess.run")
@@ -77,10 +89,15 @@ class TestAudioExtraction:
     @patch("gobbler_core.converters.audio.os.path.exists")
     @patch("gobbler_core.converters.audio.os.unlink")
     async def test_extract_audio_timeout(
-        self, mock_unlink, mock_exists, mock_close, mock_mkstemp, mock_run
+        self,
+        mock_unlink,
+        mock_exists,
+        _mock_close,  # noqa: PT019
+        mock_mkstemp,
+        mock_run,
     ):
         """Test handling of ffmpeg timeout."""
-        mock_mkstemp.return_value = (999, "/tmp/gobbler_audio_test.mp3")
+        mock_mkstemp.return_value = (999, f"{_TEMP_DIR}/gobbler_audio_test.mp3")
         mock_exists.return_value = True
 
         # Mock timeout
@@ -98,10 +115,15 @@ class TestAudioExtraction:
     @patch("gobbler_core.converters.audio.os.path.exists")
     @patch("gobbler_core.converters.audio.os.unlink")
     async def test_extract_audio_ffmpeg_not_found(
-        self, mock_unlink, mock_exists, mock_close, mock_mkstemp, mock_run
+        self,
+        mock_unlink,
+        mock_exists,
+        _mock_close,  # noqa: PT019
+        mock_mkstemp,
+        mock_run,
     ):
         """Test handling when ffmpeg is not installed."""
-        mock_mkstemp.return_value = (999, "/tmp/gobbler_audio_test.mp3")
+        mock_mkstemp.return_value = (999, f"{_TEMP_DIR}/gobbler_audio_test.mp3")
         mock_exists.return_value = True
 
         # Mock FileNotFoundError (ffmpeg not installed)
@@ -123,8 +145,6 @@ class TestWhisperModelLoading:
         mock_whisper_class.return_value = mock_model
 
         # Clear global cache
-        import gobbler_core.converters.audio as audio_module
-
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -140,8 +160,6 @@ class TestWhisperModelLoading:
         mock_whisper_class.return_value = mock_model
 
         # Clear global cache
-        import gobbler_core.converters.audio as audio_module
-
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -164,8 +182,6 @@ class TestWhisperModelLoading:
         mock_whisper_class.side_effect = [mock_model_small, mock_model_large]
 
         # Clear global cache
-        import gobbler_core.converters.audio as audio_module
-
         audio_module._whisper_model = None
         audio_module._current_model_size = None
 
@@ -286,7 +302,8 @@ class TestAudioConversion:
         ]
 
         # Mock audio extraction
-        mock_extract.return_value = "/tmp/extracted_audio.mp3"
+        extracted_audio_path = f"{_TEMP_DIR}/extracted_audio.mp3"
+        mock_extract.return_value = extracted_audio_path
         mock_exists.return_value = True
 
         # Mock Whisper model
@@ -307,7 +324,7 @@ class TestAudioConversion:
 
         # Verify transcribe was called with extracted file
         call_args = mock_model.transcribe.call_args[0]
-        assert call_args[0] == "/tmp/extracted_audio.mp3"
+        assert call_args[0] == extracted_audio_path
 
         # Verify temp file cleanup
         mock_unlink.assert_called()

@@ -14,14 +14,12 @@ from .youtube import (
 )
 
 __all__ = [
-    # Base classes
+    "AutoFallbackProvider",
     "ContentProvider",
     "ProviderResult",
-    # YouTube providers
+    "TranscriptAPIProvider",
     "TranscriptProvider",
     "YouTubeTranscriptAPIProvider",
-    "TranscriptAPIProvider",
-    "AutoFallbackProvider",
-    "create_proxy_config",
     "create_provider",
+    "create_proxy_config",
 ]

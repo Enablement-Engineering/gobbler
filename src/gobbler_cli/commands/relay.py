@@ -33,7 +33,7 @@ def start(
 
 async def _start(host: str, port: int, foreground: bool) -> None:
     """Async implementation of start."""
-    from gobbler_relay.relay import (
+    from gobbler_relay.relay import (  # noqa: PLC0415
         ensure_relay_running,
         is_relay_healthy,
         main as relay_main,
@@ -65,7 +65,7 @@ async def _start(host: str, port: int, foreground: bool) -> None:
 @app.command()
 def stop() -> None:
     """Stop the relay server daemon."""
-    from gobbler_relay.relay import stop_relay_daemon
+    from gobbler_relay.relay import stop_relay_daemon  # noqa: PLC0415
 
     if stop_relay_daemon():
         print_success("Relay server stopped")
@@ -81,7 +81,7 @@ def status() -> None:
 
 async def _status() -> None:
     """Async implementation of status."""
-    from gobbler_relay.relay import (
+    from gobbler_relay.relay import (  # noqa: PLC0415
         DEFAULT_HOST,
         DEFAULT_PORT,
         is_process_running,
@@ -105,7 +105,7 @@ async def _status() -> None:
         print_success(f"Relay is healthy at http://{DEFAULT_HOST}:{DEFAULT_PORT}")
 
         # Get connection count
-        from gobbler_relay.client import get_connection_count
+        from gobbler_relay.client import get_connection_count  # noqa: PLC0415
 
         try:
             connections = await get_connection_count()
@@ -136,7 +136,7 @@ def restart(
 
 async def _restart(host: str, port: int) -> None:
     """Async implementation of restart."""
-    from gobbler_relay.relay import ensure_relay_running, stop_relay_daemon
+    from gobbler_relay.relay import ensure_relay_running, stop_relay_daemon  # noqa: PLC0415
 
     # Stop if running
     stop_relay_daemon()

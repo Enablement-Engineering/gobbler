@@ -21,7 +21,7 @@ DEFAULT_SCRIPT_TIMEOUT = 30
 sys.modules["gobbler_mcp.converters.audio"] = MagicMock()
 
 # Now we can safely import
-from gobbler_mcp.tools.browser import register_tools
+from gobbler_mcp.tools.browser import register_tools  # noqa: E402
 
 
 @pytest.fixture
@@ -208,7 +208,7 @@ class TestBrowserNavigateToUrl:
             mock_relay_client["send_command"],
         ):
             tool = mcp._tool_manager._tools["browser_navigate_to_url"]
-            result = await tool.fn(url="https://example.com", wait_for_load=False)
+            await tool.fn(url="https://example.com", wait_for_load=False)
 
         mock_relay_client["send_command"].assert_called_once_with(
             command="navigate",

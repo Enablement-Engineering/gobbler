@@ -38,7 +38,7 @@ def youtube(
         bool,
         typer.Option("--timestamps/--no-timestamps", help="Include timestamps in output"),
     ] = False,
-    format: Annotated[
+    output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
@@ -56,7 +56,7 @@ def youtube(
             output=output,
             language=language,
             timestamps=timestamps,
-            format=format,
+            output_format=output_format,
         )
     )
 
@@ -66,12 +66,12 @@ async def _convert_youtube(
     output: Path | None,
     language: str,
     timestamps: bool,
-    format: OutputFormat,
+    output_format: OutputFormat,
 ) -> None:
     """Async implementation of YouTube conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.youtube import convert_youtube_to_markdown
+        from gobbler_core.converters.youtube import convert_youtube_to_markdown  # noqa: PLC0415
 
         with ProgressTracker("Converting YouTube video"):
             result, metadata = await convert_youtube_to_markdown(
@@ -80,20 +80,20 @@ async def _convert_youtube(
                 include_timestamps=timestamps,
             )
 
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)
             write_json_result(json_result, output)
         else:
-            write_output(result, output, format)
+            write_output(result, output, output_format)
             if output:
                 print_success("YouTube video converted successfully")
     except Exception as e:
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_error(str(e), "YOUTUBE_CONVERSION_ERROR", source=url)
             write_json_result(json_result)
         else:
             print_error(f"Failed to convert YouTube video: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -115,7 +115,7 @@ def audio(
         bool,
         typer.Option("--timestamps/--no-timestamps", help="Include timestamps in output"),
     ] = False,
-    format: Annotated[
+    output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
@@ -134,7 +134,7 @@ def audio(
             language=language,
             model=model,
             timestamps=timestamps,
-            format=format,
+            output_format=output_format,
         )
     )
 
@@ -145,21 +145,22 @@ async def _convert_audio(
     language: str | None,
     model: str,
     timestamps: bool,
-    format: OutputFormat,
+    output_format: OutputFormat,
 ) -> None:
     """Async implementation of audio conversion."""
     source = str(file_path)
     try:
         # Validate file exists
         if not file_path.exists():
-            raise ValueError(f"File not found: {file_path}")
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)  # noqa: TRY301
 
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.audio import convert_audio_to_markdown
+        from gobbler_core.converters.audio import convert_audio_to_markdown  # noqa: PLC0415
 
         with ProgressTracker("Transcribing audio file"):
             # Note: timestamps option is not currently supported by the underlying converter
-            if timestamps and format != OutputFormat.JSON:
+            if timestamps and output_format != OutputFormat.JSON:
                 print_warning("Timestamps option is not yet implemented in the audio converter")
 
             result, metadata = await convert_audio_to_markdown(
@@ -168,20 +169,20 @@ async def _convert_audio(
                 model=model,
             )
 
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=source)
             write_json_result(json_result, output)
         else:
-            write_output(result, output, format)
+            write_output(result, output, output_format)
             if output:
                 print_success("Audio file transcribed successfully")
     except Exception as e:
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_error(str(e), "AUDIO_CONVERSION_ERROR", source=source)
             write_json_result(json_result)
         else:
             print_error(f"Failed to transcribe audio: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -195,7 +196,7 @@ def document(
         bool,
         typer.Option("--ocr/--no-ocr", help="Enable OCR for scanned documents"),
     ] = True,
-    format: Annotated[
+    output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
@@ -212,7 +213,7 @@ def document(
             file_path=file_path,
             output=output,
             ocr=ocr,
-            format=format,
+            output_format=output_format,
         )
     )
 
@@ -221,17 +222,18 @@ async def _convert_document(
     file_path: Path,
     output: Path | None,
     ocr: bool,
-    format: OutputFormat,
+    output_format: OutputFormat,
 ) -> None:
     """Async implementation of document conversion."""
     source = str(file_path)
     try:
         # Validate file exists
         if not file_path.exists():
-            raise ValueError(f"File not found: {file_path}")
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)  # noqa: TRY301
 
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.document import convert_document_to_markdown
+        from gobbler_core.converters.document import convert_document_to_markdown  # noqa: PLC0415
 
         with ProgressTracker("Converting document"):
             result, metadata = await convert_document_to_markdown(
@@ -239,20 +241,20 @@ async def _convert_document(
                 enable_ocr=ocr,
             )
 
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=source)
             write_json_result(json_result, output)
         else:
-            write_output(result, output, format)
+            write_output(result, output, output_format)
             if output:
                 print_success("Document converted successfully")
     except Exception as e:
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_error(str(e), "DOCUMENT_CONVERSION_ERROR", source=source)
             write_json_result(json_result)
         else:
             print_error(f"Failed to convert document: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -270,7 +272,7 @@ def webpage(
         int,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
     ] = 30,
-    format: Annotated[
+    output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
@@ -288,7 +290,7 @@ def webpage(
             output=output,
             css_selector=css_selector,
             timeout=timeout,
-            format=format,
+            output_format=output_format,
         )
     )
 
@@ -298,17 +300,17 @@ async def _convert_webpage(
     output: Path | None,
     css_selector: str | None,
     timeout: int,
-    format: OutputFormat,
+    output_format: OutputFormat,
 ) -> None:
     """Async implementation of webpage conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.webpage import convert_webpage_to_markdown
+        from gobbler_core.converters.webpage import convert_webpage_to_markdown  # noqa: PLC0415
 
         with ProgressTracker("Converting web page"):
             # Note: css_selector is not currently supported by the underlying converter
             # It uses the Gobbler service for extraction instead
-            if css_selector and format != OutputFormat.JSON:
+            if css_selector and output_format != OutputFormat.JSON:
                 print_warning("CSS selector option is not yet implemented in the webpage converter")
 
             result, metadata = await convert_webpage_to_markdown(
@@ -316,17 +318,17 @@ async def _convert_webpage(
                 timeout=timeout,
             )
 
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)
             write_json_result(json_result, output)
         else:
-            write_output(result, output, format)
+            write_output(result, output, output_format)
             if output:
                 print_success("Web page converted successfully")
     except Exception as e:
-        if format == OutputFormat.JSON:
+        if output_format == OutputFormat.JSON:
             json_result = format_json_error(str(e), "WEBPAGE_CONVERSION_ERROR", source=url)
             write_json_result(json_result)
         else:
             print_error(f"Failed to convert web page: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None

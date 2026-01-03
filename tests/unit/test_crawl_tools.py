@@ -13,7 +13,8 @@ def _import_crawl_module():
         "gobbler_mcp.tools.crawl", "src/gobbler_mcp/tools/crawl.py"
     )
     if spec is None or spec.loader is None:
-        raise ImportError("Failed to load crawl module spec")
+        msg = "Failed to load crawl module spec"
+        raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules["gobbler_mcp.tools.crawl"] = module
     spec.loader.exec_module(module)
@@ -80,8 +81,9 @@ class TestCreateCrawlSession:
         assert "created successfully" in result
         assert "Cookies: 1" in result
 
+    @pytest.mark.usefixtures("crawl_module")
     @pytest.mark.asyncio
-    async def test_create_session_with_local_storage(self, crawl_tools, crawl_module):
+    async def test_create_session_with_local_storage(self, crawl_tools):
         """Test creating a session with localStorage."""
         create_crawl_session = crawl_tools["create_crawl_session"]
 
@@ -105,8 +107,9 @@ class TestCreateCrawlSession:
         assert "storage-session" in result
         assert "localStorage keys: user_id, theme" in result
 
+    @pytest.mark.usefixtures("crawl_module")
     @pytest.mark.asyncio
-    async def test_create_session_with_user_agent(self, crawl_tools, crawl_module):
+    async def test_create_session_with_user_agent(self, crawl_tools):
         """Test creating a session with custom user agent."""
         create_crawl_session = crawl_tools["create_crawl_session"]
 
@@ -257,16 +260,18 @@ class TestCrawlSite:
             "max_depth_reached": 0,
         }
 
-        with patch("gobbler_mcp.crawlers.site_crawler.SiteCrawler") as mock_crawler:
-            with patch.object(crawl_module, "save_markdown_file", return_value=True):
-                instance = AsyncMock()
-                mock_crawler.return_value = instance
-                instance.crawl_site.return_value = (mock_pages, mock_summary)
+        with (
+            patch("gobbler_mcp.crawlers.site_crawler.SiteCrawler") as mock_crawler,
+            patch.object(crawl_module, "save_markdown_file", return_value=True),
+        ):
+            instance = AsyncMock()
+            mock_crawler.return_value = instance
+            instance.crawl_site.return_value = (mock_pages, mock_summary)
 
-                result = await crawl_site(
-                    start_url="https://example.com",
-                    output_dir=output_dir,
-                )
+            result = await crawl_site(
+                start_url="https://example.com",
+                output_dir=output_dir,
+            )
 
         assert f"Pages saved to: {output_dir}" in result
 

@@ -37,14 +37,20 @@ def test_structured_formatter_basic():
     assert "timestamp" in data
 
 
+def _raise_test_error() -> None:
+    """Raise a test error for exception testing."""
+    msg = "Test error"
+    raise ValueError(msg)
+
+
 def test_structured_formatter_with_exception():
     """Test JSON formatting with exception info."""
     formatter = StructuredFormatter()
 
     try:
-        raise ValueError("Test error")
+        _raise_test_error()
     except ValueError:
-        import sys
+        import sys  # noqa: PLC0415
 
         exc_info = sys.exc_info()
 
@@ -100,7 +106,7 @@ def test_structured_formatter_with_extra_fields():
 def test_setup_logging_text_format():
     """Test text logging setup."""
     logger_name = "test.text.logger"
-    setup_logging(level="DEBUG", format="text", logger_name=logger_name)
+    setup_logging(level="DEBUG", log_format="text", logger_name=logger_name)
 
     logger = logging.getLogger(logger_name)
     assert logger.level == logging.DEBUG
@@ -111,7 +117,7 @@ def test_setup_logging_text_format():
 def test_setup_logging_json_format():
     """Test JSON logging setup."""
     logger_name = "test.json.logger"
-    setup_logging(level="INFO", format="json", logger_name=logger_name)
+    setup_logging(level="INFO", log_format="json", logger_name=logger_name)
 
     logger = logging.getLogger(logger_name)
     assert logger.level == logging.INFO
@@ -176,16 +182,17 @@ def test_logger_with_context_extra_fields():
     base_logger.setLevel(logging.INFO)
 
     # Log with additional extra fields
+    test_file = "/tmp/test.mp3"  # noqa: S108
     adapter.info(
         "Processing file",
-        extra={"extra_fields": {"file_path": "/tmp/test.mp3", "size": 1024}},
+        extra={"extra_fields": {"file_path": test_file, "size": 1024}},
     )
 
     output = stream.getvalue()
     data = json.loads(output)
 
     assert data["converter_type"] == "audio"  # From context
-    assert data["file_path"] == "/tmp/test.mp3"  # From extra
+    assert data["file_path"] == test_file  # From extra
     assert data["size"] == 1024  # From extra
 
     # Cleanup

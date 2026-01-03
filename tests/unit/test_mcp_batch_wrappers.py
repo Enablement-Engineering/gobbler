@@ -20,9 +20,9 @@ sys.modules["rq"] = _rq_mock
 sys.modules["rq.job"] = _rq_mock.job
 sys.modules["gobbler_mcp.converters.audio"] = MagicMock()
 
-from fastmcp import FastMCP
+from fastmcp import FastMCP  # noqa: E402
 
-from gobbler_mcp.tools.batch import (
+from gobbler_mcp.tools.batch import (  # noqa: E402
     _format_batch_report,
     _parse_json_output,
     _run_cli,
@@ -190,7 +190,7 @@ class TestFormatBatchReport:
             "failed": 2,
             "skipped": 0,
             "processing_time_seconds": 45,
-            "output_dir": "/tmp/output",
+            "output_dir": "/tmp/output",  # noqa: S108
         }
         result = _format_batch_report(data)
 
@@ -428,7 +428,7 @@ class TestBatchTranscribeYoutubePlaylist:
         assert "youtube-playlist" in cmd
 
     @pytest.mark.asyncio
-    async def test_relative_output_dir_rejected(self, mcp, tmp_path):
+    async def test_relative_output_dir_rejected(self, mcp):
         """Test that relative output directory is rejected."""
         tool = mcp._tool_manager._tools["batch_transcribe_youtube_playlist"]
         result = await tool.fn(
@@ -581,7 +581,7 @@ class TestBatchFetchWebpages:
         assert "Error: concurrency must be between 1 and 10" in result
 
     @pytest.mark.asyncio
-    async def test_relative_output_dir_rejected(self, mcp, tmp_path):
+    async def test_relative_output_dir_rejected(self, mcp):
         """Test that relative output directory is rejected."""
         tool = mcp._tool_manager._tools["batch_fetch_webpages"]
         result = await tool.fn(
@@ -709,7 +709,7 @@ class TestBatchTranscribeAudio:
         mock_run_cli.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_relative_input_dir_rejected(self, mcp, tmp_path):
+    async def test_relative_input_dir_rejected(self, mcp):
         """Test that relative input directory is rejected."""
         tool = mcp._tool_manager._tools["batch_transcribe_audio"]
         result = await tool.fn(
@@ -868,7 +868,7 @@ class TestBatchConvertDocuments:
         mock_run_cli.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_relative_input_dir_rejected(self, mcp, tmp_path):
+    async def test_relative_input_dir_rejected(self, mcp):
         """Test that relative input directory is rejected."""
         tool = mcp._tool_manager._tools["batch_convert_documents"]
         result = await tool.fn(

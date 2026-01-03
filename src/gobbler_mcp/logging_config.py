@@ -49,14 +49,14 @@ class StructuredFormatter(logging.Formatter):
 
 def setup_logging(
     level: str = "INFO",
-    format: str = "text",
+    log_format: str = "text",
     logger_name: str | None = None,
 ) -> None:
     """Configure application logging.
 
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        format: 'json' for structured logging, 'text' for human-readable
+        log_format: 'json' for structured logging, 'text' for human-readable
         logger_name: Specific logger to configure. If None, configures root logger.
     """
     # Get logger
@@ -71,7 +71,7 @@ def setup_logging(
     handler = logging.StreamHandler(sys.stderr)
 
     # Set formatter based on format type
-    if format == "json":
+    if log_format == "json":
         handler.setFormatter(StructuredFormatter())
     else:
         # Text format (default for MCP compatibility)

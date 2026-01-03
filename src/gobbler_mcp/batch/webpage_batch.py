@@ -114,10 +114,7 @@ async def process_webpage_batch(
 
             # Generate filename from title or URL
             title = metadata.get("title")
-            if title:
-                filename = sanitize_filename(title)
-            else:
-                filename = item.metadata["fallback_filename"]
+            filename = sanitize_filename(title) if title else item.metadata["fallback_filename"]
 
             # Get unique output path
             output_file = output_path / f"{filename}.md"
@@ -156,7 +153,7 @@ async def process_webpage_batch(
             )
 
         except Exception as e:
-            logger.error(f"Error processing webpage {item.source}: {e}")
+            logger.exception("Error processing webpage %s", item.source)
             return BatchResult(
                 item_id=item.id,
                 success=False,
@@ -177,6 +174,6 @@ async def process_webpage_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
+    logger.info("Batch complete: %d/%d successful", summary.successful, summary.total_items)
 
     return summary

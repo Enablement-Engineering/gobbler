@@ -48,10 +48,12 @@ def scan_directory(
     input_path = Path(input_dir)
 
     if not input_path.exists():
-        raise ValueError(f"Directory not found: {input_dir}")
+        msg = f"Directory not found: {input_dir}"
+        raise ValueError(msg)
 
     if not input_path.is_dir():
-        raise ValueError(f"Not a directory: {input_dir}")
+        msg = f"Not a directory: {input_dir}"
+        raise ValueError(msg)
 
     # Determine valid extensions
     if file_type == "audio":
@@ -59,20 +61,18 @@ def scan_directory(
     elif file_type == "document":
         valid_extensions = DOCUMENT_EXTENSIONS
     else:
-        raise ValueError(f"Invalid file_type: {file_type}")
+        msg = f"Invalid file_type: {file_type}"
+        raise ValueError(msg)
 
     # Scan directory
-    if recursive:
-        glob_pattern = f"**/{pattern}"
-    else:
-        glob_pattern = pattern
+    glob_pattern = f"**/{pattern}" if recursive else pattern
 
     files = []
     for file_path in input_path.glob(glob_pattern):
         if file_path.is_file() and file_path.suffix.lower() in valid_extensions:
             files.append(file_path)
 
-    logger.info(f"Found {len(files)} {file_type} files in {input_dir}")
+    logger.info("Found %d %s files in %s", len(files), file_type, input_dir)
     return sorted(files)
 
 
@@ -111,7 +111,8 @@ async def process_audio_batch(
     files = scan_directory(input_dir, pattern, recursive, file_type="audio")
 
     if not files:
-        raise ValueError(f"No audio/video files found in {input_dir}")
+        msg = f"No audio/video files found in {input_dir}"
+        raise ValueError(msg)
 
     # Convert to BatchItems
     items = []
@@ -185,12 +186,12 @@ async def process_audio_batch(
                 },
             )
 
-        except Exception as e:
-            logger.error(f"Error processing audio file {item.source}: {e}")
+        except Exception:
+            logger.exception("Error processing audio file %s", item.source)
             return BatchResult(
                 item_id=item.id,
                 success=False,
-                error=str(e),
+                error="Processing failed",
             )
 
     # Create batch processor
@@ -207,7 +208,7 @@ async def process_audio_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
+    logger.info("Batch complete: %d/%d successful", summary.successful, summary.total_items)
 
     return summary
 
@@ -245,7 +246,8 @@ async def process_document_batch(
     files = scan_directory(input_dir, pattern, recursive, file_type="document")
 
     if not files:
-        raise ValueError(f"No document files found in {input_dir}")
+        msg = f"No document files found in {input_dir}"
+        raise ValueError(msg)
 
     # Convert to BatchItems
     items = []
@@ -321,12 +323,12 @@ async def process_document_batch(
                 },
             )
 
-        except Exception as e:
-            logger.error(f"Error processing document {item.source}: {e}")
+        except Exception:
+            logger.exception("Error processing document %s", item.source)
             return BatchResult(
                 item_id=item.id,
                 success=False,
-                error=str(e),
+                error="Processing failed",
             )
 
     # Create batch processor
@@ -343,6 +345,6 @@ async def process_document_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
+    logger.info("Batch complete: %d/%d successful", summary.successful, summary.total_items)
 
     return summary

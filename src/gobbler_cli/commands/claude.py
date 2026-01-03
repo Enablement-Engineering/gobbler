@@ -25,7 +25,7 @@ _auto_start_enabled = True
 
 def set_auto_start(enabled: bool) -> None:
     """Set whether relay auto-start is enabled."""
-    global _auto_start_enabled
+    global _auto_start_enabled  # noqa: PLW0603
     _auto_start_enabled = enabled
 
 
@@ -53,7 +53,8 @@ CHECK_API_JS = "typeof window.gobblerClaude !== 'undefined'"
 ASK_JS = """
 (async () => {
     if (typeof window.gobblerClaude === 'undefined') {
-        return {success: false, error: "Gobbler Claude API not injected. Ensure the tab is in the Gobbler group."};
+        return {success: false,
+            error: "Gobbler Claude API not injected. Ensure the tab is in the Gobbler group."};
     }
     return await window.gobblerClaude.ask(%s, %d);
 })()
@@ -102,7 +103,8 @@ GET_CHAT_HISTORY_JS = """
             return {
                 totalMessages: messages.length,
                 returned: selected.length,
-                messages: selected.map((m, i) => ({index: startIdx + i, role: m.role, text: m.content}))
+                messages: selected.map((m, i) => (
+                    {index: startIdx + i, role: m.role, text: m.content}))
             };
         }
         return result;
@@ -114,7 +116,7 @@ GET_CHAT_HISTORY_JS = """
 
 async def _get_claude_tabs() -> list[dict]:
     """Get list of Claude.ai tabs in the Gobbler group."""
-    from gobbler_relay.client import list_tabs
+    from gobbler_relay.client import list_tabs  # noqa: PLC0415
 
     result = await list_tabs(filter_type="claude")
 
@@ -127,7 +129,11 @@ async def _get_claude_tabs() -> list[dict]:
 
 async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     """Check if relay is running and extension is connected."""
-    from gobbler_relay.client import check_connection, ensure_relay_running, is_relay_running
+    from gobbler_relay.client import (  # noqa: PLC0415
+        check_connection,
+        ensure_relay_running,
+        is_relay_running,
+    )
 
     relay_auto_started = False
 
@@ -202,7 +208,7 @@ def info(
 
 async def _info(tab_id: int | None) -> None:
     """Async implementation of info."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -254,9 +260,9 @@ def query(
     asyncio.run(_query(message, tab_id, timeout))
 
 
-async def _query(message: str, tab_id: int | None, timeout: int) -> None:
+async def _query(message: str, tab_id: int | None, timeout: int) -> None:  # noqa: PLR0912
     """Async implementation of query."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -300,15 +306,15 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
-            print(data)
+            print(data)  # noqa: T201
             return
 
     if isinstance(data, dict):
         if data.get("success"):
             response = data.get("response", "No response")
             console.print("[bold green]Response:[/bold green]\n")
-            print(response)
-            print()
+            print(response)  # noqa: T201
+            print()  # noqa: T201
 
             if data.get("partial"):
                 print_warning("Response may be incomplete (timeout reached)")
@@ -317,7 +323,7 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
             print_error(data.get("error", "Unknown error"))
             raise typer.Exit(1)
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201
 
 
 @app.command()
@@ -333,7 +339,7 @@ def last(
 
 async def _last(tab_id: int | None) -> None:
     """Async implementation of last."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -363,7 +369,7 @@ async def _last(tab_id: int | None) -> None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
-            print(data)
+            print(data)  # noqa: T201
             return
 
     if isinstance(data, dict):
@@ -376,9 +382,9 @@ async def _last(tab_id: int | None) -> None:
         if data.get("totalMessages"):
             console.print(f"[dim]Total messages:[/dim] {data.get('totalMessages')}\n")
         console.print("[bold]Last Response:[/bold]\n")
-        print(response_text)
+        print(response_text)  # noqa: T201
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201
 
 
 @app.command()
@@ -402,7 +408,7 @@ def history(
 
 async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
     """Async implementation of history."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -435,7 +441,7 @@ async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
         try:
             data = json.loads(data)
         except json.JSONDecodeError:
-            print(data)
+            print(data)  # noqa: T201
             return
 
     if isinstance(data, dict):
@@ -455,7 +461,7 @@ async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
             text = msg.get("text", "")
             role_color = "cyan" if role == "user" else "green"
             console.print(f"\n[bold {role_color}]{role.upper()}[/bold {role_color}]\n")
-            print(text)
+            print(text)  # noqa: T201
             console.print("\n" + "-" * 60)
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201

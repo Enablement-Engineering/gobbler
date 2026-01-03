@@ -3,6 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
+# ruff: noqa: T201, PLR0915, PLC0415
 """
 Test the browser tools by directly calling the http_server functions.
 
@@ -10,11 +11,11 @@ This simulates what the MCP tools do internally.
 """
 
 import asyncio
-import os
 import sys
+from pathlib import Path
 
 # Add src to path so we can import gobbler_mcp
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
+sys.path.insert(0, str(Path(__file__).parent / "../../../src"))
 
 
 async def test_browser_tools():

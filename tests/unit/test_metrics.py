@@ -55,8 +55,8 @@ def test_track_conversion_failure(clear_metrics):
     )._value._value
 
     # Track a failed conversion
-    with pytest.raises(ValueError), track_conversion(converter_type):
-        raise ValueError("Test error")
+    with pytest.raises(ValueError, match="Test error"), track_conversion(converter_type):
+        raise ValueError("Test error")  # noqa: EM101
 
     # Verify failure counter incremented
     final_failure = conversion_total.labels(
@@ -72,7 +72,7 @@ def test_track_conversion_failure(clear_metrics):
 
 def test_track_conversion_duration(clear_metrics):
     """Test conversion duration tracking."""
-    import time
+    import time  # noqa: PLC0415
 
     converter_type = "test_duration"
 
@@ -169,12 +169,12 @@ def test_error_types_tracked_separately():
     converter_type = "test_errors"
 
     # Track ValueError
-    with pytest.raises(ValueError), track_conversion(converter_type):
-        raise ValueError("Test error 1")
+    with pytest.raises(ValueError, match="Test error 1"), track_conversion(converter_type):
+        raise ValueError("Test error 1")  # noqa: EM101
 
     # Track TypeError
-    with pytest.raises(TypeError), track_conversion(converter_type):
-        raise TypeError("Test error 2")
+    with pytest.raises(TypeError, match="Test error 2"), track_conversion(converter_type):
+        raise TypeError("Test error 2")  # noqa: EM101
 
     # Get metrics
     metrics_data, _ = get_metrics()

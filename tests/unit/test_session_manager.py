@@ -19,20 +19,22 @@ def mock_config():
 @pytest.fixture
 def session_manager(mock_config, tmp_path):
     """Create session manager with temp directory."""
-    with patch("gobbler_mcp.crawlers.session_manager.get_config", return_value=mock_config):
-        with patch("gobbler_mcp.crawlers.session_manager.Path") as mock_path_class:
-            # Make parent return tmp_path
-            mock_parent = MagicMock()
-            mock_parent.__truediv__ = lambda self, x: tmp_path / x
+    with (
+        patch("gobbler_mcp.crawlers.session_manager.get_config", return_value=mock_config),
+        patch("gobbler_mcp.crawlers.session_manager.Path") as mock_path_class,
+    ):
+        # Make parent return tmp_path
+        mock_parent = MagicMock()
+        mock_parent.__truediv__ = lambda _self, x: tmp_path / x
 
-            mock_path_instance = MagicMock()
-            mock_path_instance.parent = mock_parent
-            mock_path_class.return_value = mock_path_instance
+        mock_path_instance = MagicMock()
+        mock_path_instance.parent = mock_parent
+        mock_path_class.return_value = mock_path_instance
 
-            manager = SessionManager.__new__(SessionManager)
-            manager.sessions_dir = tmp_path / "sessions"
-            manager.sessions_dir.mkdir(parents=True, exist_ok=True)
-            return manager
+        manager = SessionManager.__new__(SessionManager)
+        manager.sessions_dir = tmp_path / "sessions"
+        manager.sessions_dir.mkdir(parents=True, exist_ok=True)
+        return manager
 
 
 class TestCreateSession:
@@ -55,7 +57,7 @@ class TestCreateSession:
         assert session_file.exists()
 
         # Verify content
-        with open(session_file) as f:
+        with session_file.open() as f:
             data = json.load(f)
         assert data["cookies"] == cookies
 
@@ -73,7 +75,7 @@ class TestCreateSession:
 
         # Verify file content
         session_file = session_manager.sessions_dir / "storage-session.json"
-        with open(session_file) as f:
+        with session_file.open() as f:
             data = json.load(f)
         assert data["local_storage"] == local_storage
 
@@ -88,7 +90,7 @@ class TestCreateSession:
 
         # Verify file content
         session_file = session_manager.sessions_dir / "ua-session.json"
-        with open(session_file) as f:
+        with session_file.open() as f:
             data = json.load(f)
         assert data["user_agent"] == "CustomBot/1.0"
 
@@ -134,7 +136,7 @@ class TestLoadSession:
             "user_agent": "MyAgent",
         }
         session_file = session_manager.sessions_dir / "existing-session.json"
-        with open(session_file, "w") as f:
+        with session_file.open("w") as f:
             json.dump(session_data, f)
 
         result = await session_manager.load_session("existing-session")
@@ -155,7 +157,7 @@ class TestLoadSession:
         """Test loading a session with corrupted JSON raises RuntimeError."""
         # Create corrupted file
         session_file = session_manager.sessions_dir / "corrupted-session.json"
-        with open(session_file, "w") as f:
+        with session_file.open("w") as f:
             f.write("{not valid json")
 
         with pytest.raises(RuntimeError, match="Invalid session file"):
@@ -177,7 +179,7 @@ class TestListSessions:
         # Create some session files
         for name in ["alpha", "beta", "gamma"]:
             session_file = session_manager.sessions_dir / f"{name}.json"
-            with open(session_file, "w") as f:
+            with session_file.open("w") as f:
                 json.dump({"session_id": name}, f)
 
         result = await session_manager.list_sessions()
@@ -194,7 +196,7 @@ class TestDeleteSession:
         """Test deleting an existing session."""
         # Create session file
         session_file = session_manager.sessions_dir / "to-delete.json"
-        with open(session_file, "w") as f:
+        with session_file.open("w") as f:
             json.dump({"session_id": "to-delete"}, f)
 
         result = await session_manager.delete_session("to-delete")
@@ -239,7 +241,7 @@ class TestUpdateSession:
         )
 
         # Update with additional localStorage
-        result = await session_manager.update_session(
+        await session_manager.update_session(
             session_id="merge-test", local_storage={"key2": "value2"}
         )
 

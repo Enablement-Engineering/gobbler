@@ -43,7 +43,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="fetch data")
         async def raise_connect_error():
-            raise httpx.ConnectError("Connection refused")
+            msg = "Connection refused"
+            raise httpx.ConnectError(msg)
 
         result = await raise_connect_error()
         assert "Connection failed" in result
@@ -55,7 +56,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="fetch data", service_name="Docker")
         async def raise_connect_error():
-            raise httpx.ConnectError("Connection refused")
+            msg = "Connection refused"
+            raise httpx.ConnectError(msg)
 
         result = await raise_connect_error()
         assert "Connection failed" in result
@@ -67,7 +69,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="fetch data")
         async def raise_connect_error():
-            raise httpx.ConnectError("Connection refused")
+            msg = "Connection refused"
+            raise httpx.ConnectError(msg)
 
         result = await raise_connect_error()
         assert "Connection failed" in result
@@ -79,7 +82,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="validate input")
         async def raise_value_error():
-            raise ValueError("Invalid input: expected positive number")
+            msg = "Invalid input: expected positive number"
+            raise ValueError(msg)
 
         result = await raise_value_error()
         assert result == "Invalid input: expected positive number"
@@ -90,7 +94,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="read file")
         async def raise_file_not_found():
-            raise FileNotFoundError("config.yml")
+            msg = "config.yml"
+            raise FileNotFoundError(msg)
 
         result = await raise_file_not_found()
         assert "Error: File not found" in result
@@ -102,7 +107,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="process data")
         async def raise_generic_exception():
-            raise Exception("Something went wrong")
+            msg = "Something went wrong"
+            raise RuntimeError(msg)
 
         result = await raise_generic_exception()
         assert "Failed to process data" in result
@@ -114,7 +120,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="execute task")
         async def raise_runtime_error():
-            raise RuntimeError("Runtime failure")
+            msg = "Runtime failure"
+            raise RuntimeError(msg)
 
         result = await raise_runtime_error()
         assert "Failed to execute task" in result
@@ -126,7 +133,8 @@ class TestHandleToolErrorsDecorator:
 
         @handle_tool_errors(operation_name="call function")
         async def raise_type_error():
-            raise TypeError("Expected string, got int")
+            msg = "Expected string, got int"
+            raise TypeError(msg)
 
         result = await raise_type_error()
         assert "Failed to call function" in result
@@ -182,7 +190,8 @@ class TestDecoratorLogging:
 
         @handle_tool_errors(operation_name="connect to service")
         async def raise_connect_error():
-            raise httpx.ConnectError("Connection refused")
+            msg = "Connection refused"
+            raise httpx.ConnectError(msg)
 
         with caplog.at_level(logging.ERROR, logger="gobbler_mcp.decorators"):
             await raise_connect_error()
@@ -195,7 +204,8 @@ class TestDecoratorLogging:
 
         @handle_tool_errors(operation_name="validate data")
         async def raise_value_error():
-            raise ValueError("Invalid value")
+            msg = "Invalid value"
+            raise ValueError(msg)
 
         with caplog.at_level(logging.WARNING, logger="gobbler_mcp.decorators"):
             await raise_value_error()
@@ -208,7 +218,8 @@ class TestDecoratorLogging:
 
         @handle_tool_errors(operation_name="load config")
         async def raise_file_not_found():
-            raise FileNotFoundError("missing.txt")
+            msg = "missing.txt"
+            raise FileNotFoundError(msg)
 
         with caplog.at_level(logging.ERROR, logger="gobbler_mcp.decorators"):
             await raise_file_not_found()
@@ -221,7 +232,8 @@ class TestDecoratorLogging:
 
         @handle_tool_errors(operation_name="run operation")
         async def raise_generic():
-            raise Exception("Unexpected failure")
+            msg = "Unexpected failure"
+            raise RuntimeError(msg)
 
         with caplog.at_level(logging.ERROR, logger="gobbler_mcp.decorators"):
             await raise_generic()
@@ -271,7 +283,8 @@ class TestDecoratorEdgeCases:
 
         @handle_tool_errors(operation_name="test unicode")
         async def raise_unicode_error():
-            raise ValueError("错误: invalid input")
+            msg = "错误: invalid input"
+            raise ValueError(msg)
 
         result = await raise_unicode_error()
         assert "错误" in result
@@ -283,7 +296,8 @@ class TestDecoratorEdgeCases:
 
         @handle_tool_errors(operation_name=long_name)
         async def raise_exception():
-            raise Exception("test error")
+            msg = "test error"
+            raise RuntimeError(msg)
 
         result = await raise_exception()
         assert f"Failed to {long_name}" in result
@@ -294,7 +308,8 @@ class TestDecoratorEdgeCases:
 
         @handle_tool_errors(operation_name="fetch user's data (test)")
         async def raise_exception():
-            raise Exception("failed")
+            msg = "failed"
+            raise RuntimeError(msg)
 
         result = await raise_exception()
         assert "Failed to fetch user's data (test)" in result
@@ -349,7 +364,8 @@ class TestDecoratorWithRealExceptions:
 
         @handle_tool_errors(operation_name="write file")
         async def raise_permission_error():
-            raise PermissionError("Access denied to /etc/passwd")
+            msg = "Access denied to /etc/passwd"
+            raise PermissionError(msg)
 
         result = await raise_permission_error()
         assert "Failed to write file" in result
@@ -361,7 +377,8 @@ class TestDecoratorWithRealExceptions:
 
         @handle_tool_errors(operation_name="fetch API", service_name="external API")
         async def raise_timeout():
-            raise TimeoutError("Request timed out after 30s")
+            msg = "Request timed out after 30s"
+            raise TimeoutError(msg)
 
         result = await raise_timeout()
         assert "Failed to fetch API" in result
@@ -373,7 +390,8 @@ class TestDecoratorWithRealExceptions:
 
         @handle_tool_errors(operation_name="parse response")
         async def raise_key_error():
-            raise KeyError("missing_field")
+            msg = "missing_field"
+            raise KeyError(msg)
 
         result = await raise_key_error()
         assert "Failed to parse response" in result
@@ -385,7 +403,8 @@ class TestDecoratorWithRealExceptions:
 
         @handle_tool_errors(operation_name="access disk")
         async def raise_os_error():
-            raise OSError("Disk full")
+            msg = "Disk full"
+            raise OSError(msg)
 
         result = await raise_os_error()
         assert "Failed to access disk" in result

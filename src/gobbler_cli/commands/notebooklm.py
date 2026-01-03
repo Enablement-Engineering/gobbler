@@ -26,7 +26,7 @@ _auto_start_enabled = True
 
 def set_auto_start(enabled: bool) -> None:
     """Set whether relay auto-start is enabled."""
-    global _auto_start_enabled
+    global _auto_start_enabled  # noqa: PLW0603
     _auto_start_enabled = enabled
 
 
@@ -66,7 +66,8 @@ SEND_AND_WAIT_JS = """
     await new Promise(r => setTimeout(r, 200));
 
     // Set value using native setter
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+    const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype, 'value').set;
     setter.call(textarea, query);
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise(r => setTimeout(r, 500));
@@ -87,19 +88,20 @@ SEND_AND_WAIT_JS = """
     let lastText = '';
     let stableCount = 0;
     const STABLE_THRESHOLD = 3;  // Need 3 consecutive stable checks (3 seconds)
-    
+
     while (Date.now() - startTime < maxWait) {
         await new Promise(r => setTimeout(r, 1000));
 
         const messages = document.querySelectorAll('chat-message');
-        
+
         // Check if we have a new response (user message + assistant message)
         if (messages.length >= initialCount + 2) {
             const lastMsg = messages[messages.length - 1];
             const text = lastMsg?.innerText || '';
 
             // Skip if still showing loading text
-            if (text.length < 50 && (text.includes('Finding') || text.includes('Searching') || text.includes('...'))) {
+            if (text.length < 50 && (text.includes('Finding') ||
+                    text.includes('Searching') || text.includes('...'))) {
                 stableCount = 0;
                 lastText = '';
                 continue;
@@ -212,13 +214,12 @@ def _clean_response(text: str) -> str:
     """Clean up NotebookLM UI artifacts from response text."""
     text = re.sub(r"keep_pin\s*Save to note", "", text)
     text = text.replace("copy_all", "").replace("thumb_up", "").replace("thumb_down", "")
-    text = re.sub(r"\n{3,}", "\n\n", text).strip()
-    return text
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 async def _get_notebooklm_tabs() -> list[dict]:
     """Get list of NotebookLM tabs in the Gobbler group."""
-    from gobbler_relay.client import list_tabs
+    from gobbler_relay.client import list_tabs  # noqa: PLC0415
 
     result = await list_tabs(filter_type="notebooklm")
 
@@ -235,7 +236,11 @@ async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     Returns:
         Tuple of (success, relay_was_auto_started, message)
     """
-    from gobbler_relay.client import check_connection, ensure_relay_running, is_relay_running
+    from gobbler_relay.client import (  # noqa: PLC0415
+        check_connection,
+        ensure_relay_running,
+        is_relay_running,
+    )
 
     relay_auto_started = False
 
@@ -313,7 +318,7 @@ def info(
 
 async def _info(tab_id: int | None) -> None:
     """Async implementation of info."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -371,9 +376,9 @@ def query(
     asyncio.run(_query(message, tab_id, timeout))
 
 
-async def _query(message: str, tab_id: int | None, timeout: int) -> None:
+async def _query(message: str, tab_id: int | None, timeout: int) -> None:  # noqa: PLR0912
     """Async implementation of query."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -429,8 +434,8 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
             # Print full response without truncation
             console.print("[bold green]Response:[/bold green]\n")
             # Use print() for raw output to avoid any rich formatting issues
-            print(response)
-            print()  # Blank line after response
+            print(response)  # noqa: T201
+            print()  # Blank line after response  # noqa: T201
 
             if data.get("partial"):
                 print_warning("Response may be incomplete (timeout reached)")
@@ -439,7 +444,7 @@ async def _query(message: str, tab_id: int | None, timeout: int) -> None:
             print_error(data.get("error", "Unknown error"))
             raise typer.Exit(1)
     else:
-        print(str(data))
+        print(str(data))  # noqa: T201
 
 
 @app.command()
@@ -455,7 +460,7 @@ def last(
 
 async def _last(tab_id: int | None) -> None:
     """Async implementation of last."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -522,7 +527,7 @@ def history(
 
 async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
     """Async implementation of history."""
-    from gobbler_relay.client import execute_script_in_tab
+    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:

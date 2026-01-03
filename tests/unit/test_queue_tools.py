@@ -3,6 +3,7 @@
 Tests the queue tools module with mocked JobManager.
 All tests run without requiring actual database or queue system.
 """
+# ruff: noqa: DTZ001, E402
 
 import sys
 from datetime import datetime

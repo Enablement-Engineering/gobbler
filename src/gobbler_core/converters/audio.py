@@ -1,11 +1,13 @@
 """Audio/video transcription module using faster-whisper with Metal/CoreML acceleration."""
 
+import contextlib
 import logging
 import os
 import subprocess
 import tempfile
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 from faster_whisper import WhisperModel
 
@@ -40,8 +42,9 @@ async def _extract_audio(video_path: str) -> str:
         RuntimeError: If ffmpeg extraction fails
     """
     # Create temporary file for extracted audio
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".mp3", prefix="gobbler_audio_")
+    temp_fd, temp_path_str = tempfile.mkstemp(suffix=".mp3", prefix="gobbler_audio_")
     os.close(temp_fd)  # Close fd, we'll write via ffmpeg
+    temp_path = Path(temp_path_str)
 
     try:
         # Extract audio using ffmpeg
@@ -65,7 +68,7 @@ async def _extract_audio(video_path: str) -> str:
                 "-ac",
                 "1",
                 "-y",
-                temp_path,
+                str(temp_path),
             ],
             check=False,
             capture_output=True,
@@ -75,24 +78,28 @@ async def _extract_audio(video_path: str) -> str:
 
         if result.returncode != 0:
             # Clean up temp file on error
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-            raise RuntimeError(f"ffmpeg audio extraction failed: {result.stderr}")
+            if temp_path.exists():
+                temp_path.unlink()
+            msg = f"ffmpeg audio extraction failed: {result.stderr}"
+            raise RuntimeError(msg)  # noqa: TRY301
 
-        return temp_path
+        return str(temp_path)
 
-    except subprocess.TimeoutExpired:
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
-        raise RuntimeError("Audio extraction timed out after 60 minutes")
-    except FileNotFoundError:
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
-        raise RuntimeError("ffmpeg not found. Please install ffmpeg to process large video files.")
+    except subprocess.TimeoutExpired as err:
+        if temp_path.exists():
+            temp_path.unlink()
+        msg = "Audio extraction timed out after 60 minutes"
+        raise RuntimeError(msg) from err
+    except FileNotFoundError as err:
+        if temp_path.exists():
+            temp_path.unlink()
+        msg = "ffmpeg not found. Please install ffmpeg to process large video files."
+        raise RuntimeError(msg) from err
     except Exception as e:
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
-        raise RuntimeError(f"Audio extraction failed: {e}")
+        if temp_path.exists():
+            temp_path.unlink()
+        msg = f"Audio extraction failed: {e}"
+        raise RuntimeError(msg) from e
 
 
 def _get_whisper_model(model_size: str) -> WhisperModel:
@@ -107,13 +114,13 @@ def _get_whisper_model(model_size: str) -> WhisperModel:
     Returns:
         WhisperModel instance
     """
-    global _whisper_model, _current_model_size
+    global _whisper_model, _current_model_size  # noqa: PLW0603
 
     # Return cached model if same size
     if _whisper_model is not None and _current_model_size == model_size:
         return _whisper_model
 
-    logger.info(f"Loading Whisper model: {model_size}")
+    logger.info("Loading Whisper model: %s", model_size)
 
     # Load model with optimal settings for M-series
     # compute_type="auto" uses CoreML on M-series, CPU on others
@@ -124,11 +131,11 @@ def _get_whisper_model(model_size: str) -> WhisperModel:
     )
     _current_model_size = model_size
 
-    logger.info(f"Whisper model loaded: {model_size}")
+    logger.info("Whisper model loaded: %s", model_size)
     return _whisper_model
 
 
-async def convert_audio_to_markdown(
+async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
     file_path: str,
     model: str = "small",
     language: str = "auto",
@@ -144,7 +151,8 @@ async def convert_audio_to_markdown(
         file_path: Absolute path to audio/video file
         model: Whisper model size (tiny, base, small, medium, large)
         language: Language code (ISO 639-1) or 'auto' for detection
-        metrics_callback: Optional callback for metrics tracking, called with (converter_type, size_bytes)
+        metrics_callback: Optional callback for metrics tracking,
+            called with (converter_type, size_bytes)
         logger_instance: Optional custom logger instance
 
     Returns:
@@ -164,7 +172,8 @@ async def convert_audio_to_markdown(
 
     # Validate model
     if model not in VALID_MODELS:
-        raise ValueError(f"Invalid model: {model}. Supported models: {', '.join(VALID_MODELS)}")
+        msg = f"Invalid model: {model}. Supported models: {', '.join(VALID_MODELS)}"
+        raise ValueError(msg)
 
     file_format = get_file_extension(file_path)
 
@@ -182,32 +191,31 @@ async def convert_audio_to_markdown(
     start_time = time.time()
 
     # Check file size and extract audio if needed
-    file_size = os.path.getsize(file_path)
-    temp_file = None
+    file_size = Path(file_path).stat().st_size
+    temp_file: str | None = None
     processing_file = file_path
 
     if file_size > MAX_FILE_SIZE_BYTES:
+        file_size_mb = file_size / 1024 / 1024
         log.info(
-            f"File size ({file_size / 1024 / 1024:.1f}MB) exceeds threshold. "
-            "Extracting audio to compressed format..."
+            "File size (%.1fMB) exceeds threshold. Extracting audio to compressed format...",
+            file_size_mb,
         )
         temp_file = await _extract_audio(file_path)
         processing_file = temp_file
-        log.info(
-            f"Audio extracted to temporary file ({os.path.getsize(temp_file) / 1024 / 1024:.1f}MB)"
-        )
+        temp_file_size_mb = Path(temp_file).stat().st_size / 1024 / 1024
+        log.info("Audio extracted to temporary file (%.1fMB)", temp_file_size_mb)
 
     # Get Whisper model
     try:
         whisper = _get_whisper_model(model)
     except Exception as e:
         # Clean up temp file on error
-        if temp_file and os.path.exists(temp_file):
-            try:
-                os.unlink(temp_file)
-            except OSError:
-                pass  # nosec B110
-        raise RuntimeError(f"Failed to load Whisper model: {e}")
+        if temp_file:
+            with contextlib.suppress(OSError):
+                Path(temp_file).unlink()
+        msg = f"Failed to load Whisper model: {e}"
+        raise RuntimeError(msg) from e
 
     # Transcribe audio
     try:
@@ -236,19 +244,19 @@ async def convert_audio_to_markdown(
         detected_language = info.language
 
         if not transcript_text:
-            raise RuntimeError(
+            msg = (
                 "Transcription failed: Unable to detect speech in audio. "
                 "The file may be corrupted, silent, or in an unsupported language."
             )
+            raise RuntimeError(msg)  # noqa: TRY301
 
     except Exception as e:
         # Clean up temp file on error
-        if temp_file and os.path.exists(temp_file):
-            try:
-                os.unlink(temp_file)
-            except OSError:
-                pass  # nosec B110
-        raise RuntimeError(f"Transcription failed: {e}")
+        if temp_file:
+            with contextlib.suppress(OSError):
+                Path(temp_file).unlink()
+        msg = f"Transcription failed: {e}"
+        raise RuntimeError(msg) from e
 
     conversion_time_ms = int((time.time() - start_time) * 1000)
     word_count = count_words(transcript_text)
@@ -295,11 +303,13 @@ async def convert_audio_to_markdown(
     )
 
     # Clean up temporary file if created
-    if temp_file and os.path.exists(temp_file):
-        try:
-            os.unlink(temp_file)
-            log.debug(f"Cleaned up temporary file: {temp_file}")
-        except Exception as e:
-            log.warning(f"Failed to delete temporary file {temp_file}: {e}")
+    if temp_file:
+        temp_file_path = Path(temp_file)
+        if temp_file_path.exists():
+            try:
+                temp_file_path.unlink()
+                log.debug("Cleaned up temporary file: %s", temp_file)
+            except Exception as e:
+                log.warning("Failed to delete temporary file %s: %s", temp_file, e)
 
     return markdown, metadata

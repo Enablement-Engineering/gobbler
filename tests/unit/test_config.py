@@ -37,9 +37,9 @@ class TestConfigLoading:
         assert config.data["whisper"]["model"] == "small"
         assert config.data["services"]["crawl4ai"]["port"] == 11235
 
-    @patch("gobbler_mcp.config.Path")
     @patch("builtins.open", new_callable=mock_open, read_data="whisper:\n  model: large\n")
-    def test_config_merges_user_config(self, mock_file, mock_path_class):
+    @patch("gobbler_mcp.config.Path")
+    def test_config_merges_user_config(self, mock_path_class, mock_file):  # noqa: ARG002
         """Test that user config is merged over defaults."""
         mock_path = MagicMock()
         mock_path.exists.return_value = True
@@ -144,7 +144,7 @@ class TestGlobalConfig:
     def test_get_config_singleton(self, mock_config_class):
         """Test that get_config returns singleton instance."""
         # Reset global config
-        import gobbler_mcp.config as config_module
+        import gobbler_mcp.config as config_module  # noqa: PLC0415
 
         config_module._config = None
 

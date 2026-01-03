@@ -7,7 +7,7 @@ including job status, types, and the Job dataclass with serialization support.
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -117,7 +117,7 @@ class Job:
         """
         if self.started_at is None:
             return None
-        end_time = self.completed_at or datetime.utcnow()
+        end_time = self.completed_at or datetime.now(UTC)
         return end_time - self.started_at
 
     def to_dict(self) -> dict[str, Any]:
@@ -162,7 +162,7 @@ class Job:
             progress_message=data.get("progress_message", ""),
             result=data.get("result"),
             error=data.get("error"),
-            created_at=_parse_datetime(data.get("created_at")) or datetime.utcnow(),
+            created_at=_parse_datetime(data.get("created_at")) or datetime.now(UTC),
             started_at=_parse_datetime(data.get("started_at")),
             completed_at=_parse_datetime(data.get("completed_at")),
             worker_pid=data.get("worker_pid"),
@@ -222,8 +222,9 @@ class JobSummary:
             A JobSummary with key fields.
         """
         # Truncate error message for list views
+        max_error_length = 100
         error = job.error
-        if error and len(error) > 100:
+        if error and len(error) > max_error_length:
             error = error[:97] + "..."
 
         return cls(

@@ -34,7 +34,9 @@ class RetryableHTTPClient:
         self._client = httpx.AsyncClient(timeout=self.timeout)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore
+    async def __aexit__(  # type: ignore[no-untyped-def]
+        self, exc_type, exc_val, exc_tb
+    ) -> None:
         """Exit async context manager."""
         if self._client:
             await self._client.aclose()
@@ -63,7 +65,8 @@ class RetryableHTTPClient:
             httpx.HTTPError: If request fails after retries
         """
         if not self._client:
-            raise RuntimeError("Client not initialized. Use as context manager.")
+            msg = "Client not initialized. Use as context manager."
+            raise RuntimeError(msg)
 
         last_error: Exception | None = None
 
@@ -77,32 +80,39 @@ class RetryableHTTPClient:
                 if response.status_code in self.retry_statuses:
                     if attempt < self.max_retries - 1:
                         logger.warning(
-                            f"Request failed with status {response.status_code}, "
-                            f"retrying ({attempt + 1}/{self.max_retries})..."
+                            "Request failed with status %d, retrying (%d/%d)...",
+                            response.status_code,
+                            attempt + 1,
+                            self.max_retries,
                         )
                         continue
                     response.raise_for_status()
-
-                return response
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
                 if attempt < self.max_retries - 1:
                     logger.warning(
-                        f"Request failed: {e}, retrying ({attempt + 1}/{self.max_retries})..."
+                        "Request failed: %s, retrying (%d/%d)...",
+                        e,
+                        attempt + 1,
+                        self.max_retries,
                     )
                     continue
                 raise
 
-            except Exception as e:
+            except Exception:
                 # Don't retry on other exceptions
-                logger.error(f"Request failed with unexpected error: {e}")
+                logger.exception("Request failed with unexpected error")
                 raise
+
+            else:
+                return response
 
         # Should not reach here, but just in case
         if last_error:
             raise last_error
-        raise RuntimeError("Request failed after retries")
+        msg = "Request failed after retries"
+        raise RuntimeError(msg)
 
     async def get(self, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
         """GET request with retry logic.
@@ -118,7 +128,8 @@ class RetryableHTTPClient:
             httpx.HTTPError: If request fails after retries
         """
         if not self._client:
-            raise RuntimeError("Client not initialized. Use as context manager.")
+            msg = "Client not initialized. Use as context manager."
+            raise RuntimeError(msg)
 
         last_error: Exception | None = None
 
@@ -130,29 +141,36 @@ class RetryableHTTPClient:
                 if response.status_code in self.retry_statuses:
                     if attempt < self.max_retries - 1:
                         logger.warning(
-                            f"Request failed with status {response.status_code}, "
-                            f"retrying ({attempt + 1}/{self.max_retries})..."
+                            "Request failed with status %d, retrying (%d/%d)...",
+                            response.status_code,
+                            attempt + 1,
+                            self.max_retries,
                         )
                         continue
                     response.raise_for_status()
-
-                return response
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
                 if attempt < self.max_retries - 1:
                     logger.warning(
-                        f"Request failed: {e}, retrying ({attempt + 1}/{self.max_retries})..."
+                        "Request failed: %s, retrying (%d/%d)...",
+                        e,
+                        attempt + 1,
+                        self.max_retries,
                     )
                     continue
                 raise
 
-            except Exception as e:
+            except Exception:
                 # Don't retry on other exceptions
-                logger.error(f"Request failed with unexpected error: {e}")
+                logger.exception("Request failed with unexpected error")
                 raise
+
+            else:
+                return response
 
         # Should not reach here, but just in case
         if last_error:
             raise last_error
-        raise RuntimeError("Request failed after retries")
+        msg = "Request failed after retries"
+        raise RuntimeError(msg)

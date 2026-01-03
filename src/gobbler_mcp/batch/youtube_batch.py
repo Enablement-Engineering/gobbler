@@ -38,10 +38,12 @@ async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> list[
             info = ydl.extract_info(playlist_url, download=False)
 
             if not info:
-                raise ValueError("Failed to extract playlist information")
+                msg = "Failed to extract playlist information"
+                raise ValueError(msg)  # noqa: TRY301
 
             if "entries" not in info:
-                raise ValueError("Invalid playlist URL or playlist is empty")
+                msg = "Invalid playlist URL or playlist is empty"
+                raise ValueError(msg)  # noqa: TRY301
 
             videos = []
             for entry in info["entries"]:
@@ -55,14 +57,16 @@ async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> list[
                     )
 
             if not videos:
-                raise ValueError("No videos found in playlist")
+                msg = "No videos found in playlist"
+                raise ValueError(msg)  # noqa: TRY301
 
-            logger.info(f"Extracted {len(videos)} videos from playlist")
+            logger.info("Extracted %d videos from playlist", len(videos))
             return videos
 
     except Exception as e:
-        logger.error(f"Failed to extract playlist videos: {e}")
-        raise ValueError(f"Failed to extract playlist: {e!s}")
+        logger.exception("Failed to extract playlist videos")
+        msg = f"Failed to extract playlist: {e!s}"
+        raise ValueError(msg) from e
 
 
 async def process_youtube_batch(
@@ -177,12 +181,12 @@ async def process_youtube_batch(
                 },
             )
 
-        except Exception as e:
-            logger.error(f"Error processing video {item.source}: {e}")
+        except Exception:
+            logger.exception("Error processing video %s", item.source)
             return BatchResult(
                 item_id=item.id,
                 success=False,
-                error=str(e),
+                error="Processing failed",
             )
 
     # Create batch processor with rate limiting
@@ -203,6 +207,6 @@ async def process_youtube_batch(
     # Run batch
     summary = await processor.run()
 
-    logger.info(f"Batch complete: {summary.successful}/{summary.total_items} successful")
+    logger.info("Batch complete: %d/%d successful", summary.successful, summary.total_items)
 
     return summary

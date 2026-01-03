@@ -19,9 +19,9 @@ class TestGetMetricsCallback:
             "sys.modules", {"gobbler_mcp.metrics": MagicMock(conversion_size=mock_conversion_size)}
         ):
             # Need to re-import to pick up the mocked module
-            from importlib import reload
+            from importlib import reload  # noqa: PLC0415
 
-            from gobbler_mcp.utils import metrics_helpers
+            from gobbler_mcp.utils import metrics_helpers  # noqa: PLC0415
 
             reload(metrics_helpers)
             callback = metrics_helpers.get_metrics_callback()
@@ -35,14 +35,14 @@ class TestGetMetricsCallback:
         # Create a mock that raises ImportError when accessing conversion_size
         mock_metrics = MagicMock()
         mock_metrics.conversion_size = property(
-            lambda self: (_ for _ in ()).throw(ImportError("No metrics"))
+            lambda _self: (_ for _ in ()).throw(ImportError("No metrics"))
         )
 
         # Patch the import to raise an exception
         with patch.dict("sys.modules", {"gobbler_mcp.metrics": None}):
-            from importlib import reload
+            from importlib import reload  # noqa: PLC0415
 
-            from gobbler_mcp.utils import metrics_helpers
+            from gobbler_mcp.utils import metrics_helpers  # noqa: PLC0415
 
             reload(metrics_helpers)
             callback = metrics_helpers.get_metrics_callback()
@@ -61,9 +61,9 @@ class TestGetMetricsCallback:
         with patch.dict(
             "sys.modules", {"gobbler_mcp.metrics": MagicMock(conversion_size=mock_conversion_size)}
         ):
-            from importlib import reload
+            from importlib import reload  # noqa: PLC0415
 
-            from gobbler_mcp.utils import metrics_helpers
+            from gobbler_mcp.utils import metrics_helpers  # noqa: PLC0415
 
             reload(metrics_helpers)
             callback = metrics_helpers.get_metrics_callback()
@@ -85,9 +85,9 @@ class TestGetMetricsCallback:
         with patch.dict(
             "sys.modules", {"gobbler_mcp.metrics": MagicMock(conversion_size=mock_conversion_size)}
         ):
-            from importlib import reload
+            from importlib import reload  # noqa: PLC0415
 
-            from gobbler_mcp.utils import metrics_helpers
+            from gobbler_mcp.utils import metrics_helpers  # noqa: PLC0415
 
             reload(metrics_helpers)
 

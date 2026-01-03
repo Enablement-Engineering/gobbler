@@ -5,9 +5,11 @@ Tests cover:
 - Database creation, WAL mode, connection handling
 - JobManager CRUD operations and lifecycle management
 """
+# ruff: noqa: DTZ001, DTZ003, S108
 
 import json
 import threading
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -586,7 +588,8 @@ class TestDatabase:
                     ("rollback-test", "audio", "pending", "test"),
                 )
                 # Force an error
-                raise ValueError("Test error")
+                msg = "Test error"
+                raise ValueError(msg)  # noqa: TRY301
         except ValueError:
             pass
 
@@ -849,8 +852,6 @@ class TestJobManagerList:
 
     def test_list_order_by_created_at_desc(self, job_manager):
         """Test that jobs are ordered by created_at descending."""
-        import time
-
         job_ids = []
         for i in range(3):
             job = job_manager.create_job(job_type=JobType.YOUTUBE, command=f"test {i}")
@@ -1161,8 +1162,6 @@ class TestJobManagerGetPendingJobs:
 
     def test_get_pending_jobs_fifo_order(self, job_manager):
         """Test that pending jobs are returned in FIFO order."""
-        import time
-
         ids = []
         for i in range(3):
             job = job_manager.create_job(job_type=JobType.YOUTUBE, command=f"test {i}")

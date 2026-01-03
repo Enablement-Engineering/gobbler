@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastMCP):  # type: ignore
+async def lifespan(_app: FastMCP):  # type: ignore[misc]  # noqa: PLR0915
     """Application lifespan manager.
 
     Handles initialization and cleanup of resources.
@@ -36,13 +36,13 @@ async def lifespan(app: FastMCP):  # type: ignore
     # Startup
     logger.info("Starting Gobbler MCP server...")
     config = get_config()
-    logger.info(f"Configuration loaded from {config.config_path}")
+    logger.info("Configuration loaded from %s", config.config_path)
 
     # Setup structured logging based on config
     log_format = config.get("monitoring.log_format", "text")
     log_level = config.get("monitoring.log_level", "INFO")
     setup_logging(level=log_level, format=log_format)
-    logger.info(f"Logging configured: format={log_format}, level={log_level}")
+    logger.info("Logging configured: format=%s, level=%s", log_format, log_level)
 
     # Start metrics server if enabled
     metrics_enabled = config.get("monitoring.metrics_enabled", False)
@@ -52,8 +52,8 @@ async def lifespan(app: FastMCP):  # type: ignore
             metrics_server = get_metrics_server()
             metrics_server.start()
             logger.info("Metrics collection enabled")
-        except Exception as e:
-            logger.warning(f"Failed to start metrics server: {e}")
+        except Exception:
+            logger.warning("Failed to start metrics server", exc_info=True)
             logger.warning("Continuing without metrics...")
 
     # Enable config hot-reload if configured
@@ -61,8 +61,8 @@ async def lifespan(app: FastMCP):  # type: ignore
     if hot_reload_enabled:
         try:
             config.enable_hot_reload()
-        except Exception as e:
-            logger.warning(f"Failed to enable config hot-reload: {e}")
+        except Exception:
+            logger.warning("Failed to enable config hot-reload", exc_info=True)
             logger.warning("Continuing without hot-reload...")
 
     # Check service health at startup (don't fail if unavailable)
@@ -78,11 +78,11 @@ async def lifespan(app: FastMCP):  # type: ignore
         unavailable = [name for name, status in health_status.items() if not status]
 
         if available:
-            logger.info(f"Available services: {', '.join(available)}")
+            logger.info("Available services: %s", ", ".join(available))
         if unavailable:
             logger.warning(
-                f"Unavailable services: {', '.join(unavailable)}. "
-                "Some tools will not work until services are started."
+                "Unavailable services: %s. Some tools will not work until services are started.",
+                ", ".join(unavailable),
             )
 
     # Ensure relay server is running for browser extension
@@ -91,7 +91,11 @@ async def lifespan(app: FastMCP):  # type: ignore
     relay_enabled = config.get("http_server.enabled", True)
     if relay_enabled:
         try:
-            from gobbler_relay import DEFAULT_HOST, DEFAULT_PORT, ensure_relay_running
+            from gobbler_relay import (  # noqa: PLC0415
+                DEFAULT_HOST,
+                DEFAULT_PORT,
+                ensure_relay_running,
+            )
 
             relay_host = config.get("http_server.host", DEFAULT_HOST)
             relay_port = config.get("http_server.port", DEFAULT_PORT)
@@ -104,11 +108,11 @@ async def lifespan(app: FastMCP):  # type: ignore
             )
 
             if relay_ready:
-                logger.info(f"Relay server ready at http://{relay_host}:{relay_port}")
+                logger.info("Relay server ready at http://%s:%d", relay_host, relay_port)
             else:
                 logger.warning("Relay server not available. Browser extension tools may not work.")
-        except Exception as e:
-            logger.warning(f"Failed to ensure relay server: {e}")
+        except Exception:
+            logger.warning("Failed to ensure relay server", exc_info=True)
             logger.warning("Browser extension tools may not work...")
 
     logger.info("Gobbler MCP server started successfully")

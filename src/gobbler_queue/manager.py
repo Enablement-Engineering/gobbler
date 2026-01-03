@@ -4,6 +4,7 @@ This module provides the JobManager class which handles all job lifecycle
 operations including creation, status updates, progress tracking, and cleanup.
 """
 
+import contextlib
 import json
 import os
 import signal
@@ -155,7 +156,7 @@ class JobManager:
         # Set completed_at for terminal states
         if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
             query += ", completed_at = ?"
-            params.append(datetime.utcnow().isoformat())
+            params.append(datetime.utcnow().isoformat())  # noqa: DTZ003
 
         query += " WHERE id = ?"
         params.append(job_id)
@@ -213,7 +214,7 @@ class JobManager:
             """,
             (
                 JobStatus.RUNNING.value,
-                datetime.utcnow().isoformat(),
+                datetime.utcnow().isoformat(),  # noqa: DTZ003
                 worker_pid,
                 job_id,
             ),
@@ -239,7 +240,7 @@ class JobManager:
             (
                 JobStatus.COMPLETED.value,
                 json.dumps(result),
-                datetime.utcnow().isoformat(),
+                datetime.utcnow().isoformat(),  # noqa: DTZ003
                 job_id,
             ),
         )
@@ -264,7 +265,7 @@ class JobManager:
             (
                 JobStatus.FAILED.value,
                 error,
-                datetime.utcnow().isoformat(),
+                datetime.utcnow().isoformat(),  # noqa: DTZ003
                 job_id,
             ),
         )
@@ -293,11 +294,8 @@ class JobManager:
 
         # If running with a worker, try to terminate it
         if job.status == JobStatus.RUNNING and job.worker_pid is not None:
-            try:
+            with contextlib.suppress(OSError, ProcessLookupError):
                 os.kill(job.worker_pid, signal.SIGTERM)
-            except (OSError, ProcessLookupError):
-                # Process may have already exited
-                pass
 
         # Update status to cancelled
         cursor = self.database.execute(
@@ -308,7 +306,7 @@ class JobManager:
             """,
             (
                 JobStatus.CANCELLED.value,
-                datetime.utcnow().isoformat(),
+                datetime.utcnow().isoformat(),  # noqa: DTZ003
                 job_id,
             ),
         )
@@ -337,7 +335,7 @@ class JobManager:
             params.append(status.value)
 
         if older_than_days is not None:
-            cutoff = datetime.utcnow() - timedelta(days=older_than_days)
+            cutoff = datetime.utcnow() - timedelta(days=older_than_days)  # noqa: DTZ003
             query += " AND created_at < ?"
             params.append(cutoff.isoformat())
 
@@ -432,7 +430,7 @@ class JobManager:
             progress_message=row["progress_message"] or "",
             result=result,
             error=row["error"],
-            created_at=self._parse_timestamp(row["created_at"]) or datetime.utcnow(),
+            created_at=self._parse_timestamp(row["created_at"]) or datetime.utcnow(),  # noqa: DTZ003
             started_at=self._parse_timestamp(row["started_at"]),
             completed_at=self._parse_timestamp(row["completed_at"]),
             worker_pid=row["worker_pid"],

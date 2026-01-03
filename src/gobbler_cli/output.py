@@ -26,14 +26,14 @@ class OutputFormat(str, Enum):
 def write_output(
     content: str,
     output_path: Path | None = None,
-    format: OutputFormat = OutputFormat.MARKDOWN,
+    output_format: OutputFormat = OutputFormat.MARKDOWN,  # noqa: ARG001
 ) -> None:
     """Write content to file or stdout.
 
     Args:
         content: The content to write
         output_path: Optional file path to write to (stdout if None)
-        format: Output format (only used for display, not file writing)
+        output_format: Output format (only used for display, not file writing)
     """
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +144,7 @@ def print_success(message: str) -> None:
 
 def print_info(message: str) -> None:
     """Print an info message."""
-    console.print(f"[blue]ℹ[/blue] {message}")
+    console.print(f"[blue]i[/blue] {message}")
 
 
 def print_warning(message: str) -> None:

@@ -30,16 +30,16 @@ def handle_tool_errors(operation_name: str, service_name: str | None = None) -> 
                 return await func(*args, **kwargs)
             except httpx.ConnectError as e:
                 service_msg = f" Is {service_name} running?" if service_name else ""
-                logger.error(f"Connection error in {operation_name}: {e}")
+                logger.exception("Connection error in %s", operation_name)
                 return f"❌ Connection failed: {e}.{service_msg}"
             except ValueError as e:
-                logger.warning(f"Validation error in {operation_name}: {e}")
+                logger.warning("Validation error in %s: %s", operation_name, e)
                 return str(e)
             except FileNotFoundError as e:
-                logger.error(f"File not found in {operation_name}: {e}")
+                logger.exception("File not found in %s", operation_name)
                 return f"Error: File not found: {e}"
             except Exception as e:
-                logger.error(f"Unexpected error in {operation_name}: {e}", exc_info=True)
+                logger.exception("Unexpected error in %s", operation_name)
                 return f"Failed to {operation_name}: {e!s}"
 
         return wrapper

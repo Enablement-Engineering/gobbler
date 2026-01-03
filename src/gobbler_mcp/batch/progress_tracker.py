@@ -41,7 +41,9 @@ class ProgressTracker:
         """
         self.total_items = total_items
         self.status = "running"
-        logger.info(f"Batch {self.batch_id}: Starting {operation_type} with {total_items} items")
+        logger.info(
+            "Batch %s: Starting %s with %s items", self.batch_id, operation_type, total_items
+        )
 
     async def update_current_item(self, item: str) -> None:
         """Update currently processing item.
@@ -52,13 +54,17 @@ class ProgressTracker:
         self.current_item = item
         self.processed += 1
         logger.debug(
-            f"Batch {self.batch_id}: Processing item {self.processed}/{self.total_items}: {item}"
+            "Batch %s: Processing item %s/%s: %s",
+            self.batch_id,
+            self.processed,
+            self.total_items,
+            item,
         )
 
     async def increment_success(self) -> None:
         """Increment success counter."""
         self.successful += 1
-        logger.debug(f"Batch {self.batch_id}: Success ({self.successful}/{self.processed})")
+        logger.debug("Batch %s: Success (%s/%s)", self.batch_id, self.successful, self.processed)
 
     async def increment_failure(self, error: str, item: str | None = None) -> None:
         """Increment failure counter and log error.
@@ -69,7 +75,7 @@ class ProgressTracker:
         """
         self.failed += 1
         item_str = f" for {item}" if item else ""
-        logger.warning(f"Batch {self.batch_id}: Failed{item_str}: {error}")
+        logger.warning("Batch %s: Failed%s: %s", self.batch_id, item_str, error)
 
     async def increment_skipped(self, reason: str, item: str | None = None) -> None:
         """Increment skipped counter.
@@ -80,14 +86,17 @@ class ProgressTracker:
         """
         self.skipped += 1
         item_str = f" {item}" if item else ""
-        logger.debug(f"Batch {self.batch_id}: Skipped{item_str}: {reason}")
+        logger.debug("Batch %s: Skipped%s: %s", self.batch_id, item_str, reason)
 
     async def mark_complete(self) -> None:
         """Mark batch as complete."""
         self.status = "completed"
         logger.info(
-            f"Batch {self.batch_id}: Completed - "
-            f"{self.successful} successful, {self.failed} failed, {self.skipped} skipped"
+            "Batch %s: Completed - %s successful, %s failed, %s skipped",
+            self.batch_id,
+            self.successful,
+            self.failed,
+            self.skipped,
         )
 
     async def mark_failed(self, error: str) -> None:
@@ -97,7 +106,7 @@ class ProgressTracker:
             error: Error message describing why batch failed
         """
         self.status = "failed"
-        logger.error(f"Batch {self.batch_id}: Failed - {error}")
+        logger.error("Batch %s: Failed - %s", self.batch_id, error)
 
     async def get_progress(self) -> dict:
         """Get current progress.

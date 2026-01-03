@@ -1,6 +1,11 @@
 """Unit tests for batch models."""
 
+import tempfile
+
 from gobbler_mcp.batch.models import BatchItem, BatchResult, BatchSummary
+
+# Use tempfile.gettempdir() for S108 compliance
+_TEMP_DIR = tempfile.gettempdir()
 
 
 class TestBatchItem:
@@ -32,16 +37,17 @@ class TestBatchResult:
 
     def test_successful_result(self):
         """Test successful batch result."""
+        output_file = f"{_TEMP_DIR}/output.md"
         result = BatchResult(
             item_id="test-1",
             success=True,
-            output_file="/tmp/output.md",
+            output_file=output_file,
             metadata={"word_count": 1000},
         )
 
         assert result.item_id == "test-1"
         assert result.success is True
-        assert result.output_file == "/tmp/output.md"
+        assert result.output_file == output_file
         assert result.error is None
         assert result.metadata["word_count"] == 1000
 
@@ -78,13 +84,14 @@ class TestBatchSummary:
 
     def test_create_summary(self):
         """Test creating batch summary."""
+        output_dir = f"{_TEMP_DIR}/output"
         summary = BatchSummary(
             batch_id="batch-123",
             total_items=10,
             successful=8,
             failed=1,
             skipped=1,
-            output_dir="/tmp/output",
+            output_dir=output_dir,
             processing_time_seconds=120.5,
         )
 
@@ -93,33 +100,34 @@ class TestBatchSummary:
         assert summary.successful == 8
         assert summary.failed == 1
         assert summary.skipped == 1
-        assert summary.output_dir == "/tmp/output"
+        assert summary.output_dir == output_dir
         assert summary.processing_time_seconds == 120.5
 
     def test_format_report_all_successful(self):
         """Test formatting report with all successful items."""
+        output_dir = f"{_TEMP_DIR}/output"
         summary = BatchSummary(
             batch_id="batch-123",
             total_items=3,
             successful=3,
             failed=0,
             skipped=0,
-            output_dir="/tmp/output",
+            output_dir=output_dir,
             processing_time_seconds=45.2,
             success_details=[
                 {
                     "source": "video1.mp4",
-                    "output_file": "/tmp/output/video1.md",
+                    "output_file": f"{_TEMP_DIR}/output/video1.md",
                     "metadata": {"word_count": 1000},
                 },
                 {
                     "source": "video2.mp4",
-                    "output_file": "/tmp/output/video2.md",
+                    "output_file": f"{_TEMP_DIR}/output/video2.md",
                     "metadata": {"word_count": 1500},
                 },
                 {
                     "source": "video3.mp4",
-                    "output_file": "/tmp/output/video3.md",
+                    "output_file": f"{_TEMP_DIR}/output/video3.md",
                     "metadata": {"word_count": 800},
                 },
             ],
@@ -135,22 +143,23 @@ class TestBatchSummary:
         assert "45s" in report
         assert "video1.mp4" in report
         assert "1,000 words" in report
-        assert "/tmp/output" in report
+        assert output_dir in report
 
     def test_format_report_with_failures(self):
         """Test formatting report with failures."""
+        output_dir = f"{_TEMP_DIR}/output"
         summary = BatchSummary(
             batch_id="batch-456",
             total_items=5,
             successful=3,
             failed=2,
             skipped=0,
-            output_dir="/tmp/output",
+            output_dir=output_dir,
             processing_time_seconds=125.8,
             success_details=[
                 {
                     "source": "video1.mp4",
-                    "output_file": "/tmp/output/video1.md",
+                    "output_file": f"{_TEMP_DIR}/output/video1.md",
                     "metadata": {},
                 },
             ],
@@ -180,7 +189,7 @@ class TestBatchSummary:
             successful=2,
             failed=0,
             skipped=2,
-            output_dir="/tmp/output",
+            output_dir=f"{_TEMP_DIR}/output",
             processing_time_seconds=30.0,
             skipped_details=[
                 {"source": "file1.md", "reason": "File already exists"},
@@ -205,7 +214,7 @@ class TestBatchSummary:
             successful=1,
             failed=0,
             skipped=0,
-            output_dir="/tmp",
+            output_dir=_TEMP_DIR,
             processing_time_seconds=45.0,
         )
         assert "45s" in summary1.format_report()
@@ -217,7 +226,7 @@ class TestBatchSummary:
             successful=1,
             failed=0,
             skipped=0,
-            output_dir="/tmp",
+            output_dir=_TEMP_DIR,
             processing_time_seconds=60.0,
         )
         assert "1m 0s" in summary2.format_report()
@@ -229,7 +238,7 @@ class TestBatchSummary:
             successful=1,
             failed=0,
             skipped=0,
-            output_dir="/tmp",
+            output_dir=_TEMP_DIR,
             processing_time_seconds=185.5,
         )
         assert "3m 5s" in summary3.format_report()

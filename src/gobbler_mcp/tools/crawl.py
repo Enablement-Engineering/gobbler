@@ -16,11 +16,11 @@ from ..utils import save_markdown_file, validate_output_path
 logger = logging.getLogger(__name__)
 
 
-def register_tools(mcp: FastMCP):
+def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
     """Register crawling and session tools with the MCP server."""
 
     @mcp.tool()
-    async def create_crawl_session(
+    async def create_crawl_session(  # noqa: PLR0911
         session_id: str,
         cookies: str | None = None,
         local_storage: str | None = None,
@@ -72,7 +72,7 @@ def register_tools(mcp: FastMCP):
             )
         """
         try:
-            from ..crawlers.session_manager import SessionManager
+            from ..crawlers.session_manager import SessionManager  # noqa: PLC0415
 
             # Parse JSON inputs
             cookies_list = None
@@ -95,7 +95,10 @@ def register_tools(mcp: FastMCP):
 
             # Validate session_id
             if not session_id.replace("-", "").replace("_", "").isalnum():
-                return "Error: session_id must contain only alphanumeric characters, hyphens, and underscores"
+                return (
+                    "Error: session_id must contain only alphanumeric characters, "
+                    "hyphens, and underscores"
+                )
 
             # Create session
             session_manager = SessionManager()
@@ -128,11 +131,11 @@ def register_tools(mcp: FastMCP):
             return "\n".join(response_parts)
 
         except Exception as e:
-            logger.error(f"Failed to create session: {e}", exc_info=True)
+            logger.exception("Failed to create session")
             return f"Failed to create session: {e!s}"
 
     @mcp.tool()
-    async def crawl_site(
+    async def crawl_site(  # noqa: C901, PLR0912
         start_url: str,
         max_depth: int = 2,
         max_pages: int = 50,
@@ -195,7 +198,7 @@ def register_tools(mcp: FastMCP):
             )
         """
         try:
-            from ..crawlers.site_crawler import SiteCrawler
+            from ..crawlers.site_crawler import SiteCrawler  # noqa: PLC0415
 
             # Validate output_dir if provided
             if output_dir:
@@ -220,7 +223,7 @@ def register_tools(mcp: FastMCP):
 
             # Save pages to output_dir if specified
             if output_dir:
-                from pathlib import Path
+                from pathlib import Path  # noqa: PLC0415
 
                 output_path = Path(output_dir)
                 output_path.mkdir(parents=True, exist_ok=True)
@@ -237,7 +240,7 @@ def register_tools(mcp: FastMCP):
                     success = await save_markdown_file(str(file_path), page["markdown"])
 
                     if not success:
-                        logger.warning(f"Failed to save page: {page['url']}")
+                        logger.warning("Failed to save page: %s", page["url"])
 
             # Format response
             link_graph = summary["link_graph"]
@@ -253,17 +256,21 @@ def register_tools(mcp: FastMCP):
             ]
 
             # Show top linked pages
-            page_incoming = {}
-            for source, targets in link_graph.items():
+            page_incoming: dict[str, int] = {}
+            for _source, targets in link_graph.items():
                 for target in targets:
                     page_incoming[target] = page_incoming.get(target, 0) + 1
 
+            max_url_display_len = 80
             if page_incoming:
                 top_pages = sorted(page_incoming.items(), key=lambda x: x[1], reverse=True)[:5]
                 response_parts.append("\n**Most linked pages:**")
-                for url, count in top_pages:
+                for page_url, count in top_pages:
                     # Shorten URL for display
-                    display_url = url if len(url) < 80 else url[:77] + "..."
+                    if len(page_url) < max_url_display_len:
+                        display_url = page_url
+                    else:
+                        display_url = page_url[:77] + "..."
                     response_parts.append(f"- {display_url} ({count} incoming links)")
 
             if output_dir:
@@ -272,19 +279,19 @@ def register_tools(mcp: FastMCP):
             return "\n".join(response_parts)
 
         except Exception as e:
-            logger.error(f"Failed to crawl site: {e}", exc_info=True)
+            logger.exception("Failed to crawl site")
             return f"Failed to crawl site: {e!s}"
 
     def _download_youtube_video_task(
         video_url: str,
         output_dir: str,
         quality: str = "best",
-        format: str = "mp4",
+        output_format: str = "mp4",
     ) -> str:
         """Internal download function for both sync and queue execution."""
-        from pathlib import Path
+        from pathlib import Path  # noqa: PLC0415
 
-        import yt_dlp
+        import yt_dlp  # noqa: PLC0415
 
         # Validate output directory
         output_path = Path(output_dir)
@@ -310,10 +317,19 @@ def register_tools(mcp: FastMCP):
         # Configure download options
         quality_format = {
             "best": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "1080p": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
-            "720p": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best",
-            "480p": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best",
-            "360p": "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best",
+            "1080p": (
+                "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/"
+                "best[height<=1080][ext=mp4]/best"
+            ),
+            "720p": (
+                "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best"
+            ),
+            "480p": (
+                "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best"
+            ),
+            "360p": (
+                "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best"
+            ),
         }
 
         selected_format = quality_format.get(quality, quality_format["best"])
@@ -321,7 +337,7 @@ def register_tools(mcp: FastMCP):
         ydl_opts = {
             "format": selected_format,
             "outtmpl": str(output_path / f"{safe_title}.%(ext)s"),
-            "merge_output_format": format,
+            "merge_output_format": output_format,
             "quiet": False,
             "no_warnings": False,
         }
@@ -331,7 +347,7 @@ def register_tools(mcp: FastMCP):
             ydl.download([video_url])
 
         # Find the downloaded file
-        output_file = output_path / f"{safe_title}.{format}"
+        output_file = output_path / f"{safe_title}.{output_format}"
         if output_file.exists():
             file_size_mb = output_file.stat().st_size / 1024 / 1024
             return (
@@ -344,7 +360,7 @@ def register_tools(mcp: FastMCP):
         video_url: str,
         output_dir: str,
         quality: str = "best",
-        format: str = "mp4",
+        output_format: str = "mp4",
     ) -> str:
         """Download YouTube video to local file.
 
@@ -354,20 +370,20 @@ def register_tools(mcp: FastMCP):
         Args:
             video_url: YouTube video URL (youtube.com/watch?v=ID or youtu.be/ID format)
             output_dir: Directory to save the downloaded video (must be absolute path)
-            quality: Video quality - 'best', '1080p', '720p', '480p', '360p' (default: 'best')
-            format: Output format - 'mp4', 'webm', 'mkv' (default: 'mp4')
+            quality: Video quality - 'best', '1080p', '720p', '480p', '360p'
+            output_format: Output format - 'mp4', 'webm', 'mkv' (default: 'mp4')
 
         Returns:
             Success message with path to downloaded file.
         """
         try:
             # Execute synchronously (run in thread to avoid blocking)
-            import asyncio
+            import asyncio  # noqa: PLC0415
 
             return await asyncio.to_thread(
-                _download_youtube_video_task, video_url, output_dir, quality, format
+                _download_youtube_video_task, video_url, output_dir, quality, output_format
             )
 
         except Exception as e:
-            logger.error(f"Unexpected error in download_youtube_video: {e}", exc_info=True)
+            logger.exception("Unexpected error in download_youtube_video")
             return f"Failed to download video: {e!s}"
