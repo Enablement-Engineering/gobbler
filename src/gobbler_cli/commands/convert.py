@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 
 import typer
+
+if TYPE_CHECKING:
+    from gobbler_core.providers.document import DocumentProvider
+    from gobbler_core.providers.transcription import TranscriptionProvider
+    from gobbler_core.providers.webpage import WebPageProvider
 
 from gobbler_cli.output import (
     OutputFormat,
@@ -119,6 +124,10 @@ def audio(
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
+    provider: Annotated[
+        str | None,
+        typer.Option("--provider", "-p", help="Transcription provider (default: whisper-local)"),
+    ] = None,
 ) -> None:
     """Transcribe an audio file to markdown.
 
@@ -126,6 +135,7 @@ def audio(
         gobbler audio recording.mp3
         gobbler audio recording.mp3 -o transcript.md
         gobbler audio recording.mp3 --model medium --language es
+        gobbler audio recording.mp3 --provider whisper-local
     """
     asyncio.run(
         _convert_audio(
@@ -135,6 +145,7 @@ def audio(
             model=model,
             timestamps=timestamps,
             output_format=output_format,
+            provider_name=provider,
         )
     )
 
@@ -146,6 +157,7 @@ async def _convert_audio(
     model: str,
     timestamps: bool,
     output_format: OutputFormat,
+    provider_name: str | None = None,
 ) -> None:
     """Async implementation of audio conversion."""
     source = str(file_path)
@@ -157,6 +169,20 @@ async def _convert_audio(
 
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.audio import convert_audio_to_markdown  # noqa: PLC0415
+        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+
+        # Create provider if specified
+        transcription_provider: TranscriptionProvider | None = None
+        if provider_name:
+            try:
+                # Registry returns ContentProvider, cast to specific type
+                transcription_provider = cast(
+                    "TranscriptionProvider",
+                    ProviderRegistry.create("transcription", provider_name, model=model),
+                )
+            except ProviderNotFoundError as e:
+                print_error(str(e))
+                raise typer.Exit(1) from None
 
         with ProgressTracker("Transcribing audio file"):
             # Note: timestamps option is not currently supported by the underlying converter
@@ -167,6 +193,7 @@ async def _convert_audio(
                 file_path=str(file_path),
                 language=language or "auto",
                 model=model,
+                provider=transcription_provider,
             )
 
         if output_format == OutputFormat.JSON:
@@ -200,6 +227,10 @@ def document(
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
+    provider: Annotated[
+        str | None,
+        typer.Option("--provider", "-p", help="Document conversion provider (default: docling)"),
+    ] = None,
 ) -> None:
     """Convert a document (PDF, DOCX, etc.) to markdown.
 
@@ -207,6 +238,7 @@ def document(
         gobbler document report.pdf
         gobbler document report.pdf -o output.md
         gobbler document scanned.pdf --ocr
+        gobbler document report.pdf --provider docling
     """
     asyncio.run(
         _convert_document(
@@ -214,6 +246,7 @@ def document(
             output=output,
             ocr=ocr,
             output_format=output_format,
+            provider_name=provider,
         )
     )
 
@@ -223,6 +256,7 @@ async def _convert_document(
     output: Path | None,
     ocr: bool,
     output_format: OutputFormat,
+    provider_name: str | None = None,
 ) -> None:
     """Async implementation of document conversion."""
     source = str(file_path)
@@ -234,11 +268,26 @@ async def _convert_document(
 
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.document import convert_document_to_markdown  # noqa: PLC0415
+        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+
+        # Create provider if specified
+        document_provider: DocumentProvider | None = None
+        if provider_name:
+            try:
+                # Registry returns ContentProvider, cast to specific type
+                document_provider = cast(
+                    "DocumentProvider",
+                    ProviderRegistry.create("document", provider_name),
+                )
+            except ProviderNotFoundError as e:
+                print_error(str(e))
+                raise typer.Exit(1) from None
 
         with ProgressTracker("Converting document"):
             result, metadata = await convert_document_to_markdown(
                 file_path=str(file_path),
                 enable_ocr=ocr,
+                provider=document_provider,
             )
 
         if output_format == OutputFormat.JSON:
@@ -276,6 +325,10 @@ def webpage(
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
+    provider: Annotated[
+        str | None,
+        typer.Option("--provider", "-p", help="Webpage conversion provider (default: crawl4ai)"),
+    ] = None,
 ) -> None:
     """Convert a web page to markdown.
 
@@ -283,6 +336,7 @@ def webpage(
         gobbler webpage https://example.com
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
+        gobbler webpage https://example.com --provider crawl4ai
     """
     asyncio.run(
         _convert_webpage(
@@ -291,6 +345,7 @@ def webpage(
             css_selector=css_selector,
             timeout=timeout,
             output_format=output_format,
+            provider_name=provider,
         )
     )
 
@@ -301,11 +356,26 @@ async def _convert_webpage(
     css_selector: str | None,
     timeout: int,
     output_format: OutputFormat,
+    provider_name: str | None = None,
 ) -> None:
     """Async implementation of webpage conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.webpage import convert_webpage_to_markdown  # noqa: PLC0415
+        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+
+        # Create provider if specified
+        webpage_provider: WebPageProvider | None = None
+        if provider_name:
+            try:
+                # Registry returns ContentProvider, cast to specific type
+                webpage_provider = cast(
+                    "WebPageProvider",
+                    ProviderRegistry.create("webpage", provider_name),
+                )
+            except ProviderNotFoundError as e:
+                print_error(str(e))
+                raise typer.Exit(1) from None
 
         with ProgressTracker("Converting web page"):
             # Note: css_selector is not currently supported by the underlying converter
@@ -316,6 +386,7 @@ async def _convert_webpage(
             result, metadata = await convert_webpage_to_markdown(
                 url=url,
                 timeout=timeout,
+                provider=webpage_provider,
             )
 
         if output_format == OutputFormat.JSON:

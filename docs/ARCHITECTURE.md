@@ -179,7 +179,81 @@ The MCP server coordinates all operations and manages service communication:
 
 ### Provider Layer
 
-Providers encapsulate backend service communication:
+The provider layer implements a **pluggable backend abstraction** that enables swapping between different implementations for the same functionality. This design allows:
+
+- **Multiple backends**: Different providers for the same category (e.g., local vs API-based transcription)
+- **Configuration-driven selection**: Switch providers via config without code changes
+- **Graceful fallback**: Automatic fallback between providers on failure
+- **Easy extensibility**: Add new providers by implementing a base class
+
+#### Provider Registry Pattern
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     ProviderRegistry                         │
+├─────────────────────────────────────────────────────────────┤
+│  register(category, name, provider_class)                   │
+│  create(category, name, **kwargs) -> Provider               │
+│  list_providers(category) -> list[str]                      │
+│  get_provider_info(category, name) -> dict                  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│ transcription │     │   document    │     │   webpage     │
+├───────────────┤     ├───────────────┤     ├───────────────┤
+│ whisper-local │     │   docling     │     │   crawl4ai    │
+│ (future: API) │     │ (future: ...)│     │ (future: ...) │
+└───────────────┘     └───────────────┘     └───────────────┘
+```
+
+#### Base Classes
+
+Each provider category defines an abstract base class:
+
+| Category | Base Class | Key Method | Result Type |
+|----------|------------|------------|-------------|
+| `transcription` | `TranscriptionProvider` | `transcribe(path, language)` | `TranscriptionResult` |
+| `document` | `DocumentProvider` | `convert(path, ocr)` | `DocumentResult` |
+| `webpage` | `WebPageProvider` | `fetch(url, timeout)` | `WebPageResult` |
+
+#### Registration and Discovery
+
+Providers self-register at module import time:
+
+```python
+# In whisper.py
+from gobbler_core.providers.registry import ProviderRegistry
+
+class WhisperLocalProvider(TranscriptionProvider):
+    ...
+
+# Self-registration at module load
+ProviderRegistry.register("transcription", "whisper-local", WhisperLocalProvider)
+```
+
+This enables automatic discovery of all available providers.
+
+#### Available Providers
+
+**Transcription Providers:**
+
+| Provider | Description |
+|----------|-------------|
+| `whisper-local` | Local faster-whisper with CoreML acceleration |
+
+**Document Providers:**
+
+| Provider | Description |
+|----------|-------------|
+| `docling` | Docling Docker service for PDF, DOCX, PPTX, XLSX |
+
+**Webpage Providers:**
+
+| Provider | Description |
+|----------|-------------|
+| `crawl4ai` | Crawl4AI Docker service with JavaScript rendering |
 
 **YouTube Provider:**
 - Multiple transcript APIs (youtube-transcript-api, TranscriptAPI.com)
@@ -187,28 +261,13 @@ Providers encapsulate backend service communication:
 - Video metadata extraction
 - Download capabilities via yt-dlp
 
-**Webpage Provider:**
-- HTTP client for Crawl4AI service
-- Session management for authenticated crawling
-- CSS/XPath selector support
-- Link extraction and categorization
-
-**Document Provider:**
-- HTTP client for Docling service
-- OCR toggle support
-- Multi-format handling (PDF, DOCX, PPTX, XLSX)
-
-**Audio Provider:**
-- faster-whisper integration
-- Metal/CoreML acceleration on M-series Macs
-- Language auto-detection
-- Model size selection (tiny to large)
-
 **Browser Provider:**
 - WebSocket relay to browser extension
 - Tab group security model
 - JavaScript execution interface
 - Content extraction
+
+For detailed provider documentation, see [Providers](providers.md).
 
 ### Services Layer
 
@@ -226,14 +285,9 @@ Docker-based services provide specialized processing:
 - Table extraction
 - Markdown generation
 
-**Redis (Port 6380):**
-- RQ job queue backend
-- Job state management
-- Progress tracking
-
 ### Queue System
 
-Background processing for long-running operations:
+SQLite-based background processing for long-running operations:
 
 **Auto-Queue Logic:**
 - Tasks estimated >1:45 automatically queue
@@ -247,10 +301,8 @@ Background processing for long-running operations:
 - `download` - YouTube video downloads
 
 **Worker:**
-- SimpleWorker (no forking) for macOS CoreML compatibility
-- Polls Redis for jobs
 - Executes via same provider layer as MCP server
-- Updates progress in Redis
+- Updates progress in SQLite database
 
 ## Design Decisions
 
@@ -266,17 +318,11 @@ Background processing for long-running operations:
 - Standalone operation without MCP server
 - Same backend logic, no duplication
 
-### Why Port 6380 for Redis?
+### Why SQLite for the Queue?
 
-**Problem:** Port 6379 (default Redis) often conflicts with user's existing Redis instances.
+**Problem:** External queue systems like Redis add operational complexity and dependency management.
 
-**Solution:** Use 6380 to avoid conflicts while maintaining standard Redis protocol.
-
-### Why SimpleWorker Instead of Fork?
-
-**Problem:** RQ's default fork() worker crashes on macOS with CoreML/Metal acceleration.
-
-**Solution:** Use SimpleWorker which doesn't fork, making it compatible with macOS frameworks.
+**Solution:** Use SQLite for zero-configuration, embedded queue storage that works everywhere Python runs.
 
 ### Why Auto-Queue Threshold of 1:45?
 
@@ -304,7 +350,73 @@ Background processing for long-running operations:
 
 ### Provider Interface Pattern
 
-Demonstrated by YouTube provider:
+Gobbler uses a registry-based provider pattern for extensible backend support. Each provider category has:
+
+1. **Abstract base class** defining the interface
+2. **Registry** for provider discovery and instantiation
+3. **Concrete implementations** for each backend
+
+#### Transcription Provider Example
+
+```python
+# Base class in gobbler_core/providers/transcription/base.py
+class TranscriptionProvider(ABC):
+    """Abstract base for transcription providers."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Provider identifier (e.g., 'whisper-local')."""
+
+    @abstractmethod
+    async def transcribe(
+        self,
+        audio_path: Path,
+        language: str = "auto",
+        **options,
+    ) -> TranscriptionResult:
+        """Transcribe audio to text."""
+
+    @abstractmethod
+    def supports_format(self, extension: str) -> bool:
+        """Check if format is supported."""
+```
+
+#### Provider Registration
+
+```python
+# In gobbler_core/providers/transcription/whisper.py
+from gobbler_core.providers.registry import ProviderRegistry
+
+class WhisperLocalProvider(TranscriptionProvider):
+    @property
+    def name(self) -> str:
+        return "whisper-local"
+
+    async def transcribe(self, audio_path, language="auto", **options):
+        # Implementation using faster-whisper
+        ...
+
+# Self-register at import time
+ProviderRegistry.register("transcription", "whisper-local", WhisperLocalProvider)
+```
+
+#### Provider Usage
+
+```python
+from gobbler_core.providers import ProviderRegistry
+
+# Create from registry
+provider = ProviderRegistry.create("transcription", "whisper-local", model="small")
+
+# Use the provider
+result = await provider.transcribe(Path("audio.mp3"), language="en")
+print(result.text)
+```
+
+#### YouTube Provider (Legacy Pattern)
+
+The YouTube provider uses a similar but separate pattern with auto-fallback:
 
 ```python
 class TranscriptProvider:
@@ -331,6 +443,8 @@ This pattern enables:
 - Graceful fallback between providers
 - User choice of cost/reliability tradeoffs
 
+For detailed provider documentation, see [Providers](providers.md).
+
 ### Batch Processing Pattern
 
 All batch operations follow this pattern:
@@ -356,7 +470,6 @@ All external services implement health checks:
 class ServiceHealthChecker:
     def check_crawl4ai() -> HealthStatus
     def check_docling() -> HealthStatus
-    def check_redis() -> HealthStatus
     def check_all() -> Dict[str, HealthStatus]
 ```
 

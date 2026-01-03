@@ -94,6 +94,18 @@ class TestConstructor:
         assert provider.model == "whisper-1"
         assert provider.timeout == 60.0
 
+    def test_constructor_ignores_invalid_model(self) -> None:
+        """Test constructor ignores local whisper model names and uses default."""
+        # Local whisper model names should be ignored
+        for invalid_model in ["tiny", "base", "small", "medium", "large"]:
+            provider = OpenAIWhisperProvider(api_key="sk-test", model=invalid_model)
+            assert provider.model == "whisper-1"
+
+    def test_constructor_accepts_valid_openai_model(self) -> None:
+        """Test constructor accepts valid OpenAI whisper model."""
+        provider = OpenAIWhisperProvider(api_key="sk-test", model="whisper-1")
+        assert provider.model == "whisper-1"
+
 
 class TestTranscribe:
     """Test transcription functionality."""

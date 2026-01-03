@@ -87,6 +87,14 @@ class OpenAIWhisperProvider(TranscriptionProvider):
             )
             raise ValueError(msg)
 
+        # Valid OpenAI Whisper models - ignore local whisper model names
+        valid_openai_models = {"whisper-1"}
+        if model not in valid_openai_models:
+            # If passed a local whisper model name (tiny/base/small/medium/large),
+            # use the default OpenAI model instead
+            logger.debug("Ignoring invalid OpenAI model '%s', using 'whisper-1'", model)
+            model = "whisper-1"
+
         self.model = model
         self.timeout = timeout
 

@@ -13,7 +13,6 @@ Default location: `~/.config/gobbler/config.yaml`
 services:
   docling: "http://localhost:5001"
   crawl4ai: "http://localhost:11235"
-  redis: "redis://localhost:6380"
 
 # Storage settings
 storage:
@@ -79,7 +78,6 @@ Environment variables override config file settings:
 | `GOBBLER_LOG_LEVEL` | `logging.level` | Log level |
 | `GOBBLER_DOCLING_URL` | `services.docling` | Docling service URL |
 | `GOBBLER_CRAWL4AI_URL` | `services.crawl4ai` | Crawl4AI service URL |
-| `GOBBLER_REDIS_URL` | `services.redis` | Redis connection URL |
 | `TRANSCRIPTAPI_KEY` | - | TranscriptAPI.com API key |
 | `GOBBLER_WHISPER_MODEL` | `whisper.model` | Default Whisper model |
 
@@ -123,23 +121,50 @@ crawl4ai:
     - "11235:11235"
 ```
 
-### Redis (Job Queue)
+## Providers
+
+Gobbler uses a provider abstraction system that allows pluggable backends for content conversion. Configure providers to set defaults and provider-specific options.
 
 ```yaml
-services:
-  redis: "redis://localhost:6380"
+# Provider configuration
+providers:
+  transcription:
+    default: whisper-local       # Default transcription provider
+    whisper-local:
+      model: small               # Model size for whisper-local
+      device: auto               # auto, cpu, cuda, mps
 
-queue:
-  enabled: true
+  document:
+    default: docling             # Default document provider
+    docling:
+      service_url: http://localhost:5001
+      timeout: 120
+
+  webpage:
+    default: crawl4ai            # Default webpage provider
+    crawl4ai:
+      service_url: http://localhost:11235
+      api_token: gobbler-local-token
 ```
 
-**Docker Compose:**
-```yaml
-redis:
-  image: redis:7-alpine
-  ports:
-    - "6380:6379"
-```
+### Provider Categories
+
+| Category | Available Providers | Default |
+|----------|---------------------|---------|
+| `transcription` | `whisper-local` | `whisper-local` |
+| `document` | `docling` | `docling` |
+| `webpage` | `crawl4ai` | `crawl4ai` |
+
+### Provider Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GOBBLER_WHISPER_MODEL` | Default Whisper model | `small` |
+| `GOBBLER_DOCLING_URL` | Docling service URL | `http://localhost:5001` |
+| `GOBBLER_CRAWL4AI_URL` | Crawl4AI service URL | `http://localhost:11235` |
+| `OPENAI_API_KEY` | OpenAI API key (for future providers) | - |
+
+For detailed provider documentation, see [Providers](providers.md).
 
 ## Whisper Model Selection
 

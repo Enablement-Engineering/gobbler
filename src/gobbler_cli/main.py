@@ -106,6 +106,7 @@ def cli() -> None:
         gemini,
         jobs,
         notebooklm,
+        providers,
         relay,
     )
 
@@ -120,6 +121,7 @@ def cli() -> None:
     app.add_typer(chatgpt.app, name="chatgpt", help="ChatGPT integration")
     app.add_typer(gemini.app, name="gemini", help="Google Gemini integration")
     app.add_typer(relay.app, name="relay", help="Browser relay server management")
+    app.add_typer(providers.app, name="providers", help="Manage content conversion providers")
 
     # Also register convert commands at the top level for convenience
     # This allows both "gobbler youtube URL" and "gobbler convert youtube URL"

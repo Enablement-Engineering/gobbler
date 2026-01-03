@@ -46,7 +46,38 @@ Audio is extracted automatically from video files.
 |--------|-------------|---------|
 | `--model` | Whisper model size | `small` |
 | `--language` | Audio language (ISO 639-1) | `auto` |
+| `--provider` | Transcription provider | `whisper-local` |
 | `-o, --output` | Save to file | stdout |
+
+## Choosing a Provider
+
+Gobbler supports multiple transcription providers through its [provider abstraction](../providers.md). Currently available:
+
+| Provider | Description | Best For |
+|----------|-------------|----------|
+| `whisper-local` | Local transcription using faster-whisper | Privacy, offline use, large volumes |
+
+### whisper-local vs API Providers
+
+**whisper-local (default)**:
+- Fully offline - no API keys or internet required
+- CoreML acceleration on M-series Macs
+- No per-request costs
+- Your audio never leaves your machine
+
+**Future API providers** (planned):
+- OpenAI Whisper API - no local setup, latest models
+- Deepgram - real-time streaming support
+
+### Using --provider Flag
+
+```bash
+# Explicit provider selection
+gobbler audio recording.mp3 --provider whisper-local
+
+# With model options
+gobbler audio recording.mp3 --provider whisper-local --model medium
+```
 
 ## Alternative Command
 

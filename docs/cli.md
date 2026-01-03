@@ -2,6 +2,45 @@
 
 Gobbler provides a powerful command-line interface for content conversion.
 
+## Provider Management
+
+Manage and inspect available content providers.
+
+### List Providers
+
+```bash
+# List all providers
+gobbler providers list
+
+# Filter by category
+gobbler providers list --category transcription
+gobbler providers list -c document
+gobbler providers list -c webpage
+
+# JSON output
+gobbler providers list --format json
+```
+
+### Get Provider Info
+
+```bash
+# Get detailed information about a provider
+gobbler providers info transcription whisper-local
+gobbler providers info document docling
+gobbler providers info webpage crawl4ai
+
+# JSON output
+gobbler providers info transcription whisper-local --format json
+```
+
+### Provider Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `gobbler providers list` | List all available providers |
+| `gobbler providers list -c <category>` | List providers for a category |
+| `gobbler providers info <category> <name>` | Show provider details |
+
 ## Basic Commands
 
 ### YouTube Transcription
@@ -34,7 +73,17 @@ gobbler audio interview.mp4 -o interview.md
 
 # Specify language
 gobbler audio podcast.mp3 --language en
+
+# Use specific provider (default: whisper-local)
+gobbler audio meeting.mp3 --provider whisper-local
 ```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--model` | Whisper model size | `small` |
+| `--language` | Audio language (ISO 639-1) | auto-detect |
+| `--provider` | Transcription provider | `whisper-local` |
+| `-o, --output` | Output file path | stdout |
 
 ### Document Conversion
 
@@ -53,7 +102,16 @@ gobbler document paper.docx -o paper.md
 
 # Excel spreadsheet
 gobbler document data.xlsx -o data.md
+
+# Use specific provider (default: docling)
+gobbler document report.pdf --provider docling
 ```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--ocr/--no-ocr` | Enable/disable OCR | enabled |
+| `--provider` | Document provider | `docling` |
+| `-o, --output` | Output file path | stdout |
 
 ### Web Page Conversion
 
@@ -66,7 +124,17 @@ gobbler webpage "https://docs.python.org" -o python-docs.md
 
 # With timeout
 gobbler webpage "https://slow-site.com" --timeout 60
+
+# Use specific provider (default: crawl4ai)
+gobbler webpage "https://example.com" --provider crawl4ai
 ```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--selector` | CSS selector for content extraction | full page |
+| `--timeout` | Request timeout in seconds | 30 |
+| `--provider` | Webpage provider | `crawl4ai` |
+| `-o, --output` | Output file path | stdout |
 
 ## Batch Processing
 

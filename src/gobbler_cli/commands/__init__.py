@@ -10,5 +10,6 @@ __all__ = [
     "gemini",
     "jobs",
     "notebooklm",
+    "providers",
     "relay",
 ]
