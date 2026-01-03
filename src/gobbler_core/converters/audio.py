@@ -1,5 +1,7 @@
 """Audio/video transcription module using faster-whisper with Metal/CoreML acceleration."""
 
+# ruff: noqa: PTH108, PTH110, PTH202
+
 import contextlib
 import logging
 import os
@@ -7,7 +9,6 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Callable
-from pathlib import Path
 
 from faster_whisper import WhisperModel
 
@@ -42,9 +43,8 @@ async def _extract_audio(video_path: str) -> str:
         RuntimeError: If ffmpeg extraction fails
     """
     # Create temporary file for extracted audio
-    temp_fd, temp_path_str = tempfile.mkstemp(suffix=".mp3", prefix="gobbler_audio_")
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".mp3", prefix="gobbler_audio_")
     os.close(temp_fd)  # Close fd, we'll write via ffmpeg
-    temp_path = Path(temp_path_str)
 
     try:
         # Extract audio using ffmpeg
@@ -68,7 +68,7 @@ async def _extract_audio(video_path: str) -> str:
                 "-ac",
                 "1",
                 "-y",
-                str(temp_path),
+                temp_path,
             ],
             check=False,
             capture_output=True,
@@ -78,26 +78,26 @@ async def _extract_audio(video_path: str) -> str:
 
         if result.returncode != 0:
             # Clean up temp file on error
-            if temp_path.exists():
-                temp_path.unlink()
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
             msg = f"ffmpeg audio extraction failed: {result.stderr}"
             raise RuntimeError(msg)  # noqa: TRY301
-
-        return str(temp_path)
+        else:  # noqa: RET506
+            return temp_path
 
     except subprocess.TimeoutExpired as err:
-        if temp_path.exists():
-            temp_path.unlink()
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
         msg = "Audio extraction timed out after 60 minutes"
         raise RuntimeError(msg) from err
     except FileNotFoundError as err:
-        if temp_path.exists():
-            temp_path.unlink()
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
         msg = "ffmpeg not found. Please install ffmpeg to process large video files."
         raise RuntimeError(msg) from err
     except Exception as e:
-        if temp_path.exists():
-            temp_path.unlink()
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
         msg = f"Audio extraction failed: {e}"
         raise RuntimeError(msg) from e
 
@@ -135,7 +135,7 @@ def _get_whisper_model(model_size: str) -> WhisperModel:
     return _whisper_model
 
 
-async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
+async def convert_audio_to_markdown(  # noqa: C901, PLR0915
     file_path: str,
     model: str = "small",
     language: str = "auto",
@@ -191,7 +191,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
     start_time = time.time()
 
     # Check file size and extract audio if needed
-    file_size = Path(file_path).stat().st_size
+    file_size = os.path.getsize(file_path)
     temp_file: str | None = None
     processing_file = file_path
 
@@ -203,7 +203,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
         )
         temp_file = await _extract_audio(file_path)
         processing_file = temp_file
-        temp_file_size_mb = Path(temp_file).stat().st_size / 1024 / 1024
+        temp_file_size_mb = os.path.getsize(temp_file) / 1024 / 1024
         log.info("Audio extracted to temporary file (%.1fMB)", temp_file_size_mb)
 
     # Get Whisper model
@@ -213,7 +213,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
         # Clean up temp file on error
         if temp_file:
             with contextlib.suppress(OSError):
-                Path(temp_file).unlink()
+                os.unlink(temp_file)
         msg = f"Failed to load Whisper model: {e}"
         raise RuntimeError(msg) from e
 
@@ -254,7 +254,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
         # Clean up temp file on error
         if temp_file:
             with contextlib.suppress(OSError):
-                Path(temp_file).unlink()
+                os.unlink(temp_file)
         msg = f"Transcription failed: {e}"
         raise RuntimeError(msg) from e
 
@@ -303,13 +303,11 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
     )
 
     # Clean up temporary file if created
-    if temp_file:
-        temp_file_path = Path(temp_file)
-        if temp_file_path.exists():
-            try:
-                temp_file_path.unlink()
-                log.debug("Cleaned up temporary file: %s", temp_file)
-            except Exception as e:
-                log.warning("Failed to delete temporary file %s: %s", temp_file, e)
+    if temp_file and os.path.exists(temp_file):
+        try:
+            os.unlink(temp_file)
+            log.debug("Cleaned up temporary file: %s", temp_file)
+        except Exception as e:
+            log.warning("Failed to delete temporary file %s: %s", temp_file, e)
 
     return markdown, metadata
