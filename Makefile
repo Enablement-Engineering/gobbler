@@ -1,4 +1,4 @@
-.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall verify diagnose lint security typecheck
+.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall verify diagnose lint security typecheck docs docs-serve docs-build docs-deploy
 
 # Default target - Show available commands and their descriptions
 # Use this to get started or find the right command for your task
@@ -37,6 +37,12 @@ help:
 	@echo "  make typecheck      - Run type checker (mypy)"
 	@echo "  make inspector      - Launch MCP inspector for testing"
 	@echo "  make diagnose       - Run diagnostics and suggest fixes for common issues"
+	@echo ""
+	@echo "📚 Documentation:"
+	@echo "  make docs           - Serve documentation locally (alias for docs-serve)"
+	@echo "  make docs-serve     - Serve documentation at http://localhost:8000"
+	@echo "  make docs-build     - Build static documentation site"
+	@echo "  make docs-deploy    - Deploy documentation to GitHub Pages"
 	@echo ""
 	@echo "🧹 Cleanup:"
 	@echo "  make clean          - Remove build artifacts and cache"
@@ -273,9 +279,39 @@ clean:
 	rm -rf .pytest_cache/
 	rm -rf .mypy_cache/
 	rm -rf .ruff_cache/
+	rm -rf site/
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	@echo "✅ Cleanup complete"
+
+# ============================================================================
+# Documentation Targets
+# ============================================================================
+
+# Serve documentation locally (alias)
+docs: docs-serve
+
+# Serve documentation locally with live reload
+# Opens http://localhost:8000 for previewing documentation
+docs-serve:
+	@echo "📚 Serving documentation at http://localhost:8000..."
+	@echo "   Press Ctrl+C to stop"
+	@echo ""
+	uv run --extra docs mkdocs serve
+
+# Build static documentation site
+# Output goes to site/ directory
+docs-build:
+	@echo "📚 Building documentation..."
+	uv run --extra docs mkdocs build
+	@echo "✅ Documentation built to site/"
+
+# Deploy documentation to GitHub Pages
+# Pushes to gh-pages branch automatically
+docs-deploy:
+	@echo "📚 Deploying documentation to GitHub Pages..."
+	uv run --extra docs mkdocs gh-deploy --force
+	@echo "✅ Documentation deployed!"
 
 # ============================================================================
 # Verification & Diagnostics Targets

@@ -155,9 +155,9 @@ Now that you're up and running:
    "Transcribe this audio file: /path/to/audio.mp3"
    ```
 
-2. **Read the full README** - Learn about advanced features like batch processing, background queues, and progress tracking at [README.md](../README.md)
+2. **Read the CLI guide** - Learn about all available commands in the [CLI Usage](cli.md) guide
 
-3. **Check the PRD docs** - Dive deeper into specific features in the [docs/](.) folder
+3. **Explore skills** - See all available skills in the [Skills Reference](SKILLS.md)
 
 4. **Configure Gobbler** - Customize settings at `~/.config/gobbler/config.yml` (optional)
 

@@ -492,7 +492,7 @@ curl -s http://localhost:5001/health
 curl -s http://localhost:11235/health
 ```
 
-See the full [gobbler-setup SKILL.md](../skills/gobbler-setup/SKILL.md) for complete installation and troubleshooting guide.
+See the full [Setup & Troubleshooting](setup-troubleshooting.md) guide for complete installation and troubleshooting information.
 
 ---
 

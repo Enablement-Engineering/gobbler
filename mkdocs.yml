@@ -1,0 +1,113 @@
+site_name: Gobbler
+site_description: Universal Content Conversion to Markdown for AI
+site_url: https://enablement-engineering.github.io/gobbler
+site_author: Dylan Isaac
+
+repo_name: Enablement-Engineering/gobbler
+repo_url: https://github.com/Enablement-Engineering/gobbler
+
+theme:
+  name: material
+  logo: assets/Gobby Feasting (small).png
+  favicon: assets/Gobby Feasting (small).png
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: QUICK_START.md
+    - Installation: installation.md
+    - Setup & Troubleshooting: setup-troubleshooting.md
+  - User Guide:
+    - CLI Usage: cli.md
+    - Configuration: configuration.md
+    - Browser Extension: browser-extension.md
+    - Skills Overview: SKILLS.md
+  - Skills Reference:
+    - YouTube: skills/youtube.md
+    - Audio Transcription: skills/audio.md
+    - Document Conversion: skills/document.md
+    - Web Pages: skills/webpage.md
+    - Browser Control: skills/browser.md
+    - NotebookLM: skills/notebooklm.md
+    - Claude.ai: skills/claude.md
+    - ChatGPT: skills/chatgpt.md
+    - Gemini: skills/gemini.md
+  - Examples:
+    - Browser Automation: examples/browser-automation.md
+  - Architecture:
+    - Overview: ARCHITECTURE.md
+    - Visual Diagrams: ARCHITECTURE-VISUAL.md
+    - Architecture Diagrams: ARCHITECTURE-DIAGRAMS.md
+    - Skills Architecture: PLAN-skill-based-mcp-alternatives.md
+  - Reference:
+    - API: api.md
+    - NotebookLM API: notebooklm-api.md
+  - Development:
+    - Contributing: contributing.md
+    - Changelog: changelog.md
+  - Branding: BRANDING.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Enablement-Engineering/gobbler
+
+copyright: Copyright &copy; 2026 Enablement Engineering
