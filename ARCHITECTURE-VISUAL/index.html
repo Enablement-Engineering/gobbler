@@ -1,0 +1,430 @@
+<!doctype html><html lang=en class=no-js> <head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="Universal Content Conversion to Markdown for AI"><meta name=author content="Dylan Isaac"><link href=https://enablement-engineering.github.io/gobbler/ARCHITECTURE-VISUAL/ rel=canonical><link href=../ARCHITECTURE/ rel=prev><link href=../ARCHITECTURE-DIAGRAMS/ rel=next><link rel=icon href="../assets/Gobby Feasting (small).png"><meta name=generator content="mkdocs-1.6.1, mkdocs-material-9.7.1"><title>Visual Diagrams - Gobbler</title><link rel=stylesheet href=../assets/stylesheets/main.484c7ddc.min.css><link rel=stylesheet href=../assets/stylesheets/palette.ab4e12ef.min.css><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=stylesheet href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback"><style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style><script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script></head> <body dir=ltr data-md-color-scheme=default data-md-color-primary=deep-orange data-md-color-accent=orange> <input class=md-toggle data-md-toggle=drawer type=checkbox id=__drawer autocomplete=off> <input class=md-toggle data-md-toggle=search type=checkbox id=__search autocomplete=off> <label class=md-overlay for=__drawer></label> <div data-md-component=skip> <a href=#gobbler-architecture-visual-guide class=md-skip> Skip to content </a> </div> <div data-md-component=announce> </div> <header class=md-header data-md-component=header> <nav class="md-header__inner md-grid" aria-label=Header> <a href=.. title=Gobbler class="md-header__button md-logo" aria-label=Gobbler data-md-component=logo> <img src="../assets/Gobby Feasting (small).png" alt=logo> </a> <label class="md-header__button md-icon" for=__drawer> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg> </label> <div class=md-header__title data-md-component=header-title> <div class=md-header__ellipsis> <div class=md-header__topic> <span class=md-ellipsis> Gobbler </span> </div> <div class=md-header__topic data-md-component=header-topic> <span class=md-ellipsis> Visual Diagrams </span> </div> </div> </div> <form class=md-header__option data-md-component=palette> <input class=md-option data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme=default data-md-color-primary=deep-orange data-md-color-accent=orange aria-label="Switch to dark mode" type=radio name=__palette id=__palette_0> <label class="md-header__button md-icon" title="Switch to dark mode" for=__palette_1 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg> </label> <input class=md-option data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme=slate data-md-color-primary=deep-orange data-md-color-accent=orange aria-label="Switch to light mode" type=radio name=__palette id=__palette_1> <label class="md-header__button md-icon" title="Switch to light mode" for=__palette_0 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg> </label> </form> <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script> <label class="md-header__button md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> </label> <div class=md-search data-md-component=search role=dialog> <label class=md-search__overlay for=__search></label> <div class=md-search__inner role=search> <form class=md-search__form name=search> <input type=text class=md-search__input name=query aria-label=Search placeholder=Search autocapitalize=off autocorrect=off autocomplete=off spellcheck=false data-md-component=search-query required> <label class="md-search__icon md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg> </label> <nav class=md-search__options aria-label=Search> <button type=reset class="md-search__icon md-icon" title=Clear aria-label=Clear tabindex=-1> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> </button> </nav> <div class=md-search__suggest data-md-component=search-suggest></div> </form> <div class=md-search__output> <div class=md-search__scrollwrap tabindex=0 data-md-scrollfix> <div class=md-search-result data-md-component=search-result> <div class=md-search-result__meta> Initializing search </div> <ol class=md-search-result__list role=presentation></ol> </div> </div> </div> </div> </div> <div class=md-header__source> <a href=https://github.com/Enablement-Engineering/gobbler title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg> </div> <div class=md-source__repository> Enablement-Engineering/gobbler </div> </a> </div> </nav> </header> <div class=md-container data-md-component=container> <nav class=md-tabs aria-label=Tabs data-md-component=tabs> <div class=md-grid> <ul class=md-tabs__list> <li class=md-tabs__item> <a href=.. class=md-tabs__link> Home </a> </li> <li class=md-tabs__item> <a href=../QUICK_START/ class=md-tabs__link> Getting Started </a> </li> <li class=md-tabs__item> <a href=../cli/ class=md-tabs__link> User Guide </a> </li> <li class=md-tabs__item> <a href=../skills/youtube/ class=md-tabs__link> Skills Reference </a> </li> <li class=md-tabs__item> <a href=../examples/browser-automation/ class=md-tabs__link> Examples </a> </li> <li class="md-tabs__item md-tabs__item--active"> <a href=../ARCHITECTURE/ class=md-tabs__link> Architecture </a> </li> <li class=md-tabs__item> <a href=../api/ class=md-tabs__link> Reference </a> </li> <li class=md-tabs__item> <a href=../contributing/ class=md-tabs__link> Development </a> </li> <li class=md-tabs__item> <a href=../BRANDING/ class=md-tabs__link> Branding </a> </li> </ul> </div> </nav> <main class=md-main data-md-component=main> <div class="md-main__inner md-grid"> <div class="md-sidebar md-sidebar--primary" data-md-component=sidebar data-md-type=navigation> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--primary md-nav--lifted" aria-label=Navigation data-md-level=0> <label class=md-nav__title for=__drawer> <a href=.. title=Gobbler class="md-nav__button md-logo" aria-label=Gobbler data-md-component=logo> <img src="../assets/Gobby Feasting (small).png" alt=logo> </a> Gobbler </label> <div class=md-nav__source> <a href=https://github.com/Enablement-Engineering/gobbler title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg> </div> <div class=md-source__repository> Enablement-Engineering/gobbler </div> </a> </div> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=.. class=md-nav__link> <span class=md-ellipsis> Home </span> </a> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type=checkbox id=__nav_2> <label class=md-nav__link for=__nav_2 id=__nav_2_label tabindex=0> <span class=md-ellipsis> Getting Started </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_2_label aria-expanded=false> <label class=md-nav__title for=__nav_2> <span class="md-nav__icon md-icon"></span> Getting Started </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../QUICK_START/ class=md-nav__link> <span class=md-ellipsis> Quick Start </span> </a> </li> <li class=md-nav__item> <a href=../installation/ class=md-nav__link> <span class=md-ellipsis> Installation </span> </a> </li> <li class=md-nav__item> <a href=../setup-troubleshooting/ class=md-nav__link> <span class=md-ellipsis> Setup & Troubleshooting </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type=checkbox id=__nav_3> <label class=md-nav__link for=__nav_3 id=__nav_3_label tabindex=0> <span class=md-ellipsis> User Guide </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_3_label aria-expanded=false> <label class=md-nav__title for=__nav_3> <span class="md-nav__icon md-icon"></span> User Guide </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../cli/ class=md-nav__link> <span class=md-ellipsis> CLI Usage </span> </a> </li> <li class=md-nav__item> <a href=../configuration/ class=md-nav__link> <span class=md-ellipsis> Configuration </span> </a> </li> <li class=md-nav__item> <a href=../browser-extension/ class=md-nav__link> <span class=md-ellipsis> Browser Extension </span> </a> </li> <li class=md-nav__item> <a href=../SKILLS/ class=md-nav__link> <span class=md-ellipsis> Skills Overview </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type=checkbox id=__nav_4> <label class=md-nav__link for=__nav_4 id=__nav_4_label tabindex=0> <span class=md-ellipsis> Skills Reference </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_4_label aria-expanded=false> <label class=md-nav__title for=__nav_4> <span class="md-nav__icon md-icon"></span> Skills Reference </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../skills/youtube/ class=md-nav__link> <span class=md-ellipsis> YouTube </span> </a> </li> <li class=md-nav__item> <a href=../skills/audio/ class=md-nav__link> <span class=md-ellipsis> Audio Transcription </span> </a> </li> <li class=md-nav__item> <a href=../skills/document/ class=md-nav__link> <span class=md-ellipsis> Document Conversion </span> </a> </li> <li class=md-nav__item> <a href=../skills/webpage/ class=md-nav__link> <span class=md-ellipsis> Web Pages </span> </a> </li> <li class=md-nav__item> <a href=../skills/browser/ class=md-nav__link> <span class=md-ellipsis> Browser Control </span> </a> </li> <li class=md-nav__item> <a href=../skills/notebooklm/ class=md-nav__link> <span class=md-ellipsis> NotebookLM </span> </a> </li> <li class=md-nav__item> <a href=../skills/claude/ class=md-nav__link> <span class=md-ellipsis> Claude.ai </span> </a> </li> <li class=md-nav__item> <a href=../skills/chatgpt/ class=md-nav__link> <span class=md-ellipsis> ChatGPT </span> </a> </li> <li class=md-nav__item> <a href=../skills/gemini/ class=md-nav__link> <span class=md-ellipsis> Gemini </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type=checkbox id=__nav_5> <label class=md-nav__link for=__nav_5 id=__nav_5_label tabindex=0> <span class=md-ellipsis> Examples </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_5_label aria-expanded=false> <label class=md-nav__title for=__nav_5> <span class="md-nav__icon md-icon"></span> Examples </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../examples/browser-automation/ class=md-nav__link> <span class=md-ellipsis> Browser Automation </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested"> <input class="md-nav__toggle md-toggle " type=checkbox id=__nav_6 checked> <label class=md-nav__link for=__nav_6 id=__nav_6_label tabindex> <span class=md-ellipsis> Architecture </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_6_label aria-expanded=true> <label class=md-nav__title for=__nav_6> <span class="md-nav__icon md-icon"></span> Architecture </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../ARCHITECTURE/ class=md-nav__link> <span class=md-ellipsis> Overview </span> </a> </li> <li class="md-nav__item md-nav__item--active"> <input class="md-nav__toggle md-toggle" type=checkbox id=__toc> <label class="md-nav__link md-nav__link--active" for=__toc> <span class=md-ellipsis> Visual Diagrams </span> <span class="md-nav__icon md-icon"></span> </label> <a href=./ class="md-nav__link md-nav__link--active"> <span class=md-ellipsis> Visual Diagrams </span> </a> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#table-of-contents class=md-nav__link> <span class=md-ellipsis> Table of Contents </span> </a> </li> <li class=md-nav__item> <a href=#dual-approach-architecture class=md-nav__link> <span class=md-ellipsis> Dual-Approach Architecture </span> </a> <nav class=md-nav aria-label="Dual-Approach Architecture"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#context-usage-comparison class=md-nav__link> <span class=md-ellipsis> Context Usage Comparison </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#overall-system-architecture class=md-nav__link> <span class=md-ellipsis> Overall System Architecture </span> </a> </li> <li class=md-nav__item> <a href=#data-flow-diagrams class=md-nav__link> <span class=md-ellipsis> Data Flow Diagrams </span> </a> <nav class=md-nav aria-label="Data Flow Diagrams"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#youtube-transcript-flow class=md-nav__link> <span class=md-ellipsis> YouTube Transcript Flow </span> </a> </li> <li class=md-nav__item> <a href=#web-scraping-flow class=md-nav__link> <span class=md-ellipsis> Web Scraping Flow </span> </a> </li> <li class=md-nav__item> <a href=#document-conversion-flow class=md-nav__link> <span class=md-ellipsis> Document Conversion Flow </span> </a> </li> <li class=md-nav__item> <a href=#audiovideo-transcription-flow class=md-nav__link> <span class=md-ellipsis> Audio/Video Transcription Flow </span> </a> </li> <li class=md-nav__item> <a href=#batch-processing-flow class=md-nav__link> <span class=md-ellipsis> Batch Processing Flow </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#browser-extension-communication class=md-nav__link> <span class=md-ellipsis> Browser Extension Communication </span> </a> </li> <li class=md-nav__item> <a href=#background-queue-system class=md-nav__link> <span class=md-ellipsis> Background Queue System </span> </a> <nav class=md-nav aria-label="Background Queue System"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#queue-job-lifecycle class=md-nav__link> <span class=md-ellipsis> Queue Job Lifecycle </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#component-responsibilities class=md-nav__link> <span class=md-ellipsis> Component Responsibilities </span> </a> <nav class=md-nav aria-label="Component Responsibilities"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#mcp-server class=md-nav__link> <span class=md-ellipsis> MCP Server </span> </a> </li> <li class=md-nav__item> <a href=#browser-extension class=md-nav__link> <span class=md-ellipsis> Browser Extension </span> </a> </li> <li class=md-nav__item> <a href=#rq-worker class=md-nav__link> <span class=md-ellipsis> RQ Worker </span> </a> </li> <li class=md-nav__item> <a href=#docker-services class=md-nav__link> <span class=md-ellipsis> Docker Services </span> </a> </li> <li class=md-nav__item> <a href=#converters class=md-nav__link> <span class=md-ellipsis> Converters </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#performance-characteristics class=md-nav__link> <span class=md-ellipsis> Performance Characteristics </span> </a> </li> <li class=md-nav__item> <a href=#security-model class=md-nav__link> <span class=md-ellipsis> Security Model </span> </a> <nav class=md-nav aria-label="Security Model"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#tab-group-security class=md-nav__link> <span class=md-ellipsis> Tab Group Security </span> </a> </li> <li class=md-nav__item> <a href=#service-isolation class=md-nav__link> <span class=md-ellipsis> Service Isolation </span> </a> </li> <li class=md-nav__item> <a href=#api-security class=md-nav__link> <span class=md-ellipsis> API Security </span> </a> </li> </ul> </nav> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=../ARCHITECTURE-DIAGRAMS/ class=md-nav__link> <span class=md-ellipsis> Architecture Diagrams </span> </a> </li> <li class=md-nav__item> <a href=../PLAN-skill-based-mcp-alternatives/ class=md-nav__link> <span class=md-ellipsis> Skills Architecture </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type=checkbox id=__nav_7> <label class=md-nav__link for=__nav_7 id=__nav_7_label tabindex=0> <span class=md-ellipsis> Reference </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_7_label aria-expanded=false> <label class=md-nav__title for=__nav_7> <span class="md-nav__icon md-icon"></span> Reference </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../api/ class=md-nav__link> <span class=md-ellipsis> API </span> </a> </li> <li class=md-nav__item> <a href=../notebooklm-api/ class=md-nav__link> <span class=md-ellipsis> NotebookLM API </span> </a> </li> </ul> </nav> </li> <li class="md-nav__item md-nav__item--nested"> <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type=checkbox id=__nav_8> <label class=md-nav__link for=__nav_8 id=__nav_8_label tabindex=0> <span class=md-ellipsis> Development </span> <span class="md-nav__icon md-icon"></span> </label> <nav class=md-nav data-md-level=1 aria-labelledby=__nav_8_label aria-expanded=false> <label class=md-nav__title for=__nav_8> <span class="md-nav__icon md-icon"></span> Development </label> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=../contributing/ class=md-nav__link> <span class=md-ellipsis> Contributing </span> </a> </li> <li class=md-nav__item> <a href=../changelog/ class=md-nav__link> <span class=md-ellipsis> Changelog </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=../BRANDING/ class=md-nav__link> <span class=md-ellipsis> Branding </span> </a> </li> </ul> </nav> </div> </div> </div> <div class="md-sidebar md-sidebar--secondary" data-md-component=sidebar data-md-type=toc> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#table-of-contents class=md-nav__link> <span class=md-ellipsis> Table of Contents </span> </a> </li> <li class=md-nav__item> <a href=#dual-approach-architecture class=md-nav__link> <span class=md-ellipsis> Dual-Approach Architecture </span> </a> <nav class=md-nav aria-label="Dual-Approach Architecture"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#context-usage-comparison class=md-nav__link> <span class=md-ellipsis> Context Usage Comparison </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#overall-system-architecture class=md-nav__link> <span class=md-ellipsis> Overall System Architecture </span> </a> </li> <li class=md-nav__item> <a href=#data-flow-diagrams class=md-nav__link> <span class=md-ellipsis> Data Flow Diagrams </span> </a> <nav class=md-nav aria-label="Data Flow Diagrams"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#youtube-transcript-flow class=md-nav__link> <span class=md-ellipsis> YouTube Transcript Flow </span> </a> </li> <li class=md-nav__item> <a href=#web-scraping-flow class=md-nav__link> <span class=md-ellipsis> Web Scraping Flow </span> </a> </li> <li class=md-nav__item> <a href=#document-conversion-flow class=md-nav__link> <span class=md-ellipsis> Document Conversion Flow </span> </a> </li> <li class=md-nav__item> <a href=#audiovideo-transcription-flow class=md-nav__link> <span class=md-ellipsis> Audio/Video Transcription Flow </span> </a> </li> <li class=md-nav__item> <a href=#batch-processing-flow class=md-nav__link> <span class=md-ellipsis> Batch Processing Flow </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#browser-extension-communication class=md-nav__link> <span class=md-ellipsis> Browser Extension Communication </span> </a> </li> <li class=md-nav__item> <a href=#background-queue-system class=md-nav__link> <span class=md-ellipsis> Background Queue System </span> </a> <nav class=md-nav aria-label="Background Queue System"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#queue-job-lifecycle class=md-nav__link> <span class=md-ellipsis> Queue Job Lifecycle </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#component-responsibilities class=md-nav__link> <span class=md-ellipsis> Component Responsibilities </span> </a> <nav class=md-nav aria-label="Component Responsibilities"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#mcp-server class=md-nav__link> <span class=md-ellipsis> MCP Server </span> </a> </li> <li class=md-nav__item> <a href=#browser-extension class=md-nav__link> <span class=md-ellipsis> Browser Extension </span> </a> </li> <li class=md-nav__item> <a href=#rq-worker class=md-nav__link> <span class=md-ellipsis> RQ Worker </span> </a> </li> <li class=md-nav__item> <a href=#docker-services class=md-nav__link> <span class=md-ellipsis> Docker Services </span> </a> </li> <li class=md-nav__item> <a href=#converters class=md-nav__link> <span class=md-ellipsis> Converters </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#performance-characteristics class=md-nav__link> <span class=md-ellipsis> Performance Characteristics </span> </a> </li> <li class=md-nav__item> <a href=#security-model class=md-nav__link> <span class=md-ellipsis> Security Model </span> </a> <nav class=md-nav aria-label="Security Model"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#tab-group-security class=md-nav__link> <span class=md-ellipsis> Tab Group Security </span> </a> </li> <li class=md-nav__item> <a href=#service-isolation class=md-nav__link> <span class=md-ellipsis> Service Isolation </span> </a> </li> <li class=md-nav__item> <a href=#api-security class=md-nav__link> <span class=md-ellipsis> API Security </span> </a> </li> </ul> </nav> </li> </ul> </nav> </div> </div> </div> <div class=md-content data-md-component=content> <article class="md-content__inner md-typeset"> <h1 id=gobbler-architecture-visual-guide>Gobbler Architecture - Visual Guide<a class=headerlink href=#gobbler-architecture-visual-guide title="Permanent link">&para;</a></h1> <p>This document provides comprehensive visual diagrams of Gobbler's architecture, data flows, and component interactions.</p> <h2 id=table-of-contents>Table of Contents<a class=headerlink href=#table-of-contents title="Permanent link">&para;</a></h2> <ul> <li><a href=#dual-approach-architecture>Dual-Approach Architecture</a></li> <li><a href=#overall-system-architecture>Overall System Architecture</a></li> <li><a href=#data-flow-diagrams>Data Flow Diagrams</a></li> <li><a href=#youtube-transcript-flow>YouTube Transcript Flow</a></li> <li><a href=#web-scraping-flow>Web Scraping Flow</a></li> <li><a href=#document-conversion-flow>Document Conversion Flow</a></li> <li><a href=#audiovideo-transcription-flow>Audio/Video Transcription Flow</a></li> <li><a href=#batch-processing-flow>Batch Processing Flow</a></li> <li><a href=#browser-extension-communication>Browser Extension Communication</a></li> <li><a href=#background-queue-system>Background Queue System</a></li> </ul> <h2 id=dual-approach-architecture>Dual-Approach Architecture<a class=headerlink href=#dual-approach-architecture title="Permanent link">&para;</a></h2> <p>Gobbler provides two complementary interfaces to the same backend: Skills (context-efficient) and MCP Tools (comprehensive). This diagram shows how both paths converge on shared providers and services.</p> <pre class=mermaid><code>graph TB
+    subgraph "Claude Code Interface"
+        User[User Request]
+        Skill[Skill Metadata&lt;br&gt;~100 tokens]
+        MCP[MCP Tool Schema&lt;br&gt;~4,500 tokens]
+    end
+
+    subgraph "Execution Layer"
+        SkillScript[UV Script Execution]
+        MCPServer[FastMCP Server]
+    end
+
+    subgraph "Shared Backend"
+        Providers[Provider Layer&lt;br&gt;YouTube • Crawl4AI • Docling&lt;br&gt;Whisper • Browser]
+        Converters[Converter Modules&lt;br&gt;Markdown Generation&lt;br&gt;Frontmatter • Formatting]
+        Services[External Services&lt;br&gt;Docker: Crawl4AI :11235&lt;br&gt;Docker: Docling :5001&lt;br&gt;Docker: Redis :6380&lt;br&gt;Host: faster-whisper&lt;br&gt;WebSocket: Relay :4625]
+    end
+
+    User --&gt;|"Context-efficient&lt;br&gt;~100 tokens"| Skill
+    User --&gt;|"Full toolset&lt;br&gt;~4,500 tokens"| MCP
+
+    Skill --&gt; SkillScript
+    MCP --&gt; MCPServer
+
+    SkillScript --&gt;|"Import or HTTP"| Providers
+    MCPServer --&gt;|"Direct import"| Providers
+
+    Providers --&gt; Converters
+    Converters --&gt; Services
+
+    style Skill fill:#27AE60,stroke:#333,stroke-width:2px
+    style MCP fill:#E8955C,stroke:#333,stroke-width:2px
+    style Providers fill:#3498DB,stroke:#333,stroke-width:2px
+    style Services fill:#9B59B6,stroke:#333,stroke-width:2px</code></pre> <h3 id=context-usage-comparison>Context Usage Comparison<a class=headerlink href=#context-usage-comparison title="Permanent link">&para;</a></h3> <table> <thead> <tr> <th>Approach</th> <th>Initial Load</th> <th>Per Operation</th> <th>5 Operations Total</th> </tr> </thead> <tbody> <tr> <td><strong>Skills</strong></td> <td>100 tokens</td> <td>~500 tokens</td> <td>~2,600 tokens</td> </tr> <tr> <td><strong>MCP Tools</strong></td> <td>4,500 tokens</td> <td>~100 tokens</td> <td>~5,000 tokens</td> </tr> </tbody> </table> <p><strong>When to use Skills:</strong> - Limited context window - Interactive multi-step workflows - Infrequent operations (1-2 per session) - Standalone/offline usage</p> <p><strong>When to use MCP Tools:</strong> - Frequent operations (5+ per session) - Background queue processing - Batch operations with progress tracking - Automated pipelines</p> <h2 id=overall-system-architecture>Overall System Architecture<a class=headerlink href=#overall-system-architecture title="Permanent link">&para;</a></h2> <pre class=mermaid><code>graph TB
+    subgraph "Client Layer"
+        CC[Claude Code/Desktop&lt;br/&gt;MCP Client]
+        BE[Browser Extension&lt;br/&gt;Chrome/Edge]
+    end
+
+    subgraph "Host-Based Components"
+        MCP[MCP Server&lt;br/&gt;FastMCP + Python]
+        YT[YouTube Tools&lt;br/&gt;yt-dlp + API]
+        FW[faster-whisper&lt;br/&gt;Metal/CoreML]
+        RQ[RQ Worker&lt;br/&gt;Background Tasks]
+        CFG[Config Manager&lt;br/&gt;~/.config/gobbler]
+        HLT[Health Checker&lt;br/&gt;Service Monitor]
+    end
+
+    subgraph "Docker Services"
+        C4[Crawl4AI&lt;br/&gt;Port 11235&lt;br/&gt;Web Scraping]
+        DL[Docling&lt;br/&gt;Port 5001&lt;br/&gt;Doc Conversion]
+        RD[Redis&lt;br/&gt;Port 6380&lt;br/&gt;Job Queue]
+    end
+
+    subgraph "External Services"
+        YTA[YouTube API&lt;br/&gt;Transcripts]
+        WEB[Web Pages&lt;br/&gt;HTTP/HTTPS]
+        FS[File System&lt;br/&gt;Output Storage]
+    end
+
+    CC &lt;--&gt;|MCP Protocol&lt;br/&gt;JSON-RPC| MCP
+    BE &lt;--&gt;|WebSocket&lt;br/&gt;Bidirectional| MCP
+
+    MCP --&gt; CFG
+    MCP --&gt; HLT
+    MCP --&gt; YT
+    MCP --&gt; FW
+    MCP --&gt;|HTTP REST| C4
+    MCP --&gt;|HTTP REST| DL
+    MCP --&gt;|Redis Protocol| RD
+
+    RQ --&gt;|Poll Jobs| RD
+    RQ --&gt; YT
+    RQ --&gt; FW
+    RQ --&gt;|HTTP REST| C4
+    RQ --&gt;|HTTP REST| DL
+
+    YT --&gt;|API Calls| YTA
+    C4 --&gt;|HTTP/Playwright| WEB
+
+    MCP --&gt; FS
+    RQ --&gt; FS
+
+    HLT -.-&gt;|Health Check| C4
+    HLT -.-&gt;|Health Check| DL
+    HLT -.-&gt;|Health Check| RD
+
+    style MCP fill:#4a9eff,stroke:#333,stroke-width:3px
+    style BE fill:#ff9a4a,stroke:#333,stroke-width:2px
+    style RD fill:#dc382d,stroke:#333,stroke-width:2px
+    style C4 fill:#2ecc71,stroke:#333,stroke-width:2px
+    style DL fill:#9b59b6,stroke:#333,stroke-width:2px
+    style FS fill:#f39c12,stroke:#333,stroke-width:2px</code></pre> <h2 id=data-flow-diagrams>Data Flow Diagrams<a class=headerlink href=#data-flow-diagrams title="Permanent link">&para;</a></h2> <h3 id=youtube-transcript-flow>YouTube Transcript Flow<a class=headerlink href=#youtube-transcript-flow title="Permanent link">&para;</a></h3> <pre class=mermaid><code>sequenceDiagram
+    participant Claude
+    participant MCP as MCP Server
+    participant YT as YouTube Tools
+    participant API as YouTube API
+    participant FS as File System
+
+    Claude-&gt;&gt;MCP: transcribe_youtube(url, output_file)
+    MCP-&gt;&gt;YT: extract_transcript(video_id)
+    YT-&gt;&gt;API: get_transcript(video_id)
+    API--&gt;&gt;YT: transcript_data
+    YT-&gt;&gt;API: get_video_info(video_id)
+    API--&gt;&gt;YT: metadata
+    YT-&gt;&gt;YT: format_to_markdown()
+    YT-&gt;&gt;YT: generate_frontmatter()
+    YT--&gt;&gt;MCP: markdown + metadata
+
+    alt output_file specified
+        MCP-&gt;&gt;FS: write_file(output_file)
+        FS--&gt;&gt;MCP: file_path
+        MCP--&gt;&gt;Claude: Success + file_path
+    else return content
+        MCP--&gt;&gt;Claude: markdown_content
+    end
+
+    Note over MCP,API: &lt; 1 second typical&lt;br/&gt;No Docker required</code></pre> <h3 id=web-scraping-flow>Web Scraping Flow<a class=headerlink href=#web-scraping-flow title="Permanent link">&para;</a></h3> <pre class=mermaid><code>sequenceDiagram
+    participant Claude
+    participant MCP as MCP Server
+    participant C4 as Crawl4AI
+    participant Web as Target Website
+    participant FS as File System
+
+    Claude-&gt;&gt;MCP: fetch_webpage(url, selector, session_id)
+
+    alt session_id provided
+        MCP-&gt;&gt;MCP: load_session(session_id)
+        Note over MCP: Load cookies &amp; localStorage
+    end
+
+    MCP-&gt;&gt;C4: POST /crawl&lt;br/&gt;{url, selector, session}
+    C4-&gt;&gt;C4: Launch Browser&lt;br/&gt;(Playwright)
+    C4-&gt;&gt;Web: HTTP Request
+    Web--&gt;&gt;C4: HTML + Resources
+    C4-&gt;&gt;C4: Execute JavaScript&lt;br/&gt;Wait for Content
+
+    alt selector provided
+        C4-&gt;&gt;C4: Apply CSS/XPath Selector
+    end
+
+    C4-&gt;&gt;C4: Convert HTML to Markdown
+    C4-&gt;&gt;C4: Extract Links &amp; Images
+    C4--&gt;&gt;MCP: markdown + metadata
+
+    MCP-&gt;&gt;MCP: Add YAML Frontmatter
+
+    alt output_file specified
+        MCP-&gt;&gt;FS: write_file(output_file)
+        FS--&gt;&gt;MCP: file_path
+        MCP--&gt;&gt;Claude: Success + file_path
+    else return content
+        MCP--&gt;&gt;Claude: markdown_content
+    end
+
+    Note over MCP,Web: 2-10 seconds typical&lt;br/&gt;Requires Crawl4AI Docker</code></pre> <h3 id=document-conversion-flow>Document Conversion Flow<a class=headerlink href=#document-conversion-flow title="Permanent link">&para;</a></h3> <pre class=mermaid><code>sequenceDiagram
+    participant Claude
+    participant MCP as MCP Server
+    participant DL as Docling
+    participant FS as File System
+
+    Claude-&gt;&gt;MCP: convert_document(file_path, enable_ocr)
+    MCP-&gt;&gt;FS: read_file(file_path)
+    FS--&gt;&gt;MCP: file_data
+
+    MCP-&gt;&gt;DL: POST /convert&lt;br/&gt;{file_data, ocr: true/false}
+
+    DL-&gt;&gt;DL: Detect Document Type&lt;br/&gt;(PDF/DOCX/PPTX/XLSX)
+
+    alt enable_ocr = true
+        DL-&gt;&gt;DL: OCR Processing&lt;br/&gt;(Tesseract)
+        Note over DL: Extract text from images
+    end
+
+    DL-&gt;&gt;DL: Extract Structure&lt;br/&gt;(Tables, Headings, Lists)
+    DL-&gt;&gt;DL: Parse Content
+    DL-&gt;&gt;DL: Convert to Markdown
+    DL--&gt;&gt;MCP: markdown + metadata
+
+    MCP-&gt;&gt;MCP: Add YAML Frontmatter
+
+    alt output_file specified
+        MCP-&gt;&gt;FS: write_file(output_file)
+        FS--&gt;&gt;MCP: file_path
+        MCP--&gt;&gt;Claude: Success + file_path
+    else return content
+        MCP--&gt;&gt;Claude: markdown_content
+    end
+
+    Note over MCP,DL: 5-30 seconds typical&lt;br/&gt;OCR adds overhead&lt;br/&gt;Requires Docling Docker</code></pre> <h3 id=audiovideo-transcription-flow>Audio/Video Transcription Flow<a class=headerlink href=#audiovideo-transcription-flow title="Permanent link">&para;</a></h3> <pre class=mermaid><code>sequenceDiagram
+    participant Claude
+    participant MCP as MCP Server
+    participant Queue as Job Queue Check
+    participant RQ as RQ Worker
+    participant FW as faster-whisper
+    participant FS as File System
+
+    Claude-&gt;&gt;MCP: transcribe_audio(file_path, model, auto_queue)
+
+    MCP-&gt;&gt;MCP: Estimate Duration&lt;br/&gt;(ffprobe metadata)
+
+    alt auto_queue=true AND duration &gt; 1:45
+        MCP-&gt;&gt;Queue: enqueue_job(transcription_queue)
+        Queue--&gt;&gt;MCP: job_id
+        MCP--&gt;&gt;Claude: Queued: job_id + ETA
+
+        Note over RQ: Worker picks up job
+        RQ-&gt;&gt;FS: read_file(file_path)
+        FS--&gt;&gt;RQ: audio_data
+        RQ-&gt;&gt;FW: transcribe(audio_data, model)
+    else immediate execution
+        MCP-&gt;&gt;FS: read_file(file_path)
+        FS--&gt;&gt;MCP: audio_data
+        MCP-&gt;&gt;FW: transcribe(audio_data, model)
+    end
+
+    FW-&gt;&gt;FW: Load Model&lt;br/&gt;(tiny/base/small/medium/large)
+    FW-&gt;&gt;FW: Detect Language&lt;br/&gt;(if auto)
+    FW-&gt;&gt;FW: Transcribe with Metal/CoreML&lt;br/&gt;(M-series acceleration)
+    FW--&gt;&gt;RQ: transcript_data
+
+    RQ-&gt;&gt;RQ: Format to Markdown
+    RQ-&gt;&gt;RQ: Add YAML Frontmatter
+
+    alt output_file specified
+        RQ-&gt;&gt;FS: write_file(output_file)
+        FS--&gt;&gt;RQ: file_path
+        RQ-&gt;&gt;Queue: update_job(success)
+    else return content
+        RQ-&gt;&gt;Queue: update_job(result)
+    end
+
+    Note over Claude,FW: Speed varies by model:&lt;br/&gt;small: 3x real-time&lt;br/&gt;large: 1.25x real-time</code></pre> <h3 id=batch-processing-flow>Batch Processing Flow<a class=headerlink href=#batch-processing-flow title="Permanent link">&para;</a></h3> <pre class=mermaid><code>sequenceDiagram
+    participant Claude
+    participant MCP as MCP Server
+    participant Redis
+    participant RQ as RQ Worker
+    participant Tools as YouTube/Crawl4AI/Whisper
+    participant FS as File System
+
+    Claude-&gt;&gt;MCP: batch_*_operation(items[], auto_queue)
+
+    MCP-&gt;&gt;MCP: Validate Items&lt;br/&gt;Check Limits
+
+    alt auto_queue=true AND items &gt; 10
+        MCP-&gt;&gt;Redis: create_batch_job(items)
+        Redis--&gt;&gt;MCP: batch_id
+        MCP--&gt;&gt;Claude: Queued: batch_id
+
+        Note over RQ: Worker starts batch
+        RQ-&gt;&gt;Redis: get_batch_items(batch_id)
+    else immediate execution
+        MCP-&gt;&gt;MCP: items = batch_items
+    end
+
+    loop For each item
+        alt skip_existing=true
+            RQ-&gt;&gt;FS: check_file_exists()
+            alt file exists
+                RQ-&gt;&gt;RQ: Skip item
+                RQ-&gt;&gt;Redis: update_progress(skipped)
+            end
+        end
+
+        RQ-&gt;&gt;Tools: process_item(item)
+        Tools--&gt;&gt;RQ: result
+
+        alt success
+            RQ-&gt;&gt;FS: write_file(output)
+            RQ-&gt;&gt;Redis: update_progress(success)
+        else failure
+            RQ-&gt;&gt;Redis: update_progress(failure, error)
+        end
+
+        Note over RQ: Respect concurrency limit&lt;br/&gt;Add delay between requests
+    end
+
+    RQ-&gt;&gt;RQ: Generate Summary Report
+    RQ-&gt;&gt;Redis: finalize_batch(summary)
+
+    Note over Claude,FS: Real-time progress via&lt;br/&gt;get_batch_progress(batch_id)</code></pre> <h2 id=browser-extension-communication>Browser Extension Communication<a class=headerlink href=#browser-extension-communication title="Permanent link">&para;</a></h2> <pre class=mermaid><code>sequenceDiagram
+    participant Claude
+    participant MCP as MCP Server
+    participant WS as WebSocket Server
+    participant Ext as Browser Extension
+    participant Browser as Chrome/Edge Tab
+    participant TG as Tab Group&lt;br/&gt;(Gobbler)
+
+    Note over Ext,TG: Extension manages tab group security
+
+    Claude-&gt;&gt;MCP: browser_list_tabs()
+    MCP-&gt;&gt;WS: list_tabs request
+    WS-&gt;&gt;Ext: {type: "list_tabs"}
+    Ext-&gt;&gt;TG: query_tabs(group: "Gobbler")
+    TG--&gt;&gt;Ext: tabs[]
+    Ext--&gt;&gt;WS: {tabs: [...]}
+    WS--&gt;&gt;MCP: tabs_data
+    MCP--&gt;&gt;Claude: Tab list with IDs
+
+    Claude-&gt;&gt;MCP: browser_execute_script_in_tab(tab_id, script)
+    MCP-&gt;&gt;WS: execute_script request
+    WS-&gt;&gt;Ext: {type: "execute", tab_id, script}
+
+    Ext-&gt;&gt;TG: verify_tab_in_group(tab_id)
+
+    alt Tab in Gobbler group
+        Ext-&gt;&gt;Browser: chrome.scripting.executeScript()
+        Browser-&gt;&gt;Browser: Execute JavaScript
+        Browser--&gt;&gt;Ext: result
+        Ext--&gt;&gt;WS: {success: true, result}
+        WS--&gt;&gt;MCP: execution_result
+        MCP--&gt;&gt;Claude: Script output
+    else Tab not in group
+        Ext--&gt;&gt;WS: {error: "Tab not in Gobbler group"}
+        WS--&gt;&gt;MCP: error
+        MCP--&gt;&gt;Claude: Security error
+    end
+
+    Note over Ext,TG: Security Model:&lt;br/&gt;1. Only tabs in "Gobbler" group&lt;br/&gt;2. User explicitly adds tabs&lt;br/&gt;3. Prevents sensitive data access
+
+    Claude-&gt;&gt;MCP: browser_extract_current_page(selector)
+    MCP-&gt;&gt;WS: extract_page request
+    WS-&gt;&gt;Ext: {type: "extract", selector}
+    Ext-&gt;&gt;Browser: Get active tab
+    Ext-&gt;&gt;TG: verify_tab_in_group()
+    Ext-&gt;&gt;Browser: document.querySelector(selector).outerHTML
+    Browser--&gt;&gt;Ext: html_content
+    Ext-&gt;&gt;Ext: Convert HTML to Markdown
+    Ext--&gt;&gt;WS: {markdown, metadata}
+    WS--&gt;&gt;MCP: markdown_data
+    MCP-&gt;&gt;MCP: Add YAML Frontmatter
+    MCP--&gt;&gt;Claude: Markdown with metadata</code></pre> <h2 id=background-queue-system>Background Queue System<a class=headerlink href=#background-queue-system title="Permanent link">&para;</a></h2> <pre class=mermaid><code>graph TB
+    subgraph "Job Submission"
+        Claude[Claude Code]
+        MCP[MCP Server]
+        EST[Duration Estimator]
+        DEC[Auto-Queue Decision]
+    end
+
+    subgraph "Redis Queue"
+        Q1[Default Queue]
+        Q2[Transcription Queue]
+        Q3[Download Queue]
+    end
+
+    subgraph "Worker Pool"
+        W1[RQ Worker 1]
+        W2[RQ Worker 2]
+        W3[RQ Worker 3]
+    end
+
+    subgraph "Job Processing"
+        PROC[Process Job]
+        TOOLS[YouTube/Whisper/Crawl4AI]
+        FS[File System]
+        META[Update Metadata]
+    end
+
+    subgraph "Status Tracking"
+        STATUS[Job Status]
+        PROG[Progress Updates]
+        RES[Results Storage]
+    end
+
+    Claude --&gt;|Tool Call| MCP
+    MCP --&gt; EST
+    EST --&gt;|Duration Check| DEC
+
+    DEC --&gt;|&lt; 1:45 min| MCP
+    DEC --&gt;|&gt; 1:45 min| Q1
+    DEC --&gt;|Transcription| Q2
+    DEC --&gt;|Download| Q3
+
+    Q1 -.-&gt;|Poll| W1
+    Q2 -.-&gt;|Poll| W2
+    Q3 -.-&gt;|Poll| W3
+
+    W1 --&gt; PROC
+    W2 --&gt; PROC
+    W3 --&gt; PROC
+
+    PROC --&gt; TOOLS
+    TOOLS --&gt; FS
+    PROC --&gt; META
+
+    META --&gt; STATUS
+    META --&gt; PROG
+    META --&gt; RES
+
+    STATUS -.-&gt;|Query| Claude
+    PROG -.-&gt;|Query| Claude
+    RES -.-&gt;|Retrieve| Claude
+
+    style DEC fill:#f39c12,stroke:#333,stroke-width:2px
+    style Q1 fill:#dc382d,stroke:#333,stroke-width:2px
+    style Q2 fill:#dc382d,stroke:#333,stroke-width:2px
+    style Q3 fill:#dc382d,stroke:#333,stroke-width:2px
+    style PROC fill:#2ecc71,stroke:#333,stroke-width:2px</code></pre> <h3 id=queue-job-lifecycle>Queue Job Lifecycle<a class=headerlink href=#queue-job-lifecycle title="Permanent link">&para;</a></h3> <pre class=mermaid><code>stateDiagram-v2
+    [*] --&gt; Submitted: Tool call with auto_queue
+
+    Submitted --&gt; Queued: Add to Redis queue
+    Queued --&gt; Started: Worker picks up job
+
+    Started --&gt; Processing: Execute tool logic
+    Processing --&gt; Processing: Update progress
+
+    Processing --&gt; Completed: Success
+    Processing --&gt; Failed: Error occurred
+    Processing --&gt; Cancelled: User cancellation
+
+    Completed --&gt; [*]
+    Failed --&gt; [*]
+    Cancelled --&gt; [*]
+
+    note right of Queued
+        Job ID returned to Claude
+        ETA calculated
+    end note
+
+    note right of Processing
+        Progress updates stored
+        Real-time tracking via
+        get_job_status()
+    end note
+
+    note right of Completed
+        Result stored
+        File written
+        Metadata saved
+    end note</code></pre> <h2 id=component-responsibilities>Component Responsibilities<a class=headerlink href=#component-responsibilities title="Permanent link">&para;</a></h2> <h3 id=mcp-server>MCP Server<a class=headerlink href=#mcp-server title="Permanent link">&para;</a></h3> <ul> <li>Handle MCP protocol communication with Claude clients</li> <li>Route tool calls to appropriate converters</li> <li>Manage configuration and health checking</li> <li>Coordinate between services</li> <li>Handle auto-queue decisions</li> </ul> <h3 id=browser-extension>Browser Extension<a class=headerlink href=#browser-extension title="Permanent link">&para;</a></h3> <ul> <li>Maintain WebSocket connection to MCP server</li> <li>Enforce tab group security model</li> <li>Execute scripts in managed tabs</li> <li>Extract page content and convert to markdown</li> <li>Provide tab management UI</li> </ul> <h3 id=rq-worker>RQ Worker<a class=headerlink href=#rq-worker title="Permanent link">&para;</a></h3> <ul> <li>Poll Redis queues for background jobs</li> <li>Execute long-running tasks</li> <li>Update job progress and status</li> <li>Handle retries and error reporting</li> <li>Write results to file system</li> </ul> <h3 id=docker-services>Docker Services<a class=headerlink href=#docker-services title="Permanent link">&para;</a></h3> <ul> <li><strong>Crawl4AI</strong>: Web scraping with JavaScript rendering</li> <li><strong>Docling</strong>: Document conversion with OCR</li> <li><strong>Redis</strong>: Job queue and state management</li> </ul> <h3 id=converters>Converters<a class=headerlink href=#converters title="Permanent link">&para;</a></h3> <ul> <li><strong>YouTube Tools</strong>: Transcript extraction and video downloads</li> <li><strong>faster-whisper</strong>: Audio/video transcription with Metal acceleration</li> <li><strong>Webpage Converter</strong>: HTML to markdown conversion</li> <li><strong>Document Converter</strong>: Multi-format document processing</li> </ul> <h2 id=performance-characteristics>Performance Characteristics<a class=headerlink href=#performance-characteristics title="Permanent link">&para;</a></h2> <table> <thead> <tr> <th>Operation</th> <th>Typical Duration</th> <th>Requires Docker</th> <th>Auto-Queue Eligible</th> </tr> </thead> <tbody> <tr> <td>YouTube Transcript</td> <td>&lt; 1 second</td> <td>No</td> <td>No</td> </tr> <tr> <td>Web Scraping</td> <td>2-10 seconds</td> <td>Yes (Crawl4AI)</td> <td>No</td> </tr> <tr> <td>Document Conversion</td> <td>5-30 seconds</td> <td>Yes (Docling)</td> <td>Yes (if &gt; 1:45)</td> </tr> <tr> <td>Audio Transcription (small)</td> <td>3x real-time</td> <td>No</td> <td>Yes (if &gt; 35 sec)</td> </tr> <tr> <td>Video Download</td> <td>Varies by size</td> <td>No</td> <td>Yes (always)</td> </tr> <tr> <td>Batch Processing</td> <td>Minutes-hours</td> <td>Varies</td> <td>Yes (if &gt; 10 items)</td> </tr> </tbody> </table> <h2 id=security-model>Security Model<a class=headerlink href=#security-model title="Permanent link">&para;</a></h2> <h3 id=tab-group-security>Tab Group Security<a class=headerlink href=#tab-group-security title="Permanent link">&para;</a></h3> <ol> <li>Browser extension creates "Gobbler" tab group on first use</li> <li>Only tabs explicitly added to group are accessible</li> <li>All browser commands verify tab group membership</li> <li>User controls which tabs Claude can access</li> <li>Prevents accidental exposure of sensitive information</li> </ol> <h3 id=service-isolation>Service Isolation<a class=headerlink href=#service-isolation title="Permanent link">&para;</a></h3> <ol> <li>Docker services run in isolated containers</li> <li>Host-based components use local-only connections</li> <li>Redis queue isolated to localhost:6380</li> <li>No external network access except for intended APIs</li> <li>Configuration stored in user-specific directory</li> </ol> <h3 id=api-security>API Security<a class=headerlink href=#api-security title="Permanent link">&para;</a></h3> <ol> <li>Crawl4AI uses local API token</li> <li>No cloud service credentials required</li> <li>All processing happens locally</li> <li>YouTube uses official public API</li> <li>No data sent to external services except source URLs</li> </ol> </article> </div> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> <button type=button class="md-top md-icon" data-md-component=top hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg> Back to top </button> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> <div class=md-copyright__highlight> Copyright &copy; 2026 Enablement Engineering </div> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> <div class=md-social> <a href=https://github.com/Enablement-Engineering/gobbler target=_blank rel=noopener title=github.com class=md-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 512 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg> </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script> <script src=../assets/javascripts/bundle.79ae519e.min.js></script> </body> </html>
