@@ -171,11 +171,8 @@ gobbler daemon stop
 gobbler daemon restart
 ```
 
-## Notes
+## Architecture
 
-With Gobbler v2.0, most utilities are now built into the core packages:
+Gobbler utilities are built into the core packages:
 - `gobbler_core` - Frontmatter generation, HTTP clients, file handling
-- `gobbler_daemon` - Service health monitoring
-- `gobbler_cli` - Command-line utilities
-
-The old `uv run scripts/...` approach is deprecated in favor of the unified `gobbler` CLI.
+- `gobbler_cli` - Command-line utilities and batch processing

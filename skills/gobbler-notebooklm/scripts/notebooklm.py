@@ -1,1 +1,0 @@
-../../gobbler-browser/scripts/notebooklm.py
