@@ -53,17 +53,19 @@ Content here, ready for AI consumption...
 
 ```bash
 # Install
-git clone https://github.com/dylanisaac/gobbler.git
-cd gobbler && uv sync
+git clone https://github.com/Enablement-Engineering/gobbler.git
+cd gobbler && make install
 
 # Start services (for web/document conversion)
-docker compose up -d
+make start-docker
 
 # Convert content
 gobbler youtube "https://youtube.com/watch?v=dQw4w9WgXcQ"
 gobbler document paper.pdf --no-ocr -o paper.md
 gobbler audio interview.mp3 --model small -o interview.md
 ```
+
+📖 **[Full Documentation](https://Enablement-Engineering.github.io/gobbler/)**
 
 ## Three Ways to Use Gobbler
 
@@ -79,7 +81,7 @@ gobbler batch youtube-playlist URL  # Batch processing
 
 ### 2. Skills (For AI Agents)
 
-Skills are markdown instruction files that teach AI agents how to use Gobbler. They provide **progressive disclosure**—AI only loads what it needs:
+Skills are markdown instruction files (`SKILL.md`) that Claude loads on-demand. Each skill contains YAML frontmatter for discovery, workflows for common tasks, and executable scripts:
 
 ```
 skills/
@@ -94,10 +96,7 @@ skills/
 └── gobbler-gemini/      # Gemini via browser
 ```
 
-Each skill contains a `SKILL.md` with:
-- YAML frontmatter for AI discovery (~100 tokens)
-- Quick workflow for common tasks (~200 tokens)
-- Full documentation for edge cases (~500+ tokens)
+Skills use **progressive disclosure**—Claude only loads skill metadata at startup, then reads full instructions when triggered.
 
 ### 3. MCP Protocol (For Claude Desktop/Code)
 
@@ -139,6 +138,19 @@ gobbler claude query "..."       # Send to Claude.ai
 gobbler gemini query "..."       # Send to Gemini
 ```
 
+**Setup:**
+
+1. Load the extension in Chrome:
+   - Go to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked" → select `browser-extension/` folder
+
+2. Create a tab group named **"Gobbler"** (right-click any tab → Add to group → New group)
+
+3. Add tabs you want to control to the Gobbler group
+
+Only tabs in the "Gobbler" group are accessible—this prevents accidental access to sensitive tabs.
+
 ### Batch Processing
 
 ```bash
@@ -149,7 +161,7 @@ gobbler batch webpages urls.txt --output-dir ./pages
 
 ## Architecture
 
-Gobbler follows a **CLI-first architecture**. All interfaces wrap the same CLI:
+Gobbler provides three interfaces (CLI, Skills, MCP) that all share the same backend:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -158,13 +170,13 @@ Gobbler follows a **CLI-first architecture**. All interfaces wrap the same CLI:
                │              │              │
       ┌────────▼────┐  ┌──────▼─────┐  ┌─────▼─────┐
       │   Skills    │  │  gobbler   │  │    MCP    │
-      │ (AI Agents) │  │    CLI     │  │  Protocol │
+      │ (UV scripts)│  │    CLI     │  │  Server   │
       └────────┬────┘  └──────┬─────┘  └─────┬─────┘
-               │       calls  │              │ wraps
+               │              │              │
                └──────────────┼──────────────┘
                               ▼
                     ┌─────────────────┐
-                    │  gobbler_core   │
+                    │  Provider Layer │
                     │  (Converters)   │
                     └────────┬────────┘
                              │
@@ -175,12 +187,6 @@ Gobbler follows a **CLI-first architecture**. All interfaces wrap the same CLI:
     │ (local) │        │ (Docker)  │       │(Docker) │
     └─────────┘        └───────────┘       └─────────┘
 ```
-
-**Why CLI-first?**
-- Single implementation to maintain
-- Users can run the same commands AI runs
-- Easy to test and debug
-- Shell scripts can orchestrate complex workflows
 
 ## Installation
 
@@ -194,16 +200,16 @@ Gobbler follows a **CLI-first architecture**. All interfaces wrap the same CLI:
 ### Install
 
 ```bash
-# Install uv
+# Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Clone and install
-git clone https://github.com/dylanisaac/gobbler.git
+git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler
-uv sync
+make install
 
 # Start Docker services
-docker compose up -d
+make start-docker
 
 # Verify
 gobbler --version
@@ -279,17 +285,16 @@ gobbler/
 └── docker-compose.yml     # External services
 ```
 
-## Philosophy
+## Documentation
 
-**"Markdown is the lingua franca of human-AI communication."**
+📖 **[Full Documentation](https://Enablement-Engineering.github.io/gobbler/)** - Installation, configuration, and usage guides
 
-Gobbler exists because:
-1. AI works best with structured text
-2. Content exists in many formats
-3. Converting content shouldn't require expertise in each format
-4. AI agents need reliable, documented procedures—not just raw tools
-
-We provide **excellent operating procedures** wrapped around excellent tools. Each skill doesn't just expose commands—it teaches AI agents *how to succeed*.
+Key pages:
+- [Quick Start](https://Enablement-Engineering.github.io/gobbler/QUICK_START/) - Get running in 5 minutes
+- [CLI Reference](https://Enablement-Engineering.github.io/gobbler/cli/) - All commands and options
+- [Skills Guide](https://Enablement-Engineering.github.io/gobbler/SKILLS/) - Using skills with AI agents
+- [Browser Extension](https://Enablement-Engineering.github.io/gobbler/browser-extension/) - Setup and usage
+- [Configuration](https://Enablement-Engineering.github.io/gobbler/configuration/) - Customize Gobbler
 
 ## License
 
