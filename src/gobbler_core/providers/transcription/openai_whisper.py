@@ -232,7 +232,7 @@ class OpenAIWhisperProvider(TranscriptionProvider):
                 if response.status_code != HTTP_OK:
                     error_detail = response.text
                     msg = f"OpenAI API error ({response.status_code}): {error_detail}"
-                    raise RuntimeError(msg)  # noqa: TRY301
+                    raise RuntimeError(msg)
 
                 data = response.json()
 
@@ -339,7 +339,7 @@ class OpenAIWhisperProvider(TranscriptionProvider):
                 if temp_path.exists():
                     temp_path.unlink()
                 msg = f"ffmpeg audio extraction failed: {result.stderr}"
-                raise RuntimeError(msg)  # noqa: TRY301
+                raise RuntimeError(msg)
 
             # Verify the extracted file is under the limit
             extracted_size = temp_path.stat().st_size

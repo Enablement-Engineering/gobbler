@@ -50,7 +50,7 @@ def test_structured_formatter_with_exception():
     try:
         _raise_test_error()
     except ValueError:
-        import sys  # noqa: PLC0415
+        import sys
 
         exc_info = sys.exc_info()
 

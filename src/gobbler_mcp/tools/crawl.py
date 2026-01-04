@@ -72,7 +72,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             )
         """
         try:
-            from ..crawlers.session_manager import SessionManager  # noqa: PLC0415
+            from ..crawlers.session_manager import SessionManager
 
             # Parse JSON inputs
             cookies_list = None
@@ -198,7 +198,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             )
         """
         try:
-            from ..crawlers.site_crawler import SiteCrawler  # noqa: PLC0415
+            from ..crawlers.site_crawler import SiteCrawler
 
             # Validate output_dir if provided
             if output_dir:
@@ -223,7 +223,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
 
             # Save pages to output_dir if specified
             if output_dir:
-                from pathlib import Path  # noqa: PLC0415
+                from pathlib import Path
 
                 output_path = Path(output_dir)
                 output_path.mkdir(parents=True, exist_ok=True)
@@ -289,9 +289,9 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
         output_format: str = "mp4",
     ) -> str:
         """Internal download function for both sync and queue execution."""
-        from pathlib import Path  # noqa: PLC0415
+        from pathlib import Path
 
-        import yt_dlp  # noqa: PLC0415
+        import yt_dlp
 
         # Validate output directory
         output_path = Path(output_dir)
@@ -378,7 +378,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
         """
         try:
             # Execute synchronously (run in thread to avoid blocking)
-            import asyncio  # noqa: PLC0415
+            import asyncio
 
             return await asyncio.to_thread(
                 _download_youtube_video_task, video_url, output_dir, quality, output_format

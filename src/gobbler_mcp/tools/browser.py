@@ -33,7 +33,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             Connection status message
         """
         try:
-            from gobbler_relay.client import check_connection  # noqa: PLC0415
+            from gobbler_relay.client import check_connection
 
             status = await check_connection()
         except Exception as e:
@@ -76,7 +76,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             return "Error: URL must start with http:// or https://"
 
         try:
-            from gobbler_relay.client import send_command  # noqa: PLC0415
+            from gobbler_relay.client import send_command
 
             # Send navigation command via HTTP client
             result = await send_command(
@@ -133,7 +133,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             )
 
         try:
-            from gobbler_relay.client import execute_script  # noqa: PLC0415
+            from gobbler_relay.client import execute_script
 
             # Send script execution command via HTTP client
             result = await execute_script(script=script, timeout=float(timeout))
@@ -171,7 +171,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             Markdown text with YAML frontmatter containing page metadata
         """
         try:
-            from gobbler_relay.client import extract_page  # noqa: PLC0415
+            from gobbler_relay.client import extract_page
 
             # Send extraction command via HTTP client
             result = await extract_page(selector=selector)
@@ -200,7 +200,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             JSON list of tabs with tabId, title, url, and isActive fields
         """
         try:
-            from gobbler_relay.client import list_tabs  # noqa: PLC0415
+            from gobbler_relay.client import list_tabs
 
             # Send list tabs command via HTTP client
             result = await list_tabs(filter_type=filter_type)
@@ -250,7 +250,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
         timeout = min(max(timeout, MIN_SCRIPT_TIMEOUT), MAX_SCRIPT_TIMEOUT)
 
         try:
-            from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+            from gobbler_relay.client import execute_script_in_tab
 
             # Send command via HTTP client
             result = await execute_script_in_tab(

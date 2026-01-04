@@ -52,7 +52,7 @@ async def _start_daemon(port: int, detach: bool) -> None:
 
         # TODO: This will need integration with gobbler_daemon when implemented
         # For now, we'll use the relay server as a placeholder
-        from gobbler_relay import start_relay_daemon  # noqa: PLC0415
+        from gobbler_relay import start_relay_daemon
 
         if detach:
             print_info(f"Starting Gobbler daemon on port {port}...")
@@ -63,7 +63,7 @@ async def _start_daemon(port: int, detach: bool) -> None:
         else:
             print_info(f"Starting Gobbler daemon on port {port} (foreground mode)...")
             print_info("Press Ctrl+C to stop")
-            from gobbler_relay import start_relay_server  # noqa: PLC0415
+            from gobbler_relay import start_relay_server
 
             await start_relay_server(port=port)
 
@@ -93,7 +93,7 @@ async def _stop_daemon() -> None:
             return
 
         # TODO: This will need integration with gobbler_daemon when implemented
-        from gobbler_relay import stop_relay_daemon  # noqa: PLC0415
+        from gobbler_relay import stop_relay_daemon
 
         print_info("Stopping Gobbler daemon...")
         success = stop_relay_daemon()
@@ -182,14 +182,14 @@ def logs(
             try:
                 # Using tail command with hardcoded path argument from user-controlled input
                 # that has been validated via Path.exists() above
-                subprocess.run(["tail", "-f", str(log_file)], check=True)  # noqa: S603 S607  # nosec B603 B607
+                subprocess.run(["tail", "-f", str(log_file)], check=True)  # nosec B603 B607
             except KeyboardInterrupt:
                 print_info("\nStopped following logs")
         else:
             # Show last N lines using tail command
             # The log_file path is controlled by the application, not user input
-            result = subprocess.run(  # noqa: S603
-                ["tail", "-n", str(lines), str(log_file)],  # noqa: S607
+            result = subprocess.run(
+                ["tail", "-n", str(lines), str(log_file)],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -247,7 +247,7 @@ async def _is_daemon_running() -> bool:
     """
     try:
         # TODO: Replace with actual daemon health check when implemented
-        from gobbler_relay import is_relay_healthy  # noqa: PLC0415
+        from gobbler_relay import is_relay_healthy
 
         return await is_relay_healthy()
     except Exception:
@@ -263,7 +263,7 @@ async def _get_daemon_info() -> dict[str, str]:
     # TODO: Replace with actual daemon info endpoint when implemented
     # For now, return basic info
     try:
-        import psutil  # noqa: PLC0415
+        import psutil
 
         # Find daemon process
         pid_file = Path.home() / ".config" / "gobbler" / "gobbler.pid"
@@ -272,7 +272,7 @@ async def _get_daemon_info() -> dict[str, str]:
             try:
                 process = psutil.Process(pid)
                 uptime_seconds = int(process.create_time())
-                import time  # noqa: PLC0415
+                import time
 
                 uptime = int(time.time() - uptime_seconds)
                 hours = uptime // 3600

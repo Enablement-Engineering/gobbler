@@ -56,7 +56,7 @@ class Worker:
         """
         if manager is None:
             # Lazy import to avoid circular imports
-            from .manager import JobManager  # noqa: PLC0415
+            from .manager import JobManager
 
             self.manager = JobManager()
         else:
@@ -182,7 +182,7 @@ class Worker:
         Args:
             job: The Job to execute.
         """
-        import shlex  # noqa: PLC0415
+        import shlex
 
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
@@ -194,7 +194,7 @@ class Worker:
 
             # Start the subprocess
             # cmd_args is parsed from job.command using shlex.split (no shell injection)
-            self.current_process = subprocess.Popen(  # noqa: S603  # nosec B603
+            self.current_process = subprocess.Popen(  # nosec B603
                 cmd_args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

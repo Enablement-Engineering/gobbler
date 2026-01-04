@@ -308,7 +308,7 @@ class Config:
                 return
 
             # Validate new config
-            from .config_watcher import ConfigWatcher  # noqa: PLC0415
+            from .config_watcher import ConfigWatcher
 
             validation_errors = ConfigWatcher.validate_config(new_config)
             if validation_errors:
@@ -383,7 +383,7 @@ class Config:
             logger.warning("Config hot-reload already enabled")
             return
 
-        from .config_watcher import ConfigWatcher  # noqa: PLC0415
+        from .config_watcher import ConfigWatcher
 
         self._watcher = ConfigWatcher(
             config_path=self.config_path,

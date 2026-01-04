@@ -186,8 +186,12 @@ ignore = [
     "COM812", # Missing trailing comma (handled by formatter)
     "ISC001", # Implicitly concatenated string literals (handled by formatter)
     "S101",  # Use of assert detected (needed for pytest)
+    "S603",  # subprocess call without shell=True - we use list args (secure pattern)
+    "S607",  # Partial executable path - standard for system utilities like ffmpeg
+    "PLC0415", # Import not at top-level - needed for circular dep avoidance and optional deps
     "PLR0913", # Too many arguments to function call
     "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY301", # Abstract raise to inner function - overly pedantic
 ]
 
 # Complexity settings
@@ -195,7 +199,7 @@ mccabe.max-complexity = 12
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "D104"]
-"tests/**/*.py" = ["S101", "D", "PLR2004", "ARG001"]
+"tests/**/*.py" = ["S101", "S603", "S607", "D", "PLR2004", "ARG001", "ARG002"]
 "**/migrations/*.py" = ["D"]
 
 [tool.ruff.lint.pydocstyle]

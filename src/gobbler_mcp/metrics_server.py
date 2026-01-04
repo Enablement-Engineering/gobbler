@@ -123,7 +123,7 @@ class MetricsServer:
         self._thread.start()
 
         # Give server a moment to start
-        import time  # noqa: PLC0415
+        import time
 
         time.sleep(0.5)
 
@@ -172,7 +172,7 @@ def get_metrics_server() -> MetricsServer:
     """
     global _metrics_server  # noqa: PLW0603
     if _metrics_server is None:
-        from .config import get_config  # noqa: PLC0415
+        from .config import get_config
 
         config = get_config()
         host = config.get("monitoring.metrics_host", "0.0.0.0")  # noqa: S104  # nosec B104

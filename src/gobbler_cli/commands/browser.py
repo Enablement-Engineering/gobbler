@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -63,7 +63,7 @@ async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     Returns:
         Tuple of (success, relay_was_auto_started, message)
     """
-    from gobbler_relay.client import (  # noqa: PLC0415
+    from gobbler_relay.client import (
         check_connection,
         ensure_relay_running,
         is_relay_running,
@@ -118,7 +118,7 @@ def status(
 
 async def _status() -> None:
     """Async implementation of status check."""
-    from gobbler_relay.client import (  # noqa: PLC0415
+    from gobbler_relay.client import (
         check_connection,
         ensure_relay_running,
         is_relay_running,
@@ -173,7 +173,7 @@ def list_tabs(
 
 async def _list_tabs(filter_type: str | None, json_output: bool) -> None:
     """Async implementation of list tabs."""
-    from gobbler_relay.client import list_tabs  # noqa: PLC0415
+    from gobbler_relay.client import list_tabs
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -229,7 +229,7 @@ def navigate(
 
 async def _navigate(url: str) -> None:
     """Async implementation of navigate."""
-    from gobbler_relay.client import navigate  # noqa: PLC0415
+    from gobbler_relay.client import navigate
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -282,7 +282,7 @@ async def _extract(  # noqa: PLR0912
     json_output: bool = False,
 ) -> None:
     """Async implementation of extract."""
-    from gobbler_relay.client import extract_page  # noqa: PLC0415
+    from gobbler_relay.client import extract_page
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started and not json_output:
@@ -373,7 +373,7 @@ def execute(
 
 async def _execute(script: str, tab_id: int | None, timeout: int, json_output: bool) -> None:
     """Async implementation of execute."""
-    from gobbler_relay.client import execute_script, execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script, execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -432,9 +432,127 @@ def inject_apis(
     asyncio.run(_inject_apis(tab_id, json_output))
 
 
+async def _inject_single_tab(
+    tab_id: int,
+    inject_api_fn: Any,
+    json_output: bool,
+) -> None:
+    """Inject API into a single tab."""
+    result = await inject_api_fn(tab_id)
+
+    if json_output:
+        console.print_json(json.dumps(result))
+    elif result.get("success"):
+        api_name = result.get("apiName", "API")
+        print_success(f"Injected {api_name} into tab {tab_id}")
+    else:
+        print_error(result.get("error", "Injection failed"))
+        raise typer.Exit(1)
+
+
+async def _process_tab_for_injection(
+    tab: dict[str, Any],
+    inject_api_fn: Any,
+) -> dict[str, Any] | None:
+    """Process a single tab for API injection, returning result dict or None if skipped."""
+    # Skip tabs that don't have a matching API
+    if not tab.get("hasMatchingApi"):
+        return None
+
+    # Skip tabs that are already injected
+    if tab.get("injectedApi"):
+        return {
+            "tabId": tab["tabId"],
+            "title": tab["title"],
+            "status": "already_injected",
+            "api": tab["injectedApi"],
+        }
+
+    # Inject API
+    inject_result = await inject_api_fn(tab["tabId"])
+    if inject_result.get("success"):
+        return {
+            "tabId": tab["tabId"],
+            "title": tab["title"],
+            "status": "injected",
+            "api": inject_result.get("apiName"),
+        }
+    return {
+        "tabId": tab["tabId"],
+        "title": tab["title"],
+        "status": "failed",
+        "error": inject_result.get("error"),
+    }
+
+
+def _print_injection_results(results: list[dict[str, Any]]) -> None:
+    """Print injection results as a table."""
+    if not results:
+        print_info("No tabs with matching APIs found")
+        return
+
+    rows = []
+    injected_count = 0
+    for r in results:
+        if r["status"] == "injected":
+            injected_count += 1
+            status_icon = "✓"
+        elif r["status"] == "already_injected":
+            status_icon = "○"
+        else:
+            status_icon = "✗"
+
+        rows.append(
+            [
+                str(r["tabId"]),
+                r["title"][:40],
+                r.get("api", "-"),
+                f"{status_icon} {r['status']}",
+            ]
+        )
+
+    print_table(
+        title="API Injection Status",
+        columns=["Tab ID", "Title", "API", "Status"],
+        rows=rows,
+    )
+
+    if injected_count > 0:
+        print_success(f"Injected APIs into {injected_count} tab(s)")
+
+
+async def _inject_all_tabs(
+    get_injected_apis_fn: Any,
+    inject_api_fn: Any,
+    json_output: bool,
+) -> None:
+    """Inject APIs into all matching tabs."""
+    status = await get_injected_apis_fn()
+
+    if not status.get("success"):
+        if json_output:
+            console.print_json(json.dumps(status))
+        else:
+            print_error(status.get("error", "Failed to get API status"))
+        raise typer.Exit(1)
+
+    tabs = status.get("tabs", [])
+    results = []
+
+    for tab in tabs:
+        result = await _process_tab_for_injection(tab, inject_api_fn)
+        if result is not None:
+            results.append(result)
+
+    if json_output:
+        console.print_json(json.dumps({"success": True, "results": results}))
+    else:
+        _print_injection_results(results)
+
+
 async def _inject_apis(tab_id: int | None, json_output: bool) -> None:
     """Async implementation of inject APIs."""
-    from gobbler_relay.client import get_injected_apis, inject_api  # noqa: PLC0415
+    from gobbler_relay.client import get_injected_apis, inject_api
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started and not json_output:
@@ -448,101 +566,9 @@ async def _inject_apis(tab_id: int | None, json_output: bool) -> None:
 
     try:
         if tab_id:
-            # Inject into specific tab
-            result = await inject_api(tab_id)
-
-            if json_output:
-                console.print_json(json.dumps(result))
-            elif result.get("success"):
-                api_name = result.get("apiName", "API")
-                print_success(f"Injected {api_name} into tab {tab_id}")
-            else:
-                print_error(result.get("error", "Injection failed"))
-                raise typer.Exit(1)
+            await _inject_single_tab(tab_id, inject_api, json_output)
         else:
-            # Get all tabs and their API status
-            status = await get_injected_apis()
-
-            if not status.get("success"):
-                if json_output:
-                    console.print_json(json.dumps(status))
-                else:
-                    print_error(status.get("error", "Failed to get API status"))
-                raise typer.Exit(1)
-
-            tabs = status.get("tabs", [])
-            injected_count = 0
-            results = []
-
-            for tab in tabs:
-                # Skip tabs that don't have a matching API
-                if not tab.get("hasMatchingApi"):
-                    continue
-
-                # Skip tabs that are already injected
-                if tab.get("injectedApi"):
-                    results.append(
-                        {
-                            "tabId": tab["tabId"],
-                            "title": tab["title"],
-                            "status": "already_injected",
-                            "api": tab["injectedApi"],
-                        }
-                    )
-                    continue
-
-                # Inject API
-                inject_result = await inject_api(tab["tabId"])
-                if inject_result.get("success"):
-                    injected_count += 1
-                    results.append(
-                        {
-                            "tabId": tab["tabId"],
-                            "title": tab["title"],
-                            "status": "injected",
-                            "api": inject_result.get("apiName"),
-                        }
-                    )
-                else:
-                    results.append(
-                        {
-                            "tabId": tab["tabId"],
-                            "title": tab["title"],
-                            "status": "failed",
-                            "error": inject_result.get("error"),
-                        }
-                    )
-
-            if json_output:
-                console.print_json(json.dumps({"success": True, "results": results}))
-            else:
-                if not results:
-                    print_info("No tabs with matching APIs found")
-                else:
-                    rows = []
-                    for r in results:
-                        status_icon = (
-                            "✓"
-                            if r["status"] == "injected"
-                            else ("○" if r["status"] == "already_injected" else "✗")
-                        )
-                        rows.append(
-                            [
-                                str(r["tabId"]),
-                                r["title"][:40],
-                                r.get("api", "-"),
-                                f"{status_icon} {r['status']}",
-                            ]
-                        )
-
-                    print_table(
-                        title="API Injection Status",
-                        columns=["Tab ID", "Title", "API", "Status"],
-                        rows=rows,
-                    )
-
-                    if injected_count > 0:
-                        print_success(f"Injected APIs into {injected_count} tab(s)")
+            await _inject_all_tabs(get_injected_apis, inject_api, json_output)
 
     except RuntimeError as e:
         if json_output:
@@ -581,7 +607,7 @@ async def _open_tabs(  # noqa: C901, PLR0912
     urls: list[str], file: Path | None, json_output: bool
 ) -> None:
     """Async implementation of open tabs."""
-    from gobbler_relay.client import open_tabs  # noqa: PLC0415
+    from gobbler_relay.client import open_tabs
 
     # Collect URLs from arguments and file
     all_urls = list(urls)
@@ -589,7 +615,7 @@ async def _open_tabs(  # noqa: C901, PLR0912
     if file:
         if str(file) == "-":
             # Read from stdin
-            import sys  # noqa: PLC0415
+            import sys
 
             for raw_line in sys.stdin:
                 stripped = raw_line.strip()

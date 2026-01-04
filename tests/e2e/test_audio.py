@@ -6,7 +6,7 @@ No Docker services required.
 
 import pytest
 
-from .helpers import get_audio, get_video, validate_markdown_output
+from .helpers import validate_markdown_output
 
 # No network required for local file transcription
 
@@ -48,7 +48,6 @@ class TestAudioTranscription:
         assert validation["valid"], f"Validation errors: {validation['errors']}"
 
         # Should contain recognizable content from the speech
-        body_lower = validation["body"].lower()
         # Check for some expected phrases (Whisper may not be perfect)
         assert validation["word_count"] > 100, "Transcript suspiciously short"
 
@@ -81,7 +80,8 @@ class TestAudioTranscription:
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
 
         # Timestamps should be present
-        assert "[" in result.stdout and "]" in result.stdout
+        assert "[" in result.stdout
+        assert "]" in result.stdout
 
     def test_nonexistent_file_error(self, run_gobbler):
         """Test error handling for nonexistent file."""

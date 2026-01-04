@@ -17,7 +17,8 @@ def load_url_list(category: str, filename: str) -> list[str]:
     """
     path = FIXTURES_DIR / "urls" / category / filename
     if not path.exists():
-        raise FileNotFoundError(f"URL list not found: {path}")
+        msg = f"URL list not found: {path}"
+        raise FileNotFoundError(msg)
 
     return [
         line.strip()
@@ -43,7 +44,8 @@ def get_first_url(category: str, filename: str) -> str:
     """
     urls = load_url_list(category, filename)
     if not urls:
-        raise ValueError(f"No URLs found in {category}/{filename}")
+        msg = f"No URLs found in {category}/{filename}"
+        raise ValueError(msg)
     return urls[0]
 
 
@@ -62,7 +64,8 @@ def get_document(doc_type: str, filename: str) -> Path:
     """
     path = FIXTURES_DIR / "documents" / doc_type / filename
     if not path.exists():
-        raise FileNotFoundError(f"Document not found: {path}")
+        msg = f"Document not found: {path}"
+        raise FileNotFoundError(msg)
     return path
 
 
@@ -80,7 +83,8 @@ def get_audio(filename: str) -> Path:
     """
     path = FIXTURES_DIR / "audio" / filename
     if not path.exists():
-        raise FileNotFoundError(f"Audio file not found: {path}")
+        msg = f"Audio file not found: {path}"
+        raise FileNotFoundError(msg)
     return path
 
 
@@ -98,5 +102,6 @@ def get_video(filename: str) -> Path:
     """
     path = FIXTURES_DIR / "video" / filename
     if not path.exists():
-        raise FileNotFoundError(f"Video file not found: {path}")
+        msg = f"Video file not found: {path}"
+        raise FileNotFoundError(msg)
     return path

@@ -294,7 +294,7 @@ class WhisperLocalProvider(TranscriptionProvider):
                 if temp_path.exists():
                     temp_path.unlink()
                 msg = f"ffmpeg audio extraction failed: {result.stderr}"
-                raise RuntimeError(msg)  # noqa: TRY301
+                raise RuntimeError(msg)
 
             return temp_path  # noqa: TRY300
 

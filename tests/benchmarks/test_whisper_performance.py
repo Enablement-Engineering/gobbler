@@ -19,7 +19,7 @@ class TestWhisperPerformance:
         self, mock_ext, mock_validate, mock_getsize, mock_get_model
     ):
         """Benchmark transcription speed with mocked model."""
-        from gobbler_core.converters.audio import convert_audio_to_markdown  # noqa: PLC0415
+        from gobbler_core.converters.audio import convert_audio_to_markdown
 
         # Mock setup
         mock_validate.return_value = None

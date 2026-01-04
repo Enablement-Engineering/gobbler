@@ -45,7 +45,7 @@ def list_providers(
         gobbler providers list -c document --format json
     """
     # Defer heavy imports
-    from gobbler_core.providers import ProviderRegistry  # noqa: PLC0415
+    from gobbler_core.providers import ProviderRegistry
 
     categories = [category] if category else ProviderRegistry.list_categories()
 
@@ -122,7 +122,7 @@ def info(
         gobbler providers info document docling --format json
     """
     # Defer heavy imports
-    from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+    from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
 
     try:
         provider_info = ProviderRegistry.get_provider_info(category, name)

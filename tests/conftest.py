@@ -16,7 +16,7 @@ def reset_config_singleton():
     This fixture runs automatically before each test to reset the global
     config instance, preventing state leakage between tests.
     """
-    import gobbler_mcp.config as config_module  # noqa: PLC0415
+    import gobbler_mcp.config as config_module
 
     # Reset before test
     config_module._config = None
@@ -214,7 +214,7 @@ def expected_audio_transcript(fixtures_dir: Path) -> str:
 def check_crawl4ai_available() -> bool:
     """Check if Crawl4AI service is available for integration tests."""
     try:
-        import httpx  # noqa: PLC0415
+        import httpx
 
         response = httpx.get("http://localhost:11235/health", timeout=2)
     except Exception:
@@ -227,7 +227,7 @@ def check_crawl4ai_available() -> bool:
 def check_docling_available() -> bool:
     """Check if Docling service is available for integration tests."""
     try:
-        import httpx  # noqa: PLC0415
+        import httpx
 
         response = httpx.get("http://localhost:5001/health", timeout=2)
     except Exception:

@@ -120,7 +120,7 @@ GET_CHAT_HISTORY_JS = """
 
 async def _get_chatgpt_tabs() -> list[dict]:
     """Get list of ChatGPT tabs in the Gobbler group."""
-    from gobbler_relay.client import list_tabs  # noqa: PLC0415
+    from gobbler_relay.client import list_tabs
 
     result = await list_tabs(filter_type="chatgpt")
 
@@ -133,7 +133,7 @@ async def _get_chatgpt_tabs() -> list[dict]:
 
 async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     """Check if relay is running and extension is connected."""
-    from gobbler_relay.client import (  # noqa: PLC0415
+    from gobbler_relay.client import (
         check_connection,
         ensure_relay_running,
         is_relay_running,
@@ -212,7 +212,7 @@ def info(
 
 async def _info(tab_id: int | None) -> None:
     """Async implementation of info."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -268,7 +268,7 @@ async def _query(  # noqa: C901, PLR0912, PLR0915
     message: str, tab_id: int | None, timeout: int
 ) -> None:
     """Async implementation of query."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -359,7 +359,7 @@ def last(
 
 async def _last(tab_id: int | None) -> None:  # noqa: C901, PLR0912
     """Async implementation of last."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -442,7 +442,7 @@ def history(
 
 async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
     """Async implementation of history."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -520,7 +520,7 @@ async def _download(  # noqa: C901, PLR0912, PLR0915
     output_dir: str | None, tab_id: int | None
 ) -> None:
     """Async implementation of download."""
-    from gobbler_relay.client import execute_script_in_tab, send_command  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab, send_command
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:

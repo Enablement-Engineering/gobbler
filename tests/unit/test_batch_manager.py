@@ -144,7 +144,7 @@ class TestBatchProcessor:
     @pytest.mark.asyncio
     async def test_batch_concurrency_control(self, tmp_path):
         """Test that concurrency is properly controlled."""
-        import asyncio  # noqa: PLC0415
+        import asyncio
 
         # Track concurrent execution
         concurrent_count = 0

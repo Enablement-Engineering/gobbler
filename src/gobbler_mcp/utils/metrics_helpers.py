@@ -18,7 +18,7 @@ def get_metrics_callback() -> Callable[[str, int], None] | None:
             callback("youtube", len(markdown_content))
     """
     try:
-        from ..metrics import conversion_size  # noqa: PLC0415
+        from ..metrics import conversion_size
 
         return lambda converter_type, size: conversion_size.labels(
             converter_type=converter_type

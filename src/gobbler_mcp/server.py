@@ -91,7 +91,7 @@ async def lifespan(_app: FastMCP):  # type: ignore[misc]  # noqa: PLR0915
     relay_enabled = config.get("http_server.enabled", True)
     if relay_enabled:
         try:
-            from gobbler_relay import (  # noqa: PLC0415
+            from gobbler_relay import (
                 DEFAULT_HOST,
                 DEFAULT_PORT,
                 ensure_relay_running,

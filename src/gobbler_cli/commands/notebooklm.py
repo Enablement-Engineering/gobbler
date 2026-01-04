@@ -219,7 +219,7 @@ def _clean_response(text: str) -> str:
 
 async def _get_notebooklm_tabs() -> list[dict]:
     """Get list of NotebookLM tabs in the Gobbler group."""
-    from gobbler_relay.client import list_tabs  # noqa: PLC0415
+    from gobbler_relay.client import list_tabs
 
     result = await list_tabs(filter_type="notebooklm")
 
@@ -236,7 +236,7 @@ async def _check_relay_and_extension() -> tuple[bool, bool, str]:
     Returns:
         Tuple of (success, relay_was_auto_started, message)
     """
-    from gobbler_relay.client import (  # noqa: PLC0415
+    from gobbler_relay.client import (
         check_connection,
         ensure_relay_running,
         is_relay_running,
@@ -318,7 +318,7 @@ def info(
 
 async def _info(tab_id: int | None) -> None:
     """Async implementation of info."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -378,7 +378,7 @@ def query(
 
 async def _query(message: str, tab_id: int | None, timeout: int) -> None:  # noqa: PLR0912
     """Async implementation of query."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -460,7 +460,7 @@ def last(
 
 async def _last(tab_id: int | None) -> None:
     """Async implementation of last."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:
@@ -527,7 +527,7 @@ def history(
 
 async def _history(tab_id: int | None, count: int, show_all: bool) -> None:
     """Async implementation of history."""
-    from gobbler_relay.client import execute_script_in_tab  # noqa: PLC0415
+    from gobbler_relay.client import execute_script_in_tab
 
     ok, auto_started, msg = await _check_relay_and_extension()
     if auto_started:

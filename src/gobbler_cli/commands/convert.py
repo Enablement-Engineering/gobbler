@@ -76,7 +76,7 @@ async def _convert_youtube(
     """Async implementation of YouTube conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.youtube import convert_youtube_to_markdown  # noqa: PLC0415
+        from gobbler_core.converters.youtube import convert_youtube_to_markdown
 
         with ProgressTracker("Converting YouTube video"):
             result, metadata = await convert_youtube_to_markdown(
@@ -165,11 +165,11 @@ async def _convert_audio(
         # Validate file exists
         if not file_path.exists():
             msg = f"File not found: {file_path}"
-            raise ValueError(msg)  # noqa: TRY301
+            raise ValueError(msg)
 
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.audio import convert_audio_to_markdown  # noqa: PLC0415
-        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+        from gobbler_core.converters.audio import convert_audio_to_markdown
+        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
 
         # Create provider if specified
         transcription_provider: TranscriptionProvider | None = None
@@ -261,11 +261,11 @@ async def _convert_document(
         # Validate file exists
         if not file_path.exists():
             msg = f"File not found: {file_path}"
-            raise ValueError(msg)  # noqa: TRY301
+            raise ValueError(msg)
 
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.document import convert_document_to_markdown  # noqa: PLC0415
-        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+        from gobbler_core.converters.document import convert_document_to_markdown
+        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
 
         # Create provider if specified
         document_provider: DocumentProvider | None = None
@@ -365,8 +365,8 @@ async def _convert_webpage(
     """Async implementation of webpage conversion."""
     try:
         # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.webpage import convert_webpage_to_markdown  # noqa: PLC0415
-        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry  # noqa: PLC0415
+        from gobbler_core.converters.webpage import convert_webpage_to_markdown
+        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
 
         # Create provider if specified
         webpage_provider: WebPageProvider | None = None

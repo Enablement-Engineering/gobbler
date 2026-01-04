@@ -9,7 +9,7 @@ import json
 import os
 import signal
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .database import Database
@@ -156,7 +156,7 @@ class JobManager:
         # Set completed_at for terminal states
         if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
             query += ", completed_at = ?"
-            params.append(datetime.utcnow().isoformat())  # noqa: DTZ003
+            params.append(datetime.now(UTC).isoformat())
 
         query += " WHERE id = ?"
         params.append(job_id)
@@ -214,7 +214,7 @@ class JobManager:
             """,
             (
                 JobStatus.RUNNING.value,
-                datetime.utcnow().isoformat(),  # noqa: DTZ003
+                datetime.now(UTC).isoformat(),
                 worker_pid,
                 job_id,
             ),
@@ -240,7 +240,7 @@ class JobManager:
             (
                 JobStatus.COMPLETED.value,
                 json.dumps(result),
-                datetime.utcnow().isoformat(),  # noqa: DTZ003
+                datetime.now(UTC).isoformat(),
                 job_id,
             ),
         )
@@ -265,7 +265,7 @@ class JobManager:
             (
                 JobStatus.FAILED.value,
                 error,
-                datetime.utcnow().isoformat(),  # noqa: DTZ003
+                datetime.now(UTC).isoformat(),
                 job_id,
             ),
         )
@@ -306,7 +306,7 @@ class JobManager:
             """,
             (
                 JobStatus.CANCELLED.value,
-                datetime.utcnow().isoformat(),  # noqa: DTZ003
+                datetime.now(UTC).isoformat(),
                 job_id,
             ),
         )
@@ -335,7 +335,7 @@ class JobManager:
             params.append(status.value)
 
         if older_than_days is not None:
-            cutoff = datetime.utcnow() - timedelta(days=older_than_days)  # noqa: DTZ003
+            cutoff = datetime.now(UTC) - timedelta(days=older_than_days)
             query += " AND created_at < ?"
             params.append(cutoff.isoformat())
 
@@ -430,7 +430,7 @@ class JobManager:
             progress_message=row["progress_message"] or "",
             result=result,
             error=row["error"],
-            created_at=self._parse_timestamp(row["created_at"]) or datetime.utcnow(),  # noqa: DTZ003
+            created_at=self._parse_timestamp(row["created_at"]) or datetime.now(UTC),
             started_at=self._parse_timestamp(row["started_at"]),
             completed_at=self._parse_timestamp(row["completed_at"]),
             worker_pid=row["worker_pid"],

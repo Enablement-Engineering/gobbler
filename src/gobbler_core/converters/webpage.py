@@ -157,7 +157,9 @@ async def convert_webpage_to_markdown(
         # Using a specific provider
         from gobbler_core.providers.webpage import Crawl4AIProvider
         provider = Crawl4AIProvider(service_url="http://localhost:11235")
-        markdown, metadata = await convert_webpage_to_markdown("https://example.com", provider=provider)
+        markdown, metadata = await convert_webpage_to_markdown(
+            "https://example.com", provider=provider
+        )
     """
     log = logger_instance or logger
     provider_name = provider.name if provider else "crawl4ai"
@@ -272,7 +274,7 @@ async def _convert_with_crawl4ai(
             task_id = task_data.get("task_id")
             if not task_id:
                 msg = "No task_id returned from Crawl4AI"
-                raise RuntimeError(msg)  # noqa: TRY301
+                raise RuntimeError(msg)
 
             result = await _poll_for_task_completion(client, service_url, task_id, headers, timeout)
             markdown_content = _extract_markdown_content(result)

@@ -123,7 +123,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
     # Load session if provided
     session_cookies = None
     if session_id:
-        from ..crawlers.session_manager import SessionManager  # noqa: PLC0415
+        from ..crawlers.session_manager import SessionManager
 
         session_manager = SessionManager()
         try:
@@ -154,7 +154,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
             task_id = task_data.get("task_id")
             if not task_id:
                 msg = "No task_id returned from Crawl4AI"
-                raise RuntimeError(msg)  # noqa: TRY301
+                raise RuntimeError(msg)
 
             # Poll for task completion
             max_wait = timeout
@@ -175,19 +175,19 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
                     results = task_status.get("results")
                     if not results or len(results) == 0:
                         msg = "Crawl4AI returned no results"
-                        raise RuntimeError(msg)  # noqa: TRY301
+                        raise RuntimeError(msg)
 
                     result = results[0]
                     break
                 if task_status.get("status") == "failed":
                     error = task_status.get("error", "Unknown error")
                     msg = f"Crawl4AI task failed: {error}"
-                    raise RuntimeError(msg)  # noqa: TRY301
+                    raise RuntimeError(msg)
 
             else:
                 # Timeout waiting for task
                 msg = f"Crawl task did not complete within {timeout} seconds"
-                raise httpx.TimeoutException(msg)  # noqa: TRY301
+                raise httpx.TimeoutException(msg)
 
             # Get markdown content - try different possible field structures
             markdown_content = None
@@ -211,7 +211,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
 
             if not markdown_content:
                 msg = "No markdown content in Crawl4AI response"
-                raise RuntimeError(msg)  # noqa: TRY301
+                raise RuntimeError(msg)
 
             # Extract metadata
             page_title = result.get("title") or result.get("metadata", {}).get("title", "Web Page")

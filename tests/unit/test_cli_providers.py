@@ -42,7 +42,7 @@ def cli_app():
 def setup_providers():
     """Ensure providers are registered before tests."""
     # Import triggers provider registration
-    from gobbler_core import providers as core_providers  # noqa: F401, PLC0415
+    from gobbler_core import providers as core_providers  # noqa: F401
 
 
 class TestProvidersListCommand:

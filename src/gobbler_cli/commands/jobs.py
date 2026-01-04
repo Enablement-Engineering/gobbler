@@ -107,7 +107,7 @@ def get(
 
         if job is None:
             print_error(f"Job not found: {job_id}")
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
         # Format and display job details
         detail_output = format_job_detail(job)
@@ -141,7 +141,7 @@ def cancel(
         job = manager.get_job(job_id)
         if job is None:
             print_error(f"Job not found: {job_id}")
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
         # Check if job is already terminal
         if job.is_terminal:
@@ -166,7 +166,7 @@ def cancel(
             print_success(f"Job {job_id} cancelled successfully")
         else:
             print_error(f"Failed to cancel job {job_id}")
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
     except typer.Exit:
         raise
@@ -311,7 +311,7 @@ def worker_stop() -> None:
             print_success("Worker stopped")
         else:
             print_error("Failed to stop worker")
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
     except Exception as e:
         print_error(f"Failed to stop worker: {e}")

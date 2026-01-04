@@ -37,7 +37,7 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             - Error message (if failed)
         """
         try:
-            from gobbler_queue.manager import JobManager  # noqa: PLC0415
+            from gobbler_queue.manager import JobManager
 
             manager = JobManager()
             job = manager.get_job(job_id)
@@ -107,8 +107,8 @@ def register_tools(mcp: FastMCP):  # noqa: C901, PLR0915
             List of jobs with status, ID, and created time
         """
         try:
-            from gobbler_queue.manager import JobManager  # noqa: PLC0415
-            from gobbler_queue.models import JobStatus  # noqa: PLC0415
+            from gobbler_queue.manager import JobManager
+            from gobbler_queue.models import JobStatus
 
             manager = JobManager()
 

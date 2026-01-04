@@ -81,11 +81,11 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
     json_output: bool = False,
 ) -> None:
     """Async implementation of YouTube playlist batch processing."""
-    import time  # noqa: PLC0415
+    import time
 
-    import yt_dlp  # noqa: PLC0415
+    import yt_dlp
 
-    from gobbler_core.converters.youtube import convert_youtube_to_markdown  # noqa: PLC0415
+    from gobbler_core.converters.youtube import convert_youtube_to_markdown
 
     # Use json_output param or check output_format
     use_json = json_output or output_format == "json"
@@ -112,7 +112,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     _write_json_line({"success": False, "error": error_msg})
                 else:
                     print_error(error_msg)
-                raise typer.Exit(1)  # noqa: TRY301
+                raise typer.Exit(1)
 
             videos = []
             for entry in info["entries"]:
@@ -131,7 +131,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 _write_json_line({"success": False, "error": error_msg})
             else:
                 print_error(error_msg)
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
         if use_json:
             _write_json_line(
@@ -268,7 +268,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 print_info(f"Skipped {skipped} existing files")
             if failed > 0:
                 print_error(f"{failed} videos failed to process")
-                raise typer.Exit(1)  # noqa: TRY301
+                raise typer.Exit(1)
 
     except typer.Exit:
         raise
@@ -348,7 +348,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                         "error_code": "DIRECTORY_NOT_FOUND",
                     }
                 )
-            raise ValueError(error_msg)  # noqa: TRY301
+            raise ValueError(error_msg)
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -398,13 +398,13 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
 
                     # Convert based on type
                     if detected_type == "audio":
-                        from gobbler_core.converters.audio import (  # noqa: PLC0415
+                        from gobbler_core.converters.audio import (
                             convert_audio_to_markdown,
                         )
 
                         result, metadata = await convert_audio_to_markdown(str(file_path))
                     elif detected_type == "document":
-                        from gobbler_core.converters.document import (  # noqa: PLC0415
+                        from gobbler_core.converters.document import (
                             convert_document_to_markdown,
                         )
 
@@ -471,13 +471,13 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
 
                         # Convert based on type
                         if detected_type == "audio":
-                            from gobbler_core.converters.audio import (  # noqa: PLC0415
+                            from gobbler_core.converters.audio import (
                                 convert_audio_to_markdown,
                             )
 
                             result, metadata = await convert_audio_to_markdown(str(file_path))
                         elif detected_type == "document":
-                            from gobbler_core.converters.document import (  # noqa: PLC0415
+                            from gobbler_core.converters.document import (
                                 convert_document_to_markdown,
                             )
 
@@ -624,8 +624,8 @@ def _queue_batch_webpages(
     skip_existing: bool,
 ) -> None:
     """Queue the batch webpages job for background processing."""
-    from gobbler_queue.manager import JobManager  # noqa: PLC0415
-    from gobbler_queue.models import JobType  # noqa: PLC0415
+    from gobbler_queue.manager import JobManager
+    from gobbler_queue.models import JobType
 
     # Read URLs from file or stdin
     urls = _read_urls(input_file)
@@ -678,7 +678,7 @@ def _read_urls(input_file: Path | None) -> list[str]:
     Returns:
         List of valid URLs (empty lines and comments removed)
     """
-    import sys  # noqa: PLC0415
+    import sys
 
     lines: list[str] = []
 
@@ -714,8 +714,8 @@ def _sanitize_url_to_filename(url: str) -> str:
     Returns:
         A safe filename based on the URL's domain and path
     """
-    import re  # noqa: PLC0415
-    from urllib.parse import urlparse  # noqa: PLC0415
+    import re
+    from urllib.parse import urlparse
 
     parsed = urlparse(url)
 
@@ -754,7 +754,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
     json_output: bool = False,
 ) -> None:
     """Async implementation of batch webpage processing."""
-    from gobbler_core.converters.webpage import convert_webpage_to_markdown  # noqa: PLC0415
+    from gobbler_core.converters.webpage import convert_webpage_to_markdown
 
     try:
         # Read URLs
@@ -770,7 +770,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 )
             else:
                 print_error("No valid URLs found in input")
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -902,7 +902,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 print_info(f"Skipped {skipped} existing files")
             if failed > 0:
                 print_error(f"{failed} webpages failed to convert")
-                raise typer.Exit(1)  # noqa: TRY301
+                raise typer.Exit(1)
 
     except typer.Exit:
         raise

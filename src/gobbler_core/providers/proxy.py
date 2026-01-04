@@ -267,14 +267,14 @@ def get_youtube_proxy_config() -> Any:
         ...     api = YouTubeTranscriptApi(proxy_config=proxy_config)
     """
     # Import here to avoid circular imports and make youtube_transcript_api optional
-    from youtube_transcript_api.proxies import (  # noqa: PLC0415
+    from youtube_transcript_api.proxies import (
         GenericProxyConfig,
         WebshareProxyConfig,
     )
 
     # Try to get from config file first
     try:
-        from gobbler_mcp.config import get_config  # noqa: PLC0415
+        from gobbler_mcp.config import get_config
 
         config = get_config()
         provider_name = config.get("providers.youtube.default", "youtube-transcript-api")

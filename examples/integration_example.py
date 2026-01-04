@@ -18,7 +18,7 @@ from pathlib import Path
 # Add src to path for direct import
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from gobbler_mcp.http_server import send_command_to_extension, websocket_connections
+from gobbler_relay.relay import send_command_to_extension, websocket_connections
 
 
 async def research_workflow():
@@ -41,11 +41,7 @@ async def research_workflow():
     # 2. Get current page info
     print("\n[2/5] Getting current page information...")
     try:
-        response = await send_command_to_extension(
-            command="get_page_info",
-            params={},
-            timeout=10.0
-        )
+        response = await send_command_to_extension(command="get_page_info", params={}, timeout=10.0)
 
         if response.get("success"):
             info = response.get("info", {})
@@ -65,11 +61,8 @@ async def research_workflow():
     try:
         response = await send_command_to_extension(
             command="navigate",
-            params={
-                "url": "https://docs.python.org/3/tutorial/",
-                "wait_for_load": True
-            },
-            timeout=30.0
+            params={"url": "https://docs.python.org/3/tutorial/", "wait_for_load": True},
+            timeout=30.0,
         )
 
         if response.get("success"):
@@ -94,11 +87,12 @@ async def research_workflow():
                     }))
                 """
             },
-            timeout=10.0
+            timeout=10.0,
         )
 
         if response.get("success"):
             import json
+
             toc = response.get("result", [])
             print(f"✅ Found {len(toc)} sections:")
             for item in toc[:5]:  # Show first 5
@@ -119,7 +113,7 @@ async def research_workflow():
             params={
                 "selector": "#the-python-tutorial"  # Extract just the main content
             },
-            timeout=15.0
+            timeout=15.0,
         )
 
         if response.get("success"):
@@ -178,12 +172,11 @@ async def interactive_demo():
         if choice == "1":
             # Get page info
             response = await send_command_to_extension(
-                command="get_page_info",
-                params={},
-                timeout=10.0
+                command="get_page_info", params={}, timeout=10.0
             )
             if response.get("success"):
                 import json
+
                 print("\n" + json.dumps(response.get("info", {}), indent=2))
 
         elif choice == "2":
@@ -191,9 +184,7 @@ async def interactive_demo():
             url = input("Enter URL: ").strip()
             if url:
                 response = await send_command_to_extension(
-                    command="navigate",
-                    params={"url": url, "wait_for_load": True},
-                    timeout=30.0
+                    command="navigate", params={"url": url, "wait_for_load": True}, timeout=30.0
                 )
                 if response.get("success"):
                     print(f"\n✅ Navigated to {url}")
@@ -206,12 +197,11 @@ async def interactive_demo():
             script = input().strip()
             if script:
                 response = await send_command_to_extension(
-                    command="execute_script",
-                    params={"script": script},
-                    timeout=10.0
+                    command="execute_script", params={"script": script}, timeout=10.0
                 )
                 if response.get("success"):
                     import json
+
                     result = response.get("result")
                     if isinstance(result, (dict, list)):
                         print("\n" + json.dumps(result, indent=2))
@@ -226,9 +216,7 @@ async def interactive_demo():
             params = {"selector": selector} if selector else {}
 
             response = await send_command_to_extension(
-                command="extract_page",
-                params=params,
-                timeout=15.0
+                command="extract_page", params=params, timeout=15.0
             )
             if response.get("success"):
                 markdown = response.get("markdown", "")
@@ -280,4 +268,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()

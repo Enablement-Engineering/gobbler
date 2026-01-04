@@ -6,7 +6,7 @@ No Docker services required.
 
 import pytest
 
-from .helpers import get_first_url, has_timestamps, load_url_list, validate_markdown_output
+from .helpers import get_first_url, has_timestamps, validate_markdown_output
 
 pytestmark = pytest.mark.requires_network
 

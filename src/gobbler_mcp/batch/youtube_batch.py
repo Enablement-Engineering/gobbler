@@ -39,11 +39,11 @@ async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> list[
 
             if not info:
                 msg = "Failed to extract playlist information"
-                raise ValueError(msg)  # noqa: TRY301
+                raise ValueError(msg)
 
             if "entries" not in info:
                 msg = "Invalid playlist URL or playlist is empty"
-                raise ValueError(msg)  # noqa: TRY301
+                raise ValueError(msg)
 
             videos = []
             for entry in info["entries"]:
@@ -58,7 +58,7 @@ async def get_playlist_videos(playlist_url: str, max_videos: int = 100) -> list[
 
             if not videos:
                 msg = "No videos found in playlist"
-                raise ValueError(msg)  # noqa: TRY301
+                raise ValueError(msg)
 
             logger.info("Extracted %d videos from playlist", len(videos))
             return videos

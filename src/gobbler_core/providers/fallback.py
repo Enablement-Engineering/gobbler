@@ -349,7 +349,7 @@ def create_fallback_provider(
                 provider: httpx-simple
                 on: [timeout, rate_limited]
     """
-    from gobbler_core.providers.registry import ProviderRegistry  # noqa: PLC0415
+    from gobbler_core.providers.registry import ProviderRegistry
 
     # Get provider configuration and create primary provider
     provider_config = config.get_provider_config(category, provider_name)

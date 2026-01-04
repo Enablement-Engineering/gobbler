@@ -148,7 +148,7 @@ class TestWebpageErrors:
 class TestBatchWebpages:
     """Tests for batch webpage conversion."""
 
-    def test_batch_fetch_documentation(self, run_gobbler, temp_output_dir, urls_dir):
+    def test_batch_fetch_documentation(self, run_gobbler, temp_output_dir):
         """Test batch fetching documentation pages."""
         urls = load_url_list("webpages", "documentation.txt")[:3]  # Limit for speed
 
@@ -175,7 +175,7 @@ class TestBatchWebpages:
             md_files = list(output_dir.glob("*.md"))
             assert len(md_files) >= 1, "No output files created"
 
-    def test_batch_fetch_with_concurrency(self, run_gobbler, temp_output_dir, urls_dir):
+    def test_batch_fetch_with_concurrency(self, run_gobbler, temp_output_dir):
         """Test batch fetching with custom concurrency."""
         urls = load_url_list("webpages", "documentation.txt")[:2]
 

@@ -666,7 +666,7 @@ class TestAppConfiguration:
         shutdown_event = asyncio.Event()
         app = relay.create_app(enable_auto_shutdown=True, shutdown_event=shutdown_event)
 
-        assert app["shutdown_event"] is shutdown_event
+        assert app[relay.shutdown_event_key] is shutdown_event
         # Should have at least 2 middlewares (CORS + activity tracking)
         assert len(app.middlewares) >= 2
 

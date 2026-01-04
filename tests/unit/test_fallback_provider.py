@@ -40,11 +40,11 @@ class MockProvider(ContentProvider):
         """Return provider name."""
         return self._name
 
-    def supports(self, source: str) -> bool:  # noqa: ARG002
+    def supports(self, source: str) -> bool:
         """Return True for all sources."""
         return True
 
-    async def fetch(self, source: str, **options: Any) -> ProviderResult:  # noqa: ARG002
+    async def fetch(self, source: str, **options: Any) -> ProviderResult:
         """Return configured result or raise exception."""
         self.fetch_count += 1
         if self._exception:

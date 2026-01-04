@@ -94,8 +94,8 @@ async def _extract_audio(video_path: str) -> str:
         # -y: overwrite output file
         # Using ffmpeg with fixed arguments for audio extraction
         # video_path is validated earlier in convert_audio_to_markdown via validate_input_path
-        result = subprocess.run(  # noqa: S603  # nosec B603 B607
-            [  # noqa: S607
+        result = subprocess.run(  # nosec B603 B607
+            [
                 "ffmpeg",
                 "-i",
                 video_path,
@@ -120,7 +120,7 @@ async def _extract_audio(video_path: str) -> str:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
             msg = f"ffmpeg audio extraction failed: {result.stderr}"
-            raise RuntimeError(msg)  # noqa: TRY301
+            raise RuntimeError(msg)
         else:  # noqa: RET506
             return temp_path
 
@@ -306,7 +306,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
 
             # Build transcript from segments
             # Import here to avoid circular imports at module level
-            from gobbler_core.providers.transcription import (  # noqa: PLC0415
+            from gobbler_core.providers.transcription import (
                 TranscriptionResult as TResult,
                 TranscriptionSegment,
             )
@@ -342,7 +342,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
                     "Transcription failed: Unable to detect speech in audio. "
                     "The file may be corrupted, silent, or in an unsupported language."
                 )
-                raise RuntimeError(msg)  # noqa: TRY301
+                raise RuntimeError(msg)
 
         except Exception as e:
             # Clean up temp file on error

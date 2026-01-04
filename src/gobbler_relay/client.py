@@ -91,7 +91,7 @@ async def ensure_relay_running(
         return True
 
     # Lazy import to avoid circular imports
-    from gobbler_relay.relay import start_relay_daemon  # noqa: PLC0415
+    from gobbler_relay.relay import start_relay_daemon
 
     # Start the relay daemon
     start_relay_daemon(host, port)

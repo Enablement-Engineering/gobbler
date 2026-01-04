@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-# ruff: noqa: T201, PLR0915, PLC0415
+# ruff: noqa: T201, PLR0915
 """
 Test the browser tools by directly calling the http_server functions.
 
@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent / "../../../src"))
 
 async def test_browser_tools():
     """Test browser extension tools."""
-    from gobbler_mcp.http_server import send_command_to_extension, websocket_connections
+    from gobbler_relay.relay import send_command_to_extension, websocket_connections
 
     print("=" * 60)
     print("Testing Gobbler Browser Extension Tools")

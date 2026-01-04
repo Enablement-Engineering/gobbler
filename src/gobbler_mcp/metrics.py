@@ -233,7 +233,7 @@ def update_resource_metrics() -> None:
 def update_queue_metrics() -> None:
     """Update queue depth metrics from Redis."""
     try:
-        from .utils.queue import get_queue  # noqa: PLC0415
+        from .utils.queue import get_queue
 
         for queue_name in ["default", "transcription", "download"]:
             try:

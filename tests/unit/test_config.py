@@ -146,7 +146,7 @@ class TestGlobalConfig:
     def test_get_config_singleton(self, mock_config_class):
         """Test that get_config returns singleton instance."""
         # Reset global config
-        import gobbler_mcp.config as config_module  # noqa: PLC0415
+        import gobbler_mcp.config as config_module
 
         config_module._config = None
 

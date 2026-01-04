@@ -53,24 +53,24 @@ def completion(
         # Fish
         gobbler completion fish > ~/.config/fish/completions/gobbler.fish
     """
-    from typer.main import get_command  # noqa: PLC0415
+    from typer.main import get_command
 
     click_app = get_command(app)
 
     # Use click-shell-completion for generating completion scripts
     try:
         if shell == "bash":
-            from click.shell_completion import BashComplete  # noqa: PLC0415
+            from click.shell_completion import BashComplete
 
             complete = BashComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "zsh":
-            from click.shell_completion import ZshComplete  # noqa: PLC0415
+            from click.shell_completion import ZshComplete
 
             complete = ZshComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
         elif shell == "fish":
-            from click.shell_completion import FishComplete  # noqa: PLC0415
+            from click.shell_completion import FishComplete
 
             complete = FishComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
             completion_script = complete.source()
@@ -79,10 +79,10 @@ def completion(
                 "PowerShell completion not supported. Use --install-completion.",
                 err=True,
             )
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
         else:
             typer.echo(f"Unsupported shell: {shell}", err=True)
-            raise typer.Exit(1)  # noqa: TRY301
+            raise typer.Exit(1)
 
         typer.echo(completion_script)
     except typer.Exit:
@@ -96,7 +96,7 @@ def completion(
 def cli() -> None:
     """Entry point for the CLI."""
     # Import command modules here to register them
-    from gobbler_cli.commands import (  # noqa: PLC0415
+    from gobbler_cli.commands import (
         batch,
         browser,
         chatgpt,

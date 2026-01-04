@@ -43,7 +43,7 @@ def _run_cli(cmd: list[str], timeout: int = 3600) -> tuple[bool, str]:
     """
     try:
         # cmd is built from hardcoded "gobbler" binary with validated user arguments
-        result = subprocess.run(  # noqa: S603  # nosec B603
+        result = subprocess.run(  # nosec B603
             cmd,
             check=False,
             capture_output=True,

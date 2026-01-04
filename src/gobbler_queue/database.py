@@ -193,3 +193,15 @@ class Database:
         if hasattr(self._local, "connection") and self._local.connection is not None:
             self._local.connection.close()
             self._local.connection = None
+
+    def __enter__(self) -> "Database":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """Exit context manager and close connection."""
+        self.close()
+
+    def __del__(self) -> None:
+        """Destructor to close connection when object is garbage collected."""
+        self.close()

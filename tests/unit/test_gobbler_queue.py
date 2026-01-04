@@ -5,7 +5,7 @@ Tests cover:
 - Database creation, WAL mode, connection handling
 - JobManager CRUD operations and lifecycle management
 """
-# ruff: noqa: DTZ001, DTZ003, S108
+# ruff: noqa: DTZ001, S108
 
 import json
 import threading
@@ -359,7 +359,7 @@ class TestJobSummary:
             job_type=JobType.WEBPAGE,
             status=JobStatus.FAILED,
             command="test",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             error=long_error,
         )
 
@@ -376,7 +376,7 @@ class TestJobSummary:
             job_type=JobType.WEBPAGE,
             status=JobStatus.FAILED,
             command="test",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             error=short_error,
         )
 
@@ -589,7 +589,7 @@ class TestDatabase:
                 )
                 # Force an error
                 msg = "Test error"
-                raise ValueError(msg)  # noqa: TRY301
+                raise ValueError(msg)
         except ValueError:
             pass
 
@@ -1113,7 +1113,7 @@ class TestJobManagerClearJobs:
         # Create a job and manually set old created_at
         job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
 
-        old_date = (datetime.utcnow() - timedelta(days=10)).isoformat()
+        old_date = (datetime.now(UTC) - timedelta(days=10)).isoformat()
         job_manager.database.execute(
             "UPDATE jobs SET created_at = ? WHERE id = ?",
             (old_date, job.id),

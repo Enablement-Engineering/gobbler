@@ -6,7 +6,7 @@ Start with: docker compose up docling
 
 import pytest
 
-from .helpers import get_document, has_markdown_structure, validate_markdown_output
+from .helpers import has_markdown_structure, validate_markdown_output
 
 pytestmark = pytest.mark.requires_docling
 

@@ -212,6 +212,46 @@ def _convert_xls_to_xlsx(xls_path: Path) -> Path:
         raise RuntimeError(msg) from e
 
 
+def _process_docling_response(result: dict) -> tuple[str, int, int]:
+    """Process Docling API response and extract markdown content.
+
+    Args:
+        result: JSON response from Docling API
+
+    Returns:
+        Tuple of (markdown_content, pages, word_count)
+
+    Raises:
+        RuntimeError: If response indicates failure or has no content
+    """
+    if result.get("status") == "failure":
+        errors = result.get("errors", ["Unknown error"])
+        msg = f"Document conversion failed: {'; '.join(errors)}"
+        raise RuntimeError(msg)
+
+    if result.get("status") == "skipped":
+        msg = (
+            "Document conversion was skipped. The file may be corrupted or "
+            "use an unsupported format variation."
+        )
+        raise RuntimeError(msg)
+
+    document_data = result.get("document", {})
+    markdown_content = document_data.get("md_content", "")
+
+    if not markdown_content:
+        msg = (
+            "Failed to extract markdown from document. The document may be "
+            "corrupted or password-protected."
+        )
+        raise RuntimeError(msg)
+
+    word_count = count_words(markdown_content)
+    pages = result.get("pages", 0) if "pages" in result else max(1, word_count // 300)
+
+    return markdown_content, pages, word_count
+
+
 async def _convert_with_docling(
     file_path: str,
     enable_ocr: bool,
@@ -254,14 +294,9 @@ async def _convert_with_docling(
 
         try:
             async with RetryableHTTPClient(timeout=120.0) as client:
-                # Prepare the multipart form data
                 files = {"files": (filename, file_data)}
-                data = {
-                    "to_formats": "md",
-                    "do_ocr": str(enable_ocr).lower(),
-                }
+                data = {"to_formats": "md", "do_ocr": str(enable_ocr).lower()}
 
-                # Make request to Docling service
                 response = await client.post(
                     f"{service_url}/v1/convert/file", files=files, data=data
                 )
@@ -281,36 +316,7 @@ async def _convert_with_docling(
             msg = f"Document conversion failed: {e}"
             raise RuntimeError(msg) from e
 
-        # Process response
-        if result.get("status") == "failure":
-            errors = result.get("errors", ["Unknown error"])
-            msg = f"Document conversion failed: {'; '.join(errors)}"
-            raise RuntimeError(msg)
-
-        if result.get("status") == "skipped":
-            msg = (
-                "Document conversion was skipped. The file may be corrupted or "
-                "use an unsupported format variation."
-            )
-            raise RuntimeError(msg)
-
-        document_data = result.get("document", {})
-        markdown_content = document_data.get("md_content", "")
-
-        if not markdown_content:
-            msg = (
-                "Failed to extract markdown from document. The document may be "
-                "corrupted or password-protected."
-            )
-            raise RuntimeError(msg)
-
-        # Count words in the markdown
-        word_count = count_words(markdown_content)
-
-        # Estimate page count from content
-        pages = result.get("pages", 0) if "pages" in result else max(1, word_count // 300)
-
-        return markdown_content, pages, word_count
+        return _process_docling_response(result)
 
     finally:
         # Clean up temporary .xlsx file if we created one

@@ -37,6 +37,7 @@ from typing import Any
 
 import httpx
 from aiohttp import web
+from aiohttp.web import AppKey
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
@@ -56,6 +57,9 @@ AUTO_SHUTDOWN_TIMEOUT = 14400  # 4 hours
 # Global WebSocket connections and command queue
 websocket_connections: "set[web.WebSocketResponse]" = set()
 pending_commands: "dict[str, dict]" = {}  # command_id -> {event: asyncio.Event, response: dict}
+
+# App keys for type-safe app storage
+shutdown_event_key: AppKey[asyncio.Event] = AppKey("shutdown_event", asyncio.Event)
 
 # Activity tracking for auto-shutdown
 last_activity_time: float = 0.0
@@ -366,7 +370,7 @@ def create_app(
         app.middlewares.append(activity_middleware)
 
     # Store shutdown event in app for access from handlers
-    app["shutdown_event"] = shutdown_event
+    app[shutdown_event_key] = shutdown_event
 
     # Add routes
     app.router.add_post("/extract", extract_handler)
@@ -533,7 +537,7 @@ def start_relay_daemon(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> in
 
     # Start detached process
     # cmd is built from sys.executable and __file__ paths (not user input)
-    process = subprocess.Popen(  # noqa: S603  # nosec B603
+    process = subprocess.Popen(  # nosec B603
         cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

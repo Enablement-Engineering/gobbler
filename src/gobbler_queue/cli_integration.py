@@ -237,7 +237,7 @@ def start_worker_daemon() -> int:
     with log_file.open("a") as log:
         # Start process in background, detached from terminal
         # cmd is built from sys.executable and module paths (not user input)
-        process = subprocess.Popen(  # noqa: S603  # nosec B603
+        process = subprocess.Popen(  # nosec B603
             cmd,
             stdout=log,
             stderr=subprocess.STDOUT,

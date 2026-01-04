@@ -72,7 +72,7 @@ def test_track_conversion_failure(clear_metrics):
 
 def test_track_conversion_duration(clear_metrics):
     """Test conversion duration tracking."""
-    import time  # noqa: PLC0415
+    import time
 
     converter_type = "test_duration"
 
