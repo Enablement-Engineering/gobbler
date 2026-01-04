@@ -7,6 +7,7 @@ to markdown with optional OCR support.
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -18,8 +19,8 @@ from gobbler_core.utils.http_client import RetryableHTTPClient
 
 logger = logging.getLogger(__name__)
 
-# Supported document formats
-SUPPORTED_EXTENSIONS: set[str] = {".pdf", ".docx", ".pptx", ".xlsx"}
+# Supported document formats (including legacy .xls which we convert to .xlsx)
+SUPPORTED_EXTENSIONS: set[str] = {".pdf", ".docx", ".pptx", ".xlsx", ".xls"}
 
 
 class DoclingProvider(DocumentProvider):
@@ -57,6 +58,65 @@ class DoclingProvider(DocumentProvider):
         """Return provider name."""
         return "docling"
 
+    def _convert_xls_to_xlsx(self, xls_path: Path) -> Path:
+        """Convert legacy .xls file to .xlsx format.
+
+        Uses xlrd to read the .xls file and openpyxl to write .xlsx.
+
+        Args:
+            xls_path: Path to the .xls file
+
+        Returns:
+            Path to temporary .xlsx file (caller must delete)
+
+        Raises:
+            RuntimeError: If conversion fails
+        """
+        try:
+            import xlrd
+            from openpyxl import Workbook
+        except ImportError as e:
+            msg = (
+                "xlrd and openpyxl are required for .xls file support. "
+                "Install with: pip install xlrd openpyxl"
+            )
+            raise RuntimeError(msg) from e
+
+        try:
+            # Read the .xls file
+            xls_book = xlrd.open_workbook(str(xls_path))
+
+            # Create a new .xlsx workbook
+            xlsx_book = Workbook()
+            # Remove the default sheet created by Workbook()
+            default_sheet = xlsx_book.active
+            if default_sheet is not None:
+                xlsx_book.remove(default_sheet)
+
+            # Copy each sheet
+            for sheet_idx in range(xls_book.nsheets):
+                xls_sheet = xls_book.sheet_by_index(sheet_idx)
+                xlsx_sheet = xlsx_book.create_sheet(title=xls_sheet.name)
+
+                for row_idx in range(xls_sheet.nrows):
+                    for col_idx in range(xls_sheet.ncols):
+                        cell_value = xls_sheet.cell_value(row_idx, col_idx)
+                        xlsx_sheet.cell(row=row_idx + 1, column=col_idx + 1, value=cell_value)
+
+            # Write to temporary file
+            temp_fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
+            import os
+
+            os.close(temp_fd)
+            xlsx_book.save(temp_path)
+
+            logger.debug("Converted %s to temporary %s", xls_path, temp_path)
+            return Path(temp_path)
+
+        except Exception as e:
+            msg = f"Failed to convert .xls to .xlsx: {e}"
+            raise RuntimeError(msg) from e
+
     async def convert(
         self,
         file_path: Path,
@@ -89,47 +149,66 @@ class DoclingProvider(DocumentProvider):
             msg = f"Unsupported format: {ext}. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
             raise ValueError(msg)
 
-        # Read file
+        # Handle legacy .xls files by converting to .xlsx first
+        temp_xlsx_path: Path | None = None
+        original_path = file_path
+
+        if ext == ".xls":
+            logger.info("Converting legacy .xls file to .xlsx for processing")
+            temp_xlsx_path = self._convert_xls_to_xlsx(file_path)
+            file_path = temp_xlsx_path
+
         try:
-            async with aiofiles.open(file_path, "rb") as f:
-                file_data = await f.read()
-        except Exception as e:
-            msg = f"Failed to read document file: {e}"
-            raise RuntimeError(msg) from e
-
-        # Make request to Docling service
-        try:
-            async with RetryableHTTPClient(timeout=self.timeout) as client:
-                files = {"files": (file_path.name, file_data)}
-                data = {
-                    "to_formats": "md",
-                    "do_ocr": str(ocr).lower(),
-                }
-
-                response = await client.post(
-                    f"{self.service_url}/v1/convert/file",
-                    files=files,
-                    data=data,
-                )
-                response.raise_for_status()
-                result = response.json()
-
-        except Exception as e:
-            error_str = str(e)
-            error_type = type(e).__name__
-
-            if "ConnectError" in error_type or "Connection" in error_str:
-                msg = (
-                    "Docling service unavailable. The service may not be running. "
-                    "Start with: docker-compose up -d docling"
-                )
+            # Read file
+            try:
+                async with aiofiles.open(file_path, "rb") as f:
+                    file_data = await f.read()
+            except Exception as e:
+                msg = f"Failed to read document file: {e}"
                 raise RuntimeError(msg) from e
 
-            msg = f"Document conversion failed: {e}"
-            raise RuntimeError(msg) from e
+            # Make request to Docling service
+            try:
+                async with RetryableHTTPClient(timeout=self.timeout) as client:
+                    files = {"files": (file_path.name, file_data)}
+                    data = {
+                        "to_formats": "md",
+                        "do_ocr": str(ocr).lower(),
+                    }
 
-        # Process response
-        return self._process_response(result, file_path)
+                    response = await client.post(
+                        f"{self.service_url}/v1/convert/file",
+                        files=files,
+                        data=data,
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+
+            except Exception as e:
+                error_str = str(e)
+                error_type = type(e).__name__
+
+                if "ConnectError" in error_type or "Connection" in error_str:
+                    msg = (
+                        "Docling service unavailable. The service may not be running. "
+                        "Start with: docker-compose up -d docling"
+                    )
+                    raise RuntimeError(msg) from e
+
+                msg = f"Document conversion failed: {e}"
+                raise RuntimeError(msg) from e
+
+            # Process response (use original path for metadata)
+            return self._process_response(result, original_path)
+
+        finally:
+            # Clean up temporary .xlsx file if we created one
+            if temp_xlsx_path is not None and temp_xlsx_path.exists():
+                try:
+                    temp_xlsx_path.unlink()
+                    logger.debug("Cleaned up temporary file: %s", temp_xlsx_path)
+                except OSError as e:
+                    logger.warning("Failed to clean up temporary file %s: %s", temp_xlsx_path, e)
 
     def _process_response(self, result: dict[str, Any], file_path: Path) -> DocumentResult:
         """Process the Docling API response.

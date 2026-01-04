@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".pptx", ".xlsx")
+SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".pptx", ".xlsx", ".xls")
 
 
 async def convert_document_to_markdown(
@@ -155,6 +155,63 @@ async def convert_document_to_markdown(
     return full_markdown, metadata
 
 
+def _convert_xls_to_xlsx(xls_path: Path) -> Path:
+    """Convert legacy .xls file to .xlsx format.
+
+    Args:
+        xls_path: Path to the .xls file
+
+    Returns:
+        Path to temporary .xlsx file (caller must delete)
+
+    Raises:
+        RuntimeError: If conversion fails
+    """
+    import os
+    import tempfile
+
+    try:
+        import xlrd
+        from openpyxl import Workbook
+    except ImportError as e:
+        msg = (
+            "xlrd and openpyxl are required for .xls file support. "
+            "Install with: pip install xlrd openpyxl"
+        )
+        raise RuntimeError(msg) from e
+
+    try:
+        xls_book = xlrd.open_workbook(str(xls_path))
+        xlsx_book = Workbook()
+
+        # Remove the default sheet
+        default_sheet = xlsx_book.active
+        if default_sheet is not None:
+            xlsx_book.remove(default_sheet)
+
+        # Copy each sheet
+        for sheet_idx in range(xls_book.nsheets):
+            xls_sheet = xls_book.sheet_by_index(sheet_idx)
+            xlsx_sheet = xlsx_book.create_sheet(title=xls_sheet.name)
+
+            for row_idx in range(xls_sheet.nrows):
+                for col_idx in range(xls_sheet.ncols):
+                    cell_value = xls_sheet.cell_value(row_idx, col_idx)
+                    xlsx_sheet.cell(row=row_idx + 1, column=col_idx + 1, value=cell_value)
+
+        # Write to temporary file
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
+        os.close(temp_fd)
+        xlsx_book.save(temp_path)
+
+        logger.debug("Converted %s to temporary %s", xls_path, temp_path)
+        return Path(temp_path)
+
+    except Exception as e:
+        msg = f"Failed to convert .xls to .xlsx: {e}"
+        raise RuntimeError(msg) from e
+
+
 async def _convert_with_docling(
     file_path: str,
     enable_ocr: bool,
@@ -175,70 +232,91 @@ async def _convert_with_docling(
     Raises:
         RuntimeError: If conversion fails
     """
-    # Read file asynchronously
+    path = Path(file_path)
+    temp_xlsx_path: Path | None = None
+
+    # Handle legacy .xls files by converting to .xlsx first
+    if path.suffix.lower() == ".xls":
+        log.info("Converting legacy .xls file to .xlsx for processing")
+        temp_xlsx_path = _convert_xls_to_xlsx(path)
+        file_path = str(temp_xlsx_path)
+
     try:
-        async with aiofiles.open(file_path, "rb") as f:
-            file_data = await f.read()
-    except Exception as e:
-        msg = f"Failed to read document file: {e}"
-        raise RuntimeError(msg) from e
-
-    filename = Path(file_path).name
-
-    try:
-        async with RetryableHTTPClient(timeout=120.0) as client:
-            # Prepare the multipart form data
-            files = {"files": (filename, file_data)}
-            data = {
-                "to_formats": "md",
-                "do_ocr": str(enable_ocr).lower(),
-            }
-
-            # Make request to Docling service
-            response = await client.post(f"{service_url}/v1/convert/file", files=files, data=data)
-            response.raise_for_status()
-            result = response.json()
-
-    except Exception as e:
-        error_str = str(e)
-        error_type = type(e).__name__
-
-        if "ConnectError" in error_type or "Connection" in error_str:
-            msg = (
-                "Docling service unavailable. The service may not be running. "
-                "Start with: docker-compose up -d docling"
-            )
+        # Read file asynchronously
+        try:
+            async with aiofiles.open(file_path, "rb") as f:
+                file_data = await f.read()
+        except Exception as e:
+            msg = f"Failed to read document file: {e}"
             raise RuntimeError(msg) from e
-        msg = f"Document conversion failed: {e}"
-        raise RuntimeError(msg) from e
 
-    # Process response
-    if result.get("status") == "failure":
-        errors = result.get("errors", ["Unknown error"])
-        msg = f"Document conversion failed: {'; '.join(errors)}"
-        raise RuntimeError(msg)
+        filename = Path(file_path).name
 
-    if result.get("status") == "skipped":
-        msg = (
-            "Document conversion was skipped. The file may be corrupted or "
-            "use an unsupported format variation."
-        )
-        raise RuntimeError(msg)
+        try:
+            async with RetryableHTTPClient(timeout=120.0) as client:
+                # Prepare the multipart form data
+                files = {"files": (filename, file_data)}
+                data = {
+                    "to_formats": "md",
+                    "do_ocr": str(enable_ocr).lower(),
+                }
 
-    document_data = result.get("document", {})
-    markdown_content = document_data.get("md_content", "")
+                # Make request to Docling service
+                response = await client.post(
+                    f"{service_url}/v1/convert/file", files=files, data=data
+                )
+                response.raise_for_status()
+                result = response.json()
 
-    if not markdown_content:
-        msg = (
-            "Failed to extract markdown from document. The document may be "
-            "corrupted or password-protected."
-        )
-        raise RuntimeError(msg)
+        except Exception as e:
+            error_str = str(e)
+            error_type = type(e).__name__
 
-    # Count words in the markdown
-    word_count = count_words(markdown_content)
+            if "ConnectError" in error_type or "Connection" in error_str:
+                msg = (
+                    "Docling service unavailable. The service may not be running. "
+                    "Start with: docker-compose up -d docling"
+                )
+                raise RuntimeError(msg) from e
+            msg = f"Document conversion failed: {e}"
+            raise RuntimeError(msg) from e
 
-    # Estimate page count from content
-    pages = result.get("pages", 0) if "pages" in result else max(1, word_count // 300)
+        # Process response
+        if result.get("status") == "failure":
+            errors = result.get("errors", ["Unknown error"])
+            msg = f"Document conversion failed: {'; '.join(errors)}"
+            raise RuntimeError(msg)
 
-    return markdown_content, pages, word_count
+        if result.get("status") == "skipped":
+            msg = (
+                "Document conversion was skipped. The file may be corrupted or "
+                "use an unsupported format variation."
+            )
+            raise RuntimeError(msg)
+
+        document_data = result.get("document", {})
+        markdown_content = document_data.get("md_content", "")
+
+        if not markdown_content:
+            msg = (
+                "Failed to extract markdown from document. The document may be "
+                "corrupted or password-protected."
+            )
+            raise RuntimeError(msg)
+
+        # Count words in the markdown
+        word_count = count_words(markdown_content)
+
+        # Estimate page count from content
+        pages = result.get("pages", 0) if "pages" in result else max(1, word_count // 300)
+
+        return markdown_content, pages, word_count
+
+    finally:
+        # Clean up temporary .xlsx file if we created one
+        if temp_xlsx_path is not None and temp_xlsx_path.exists():
+            try:
+                temp_xlsx_path.unlink()
+                log.debug("Cleaned up temporary file: %s", temp_xlsx_path)
+            except OSError as e:
+                log.warning("Failed to clean up temporary file %s: %s", temp_xlsx_path, e)
