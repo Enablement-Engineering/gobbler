@@ -10,6 +10,7 @@ import asyncio
 import logging
 import re
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
@@ -25,36 +26,70 @@ class Crawl4AIProvider(WebPageProvider):
 
     Scrapes web pages and converts them to markdown using the Crawl4AI
     service running in Docker. Supports JavaScript rendering, content
-    extraction, and clean markdown output.
+    extraction, proxy configuration, and clean markdown output.
 
     Attributes:
         service_url: URL of the Crawl4AI service
         api_token: Authentication token for the service
+        proxy_url: Optional proxy URL for browser requests
 
     Example:
         provider = Crawl4AIProvider(service_url="http://localhost:11235")
         result = await provider.fetch("https://example.com", timeout=60)
         print(result.markdown)
+
+        # With proxy
+        provider = Crawl4AIProvider(
+            service_url="http://localhost:11235",
+            proxy_url="http://user:pass@proxy.example.com:8080"
+        )
     """
 
     def __init__(
         self,
         service_url: str = "http://localhost:11235",
         api_token: str = "gobbler-local-token",  # noqa: S107
+        proxy_url: str | None = None,
     ) -> None:
         """Initialize the Crawl4AI provider.
 
         Args:
             service_url: URL of the Crawl4AI service
             api_token: Authentication token for the service
+            proxy_url: Optional proxy URL for browser requests (e.g.,
+                "http://user:pass@proxy.example.com:8080")
         """
         self.service_url = service_url.rstrip("/")
         self.api_token = api_token
+        self.proxy_url = proxy_url
 
     @property
     def name(self) -> str:
         """Return provider name."""
         return "crawl4ai"
+
+    def _safe_proxy_url(self, url: str) -> str:
+        """Mask credentials in proxy URL for safe logging.
+
+        Args:
+            url: Proxy URL that may contain credentials
+
+        Returns:
+            URL with username and password replaced with '***'
+
+        Example:
+            >>> self._safe_proxy_url("http://user:pass@host:port")
+            'http://***:***@host:port'
+        """
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            # Reconstruct with masked credentials
+            host = parsed.hostname or ""
+            netloc = f"***:***@{host}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(parsed._replace(netloc=netloc))
+        return url
 
     async def fetch(
         self,
@@ -91,11 +126,17 @@ class Crawl4AIProvider(WebPageProvider):
         if wait_for:
             crawler_params["wait_for"] = wait_for
 
+        # Build browser config with optional proxy
+        browser_params: dict[str, Any] = {"headless": headless}
+        if self.proxy_url:
+            browser_params["proxy"] = self.proxy_url
+            logger.debug("Using proxy for Crawl4AI: %s", self._safe_proxy_url(self.proxy_url))
+
         crawl_request = {
             "urls": [url],
             "browser_config": {
                 "type": "BrowserConfig",
-                "params": {"headless": headless},
+                "params": browser_params,
             },
             "crawler_config": {
                 "type": "CrawlerRunConfig",

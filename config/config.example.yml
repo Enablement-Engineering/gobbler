@@ -1,14 +1,69 @@
 # Gobbler MCP Server Configuration
 # Copy this file to ~/.config/gobbler/config.yml and customize as needed
+#
+# Configuration Precedence (highest to lowest):
+#   1. CLI flags (e.g., --proxy, --provider)
+#   2. Config file settings (this file)
+#   3. Environment variables (e.g., OPENAI_API_KEY, TRANSCRIPTAPI_KEY)
+
+# =============================================================================
+# Proxy Services
+# =============================================================================
+# Define reusable proxy configurations that can be referenced by providers.
+# Proxies help avoid IP blocks and rate limiting from external services.
+#
+# Supported proxy types:
+#   - rotating: Rotating proxy service (new IP per request)
+#   - static: Fixed datacenter/residential proxy
+#
+# Environment variable substitution is supported using ${VAR_NAME} syntax.
+
+proxy_services:
+  # Webshare rotating proxy (recommended for high-volume usage)
+  # webshare:
+  #   type: rotating
+  #   username: ${WEBSHARE_USER}
+  #   password: ${WEBSHARE_PASS}
+
+  # Static/datacenter proxy
+  # datacenter:
+  #   type: static
+  #   url: ${PROXY_URL}
 
 # =============================================================================
 # Provider Configuration
 # =============================================================================
 # Gobbler uses a pluggable provider architecture. Each capability (transcription,
-# document conversion, web scraping) can use different backend implementations.
-# Configure which provider to use and its settings here.
+# document conversion, web scraping, YouTube transcripts) can use different
+# backend implementations. Configure which provider to use and its settings here.
+#
+# Fallback Configuration:
+# Providers can specify fallback behavior when errors occur. Available conditions:
+#   - error: Any error occurred
+#   - timeout: Request timed out
+#   - rate_limited: Service rate limit exceeded
+#   - ip_blocked: IP address blocked by service
+#   - unavailable: Service temporarily unavailable
 
 providers:
+  # YouTube transcript providers
+  youtube:
+    # Default provider: youtube-transcript-api or transcriptapi
+    default: youtube-transcript-api
+
+    # youtube-transcript-api: Free, scrapes YouTube directly
+    # May be blocked by YouTube for high-volume usage
+    youtube-transcript-api:
+      # proxy: webshare  # Reference to proxy_services entry above
+      # fallback:
+      #   provider: transcriptapi
+      #   on: [ip_blocked, rate_limited]
+
+    # TranscriptAPI: Paid service, more reliable for high volume
+    # Requires TRANSCRIPTAPI_KEY environment variable
+    transcriptapi: {}
+      # api_key set via TRANSCRIPTAPI_KEY env var
+
   # Audio/video transcription providers
   transcription:
     # Default provider to use: whisper-local or openai-whisper
@@ -19,6 +74,9 @@ providers:
       # Model size: tiny, base, small, medium, large
       # Larger models are more accurate but slower and use more memory
       model: small
+      # fallback:
+      #   provider: openai-whisper
+      #   on: [error, timeout]
 
     # OpenAI Whisper API configuration
     # Requires OPENAI_API_KEY environment variable to be set
@@ -47,6 +105,7 @@ providers:
     crawl4ai:
       # Default request timeout in seconds
       timeout: 30
+      # proxy: webshare  # Enable for sites that block scrapers
 
 # =============================================================================
 # Legacy Settings (kept for backwards compatibility)
@@ -107,7 +166,7 @@ queue:
   default_queue: default
   job_timeout: 600    # 10 minutes max job time
 
-# Monitoring settings  
+# Monitoring settings
 monitoring:
   metrics_enabled: false      # Enable Prometheus metrics
   metrics_port: 9090          # Metrics HTTP server port

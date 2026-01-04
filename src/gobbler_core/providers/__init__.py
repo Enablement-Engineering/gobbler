@@ -31,6 +31,22 @@ from . import (
 )
 from .base import ContentProvider, ProviderResult
 
+# Fallback provider wrapper
+from .fallback import (
+    FallbackCondition,
+    FallbackProvider,
+    create_fallback_provider,
+    matches_condition,
+)
+
+# Proxy service abstraction
+from .proxy import (
+    ProxyConfig,
+    ProxyService,
+    get_proxy_for_provider,
+    get_youtube_proxy_config,
+)
+
 # Provider registry
 from .registry import ProviderNotFoundError, ProviderRegistry
 
@@ -41,18 +57,28 @@ from .youtube import (
     TranscriptProvider,
     YouTubeTranscriptAPIProvider,
     create_provider,
+    create_provider_from_config,
     create_proxy_config,
 )
 
 __all__ = [
     "AutoFallbackProvider",
     "ContentProvider",
+    "FallbackCondition",
+    "FallbackProvider",
     "ProviderNotFoundError",
     "ProviderRegistry",
     "ProviderResult",
+    "ProxyConfig",
+    "ProxyService",
     "TranscriptAPIProvider",
     "TranscriptProvider",
     "YouTubeTranscriptAPIProvider",
+    "create_fallback_provider",
     "create_provider",
+    "create_provider_from_config",
     "create_proxy_config",
+    "get_proxy_for_provider",
+    "get_youtube_proxy_config",
+    "matches_condition",
 ]

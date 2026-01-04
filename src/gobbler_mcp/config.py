@@ -15,6 +15,15 @@ class Config:
 
     # Default configuration
     DEFAULTS: ClassVar[dict[str, Any]] = {
+        # Proxy services configuration
+        "proxy_services": {
+            # Example structure, empty by default
+            # "webshare": {
+            #     "type": "rotating",
+            #     "username": "${WEBSHARE_USER}",
+            #     "password": "${WEBSHARE_PASS}",
+            # },
+        },
         # Provider configuration - allows swapping implementations
         "providers": {
             "transcription": {
@@ -34,6 +43,11 @@ class Config:
                 "crawl4ai": {
                     "timeout": 30,
                 },
+            },
+            "youtube": {
+                "default": "youtube-transcript-api",
+                "youtube-transcript-api": {},
+                "transcriptapi": {},
             },
         },
         # Legacy settings (kept for backwards compatibility)
@@ -219,8 +233,65 @@ class Config:
             "transcription": "whisper-local",
             "document": "docling",
             "webpage": "crawl4ai",
+            "youtube": "youtube-transcript-api",
         }
         return defaults.get(category, "")
+
+    def get_proxy_service(self, service_name: str) -> dict | None:
+        """Get proxy service configuration by name.
+
+        Args:
+            service_name: Name of the proxy service (e.g., "webshare")
+
+        Returns:
+            Proxy service configuration dictionary, or None if not found
+        """
+        return self.get(f"proxy_services.{service_name}")
+
+    def get_provider_proxy(self, category: str, provider_name: str | None = None) -> dict | None:
+        """Get proxy configuration for a provider.
+
+        Looks up the proxy service name from the provider config, then
+        retrieves the full proxy service configuration.
+
+        Args:
+            category: Provider category (transcription, document, webpage, youtube)
+            provider_name: Provider name, or None to use default
+
+        Returns:
+            Proxy service configuration dictionary, or None if no proxy configured
+        """
+        if provider_name is None:
+            provider_name = self.get_provider_name(category)
+
+        proxy_service_name = self.get(f"providers.{category}.{provider_name}.proxy")
+        if proxy_service_name is None:
+            return None
+
+        return self.get_proxy_service(proxy_service_name)
+
+    def get_provider_fallback(self, category: str, provider_name: str | None = None) -> dict | None:
+        """Get fallback configuration for a provider.
+
+        Args:
+            category: Provider category (transcription, document, webpage, youtube)
+            provider_name: Provider name, or None to use default
+
+        Returns:
+            Fallback config dict with 'provider' and 'on' keys, or None if not configured
+        """
+        if provider_name is None:
+            provider_name = self.get_provider_name(category)
+
+        fallback = self.get(f"providers.{category}.{provider_name}.fallback")
+        if fallback is None:
+            return None
+
+        # Validate fallback has required keys
+        if not isinstance(fallback, dict) or "provider" not in fallback or "on" not in fallback:
+            return None
+
+        return fallback
 
     def reload(self) -> None:
         """Reload configuration from file (thread-safe).

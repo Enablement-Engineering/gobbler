@@ -8,6 +8,7 @@ This module provides multiple backends for fetching YouTube transcripts:
 Proxy support:
 - Webshare rotating proxies (WEBSHARE_USER, WEBSHARE_PASS)
 - Generic HTTP/SOCKS proxy (YOUTUBE_PROXY)
+- Config file proxy_services (recommended)
 
 Environment variables:
 - WEBSHARE_USER: Webshare proxy username
@@ -15,20 +16,44 @@ Environment variables:
 - YOUTUBE_PROXY: Generic proxy URL (http://user:pass@host:port)
 - TRANSCRIPTAPI_KEY: API key for YoutubeToTranscript.com
 
+Configuration file (recommended):
+    proxy_services:
+      webshare:
+        type: rotating
+        username: ${WEBSHARE_USER}
+        password: ${WEBSHARE_PASS}
+
+    providers:
+      youtube:
+        default: youtube-transcript-api
+        youtube-transcript-api:
+          proxy: webshare
+          fallback:
+            provider: transcriptapi
+            on: [ip_blocked, rate_limited]
+
 Note: This module uses its own TranscriptProvider base class for backwards
 compatibility. The existing providers don't implement ContentProvider from
 base.py since they have a different interface (sync vs async, different params).
 """
 
+from __future__ import annotations
+
 import logging
 import os
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
+
+from .proxy import get_youtube_proxy_config
+
+if TYPE_CHECKING:
+    from gobbler_mcp.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -249,58 +274,83 @@ def create_proxy_config(
 ):
     """Create proxy configuration for youtube-transcript-api.
 
-    Checks environment variables if arguments not provided:
-    - WEBSHARE_USER, WEBSHARE_PASS for Webshare proxy
-    - YOUTUBE_PROXY for generic proxy URL
+    .. deprecated::
+        This function is deprecated. Use config file proxy_services instead,
+        or call `get_youtube_proxy_config()` for automatic config/env detection.
+
+    If explicit parameters are provided, uses them directly.
+    Otherwise, delegates to `get_youtube_proxy_config()` which checks:
+    1. Config file proxy_services
+    2. Environment variables (WEBSHARE_USER, WEBSHARE_PASS, YOUTUBE_PROXY)
 
     Args:
-        webshare_user: Webshare username
-        webshare_pass: Webshare password
-        proxy_url: Generic proxy URL (http://user:pass@host:port)
+        webshare_user: Webshare username (explicit override)
+        webshare_pass: Webshare password (explicit override)
+        proxy_url: Generic proxy URL (explicit override)
 
     Returns:
         WebshareProxyConfig, GenericProxyConfig, or None
     """
-    webshare_user = webshare_user or os.environ.get("WEBSHARE_USER")
-    webshare_pass = webshare_pass or os.environ.get("WEBSHARE_PASS")
-    proxy_url = proxy_url or os.environ.get("YOUTUBE_PROXY")
+    # If explicit parameters provided, use them directly (backwards compatibility)
+    if webshare_user or webshare_pass or proxy_url:
+        webshare_user = webshare_user or os.environ.get("WEBSHARE_USER")
+        webshare_pass = webshare_pass or os.environ.get("WEBSHARE_PASS")
+        proxy_url = proxy_url or os.environ.get("YOUTUBE_PROXY")
 
-    if webshare_user and webshare_pass:
-        logger.info("Using Webshare proxy for YouTube transcripts")
-        return WebshareProxyConfig(
-            proxy_username=webshare_user,
-            proxy_password=webshare_pass,
-        )
-    if proxy_url:
-        # Log proxy without credentials
-        safe_url = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
-        logger.info("Using proxy for YouTube transcripts: %s", safe_url)
-        return GenericProxyConfig(
-            http_url=proxy_url,
-            https_url=proxy_url,
-        )
+        if webshare_user and webshare_pass:
+            logger.info("Using Webshare proxy for YouTube transcripts")
+            return WebshareProxyConfig(
+                proxy_username=webshare_user,
+                proxy_password=webshare_pass,
+            )
+        if proxy_url:
+            # Log proxy without credentials
+            safe_url = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
+            logger.info("Using proxy for YouTube transcripts: %s", safe_url)
+            return GenericProxyConfig(
+                http_url=proxy_url,
+                https_url=proxy_url,
+            )
+        return None
 
-    return None
+    # Emit deprecation warning when called without explicit params
+    warnings.warn(
+        "create_proxy_config() without explicit parameters is deprecated. "
+        "Use config file proxy_services or call get_youtube_proxy_config() directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    # Delegate to unified proxy abstraction
+    return get_youtube_proxy_config()
 
 
 def create_provider(
     provider_name: str = "auto",
     api_key: str | None = None,
     proxy_config=None,
+    config: Config | None = None,
 ) -> TranscriptProvider:
     """Create the appropriate transcript provider.
 
-    Checks TRANSCRIPTAPI_KEY environment variable if api_key not provided.
+    Supports both explicit parameters (backwards compatible) and config-based
+    provider creation. When config is provided, it can supply fallback settings
+    and proxy configuration if not explicitly passed.
 
     Args:
         provider_name: One of "youtube-transcript-api", "transcriptapi", "auto"
-        api_key: TranscriptAPI.com API key
+        api_key: TranscriptAPI.com API key (falls back to TRANSCRIPTAPI_KEY env var)
         proxy_config: Proxy configuration for free provider
+        config: Optional Config instance for reading fallback settings
 
     Returns:
         Configured TranscriptProvider instance
     """
     api_key = api_key or os.environ.get("TRANSCRIPTAPI_KEY")
+
+    # If config provided and no explicit proxy_config, try to get from config
+    if config is not None and proxy_config is None:
+        proxy_config = get_youtube_proxy_config()
 
     if provider_name == "transcriptapi":
         if not api_key:
@@ -325,4 +375,80 @@ def create_provider(
         return YouTubeTranscriptAPIProvider()
 
     # default: youtube-transcript-api
+    return YouTubeTranscriptAPIProvider(proxy_config=proxy_config)
+
+
+def create_provider_from_config(config: Config) -> TranscriptProvider:
+    """Create a YouTube transcript provider from configuration.
+
+    Reads all settings from the config file:
+    - Provider name from providers.youtube.default
+    - Proxy settings from proxy_services (referenced by provider config)
+    - Fallback configuration from providers.youtube.<provider>.fallback
+    - API key from environment (TRANSCRIPTAPI_KEY)
+
+    This is the recommended way to create providers in new code.
+
+    Args:
+        config: Gobbler configuration instance
+
+    Returns:
+        Configured TranscriptProvider instance
+
+    Example:
+        >>> from gobbler_mcp.config import get_config
+        >>> config = get_config()
+        >>> provider = create_provider_from_config(config)
+        >>> result = provider.fetch("dQw4w9WgXcQ")
+    """
+    # Get default provider name from config
+    provider_name = config.get("providers.youtube.default", "youtube-transcript-api")
+
+    # Get proxy configuration
+    proxy_config = get_youtube_proxy_config()
+
+    # Get API key from environment
+    api_key = os.environ.get("TRANSCRIPTAPI_KEY")
+
+    # Check for fallback configuration
+    fallback = config.get_provider_fallback("youtube", provider_name)
+
+    # If fallback is configured and we have an API key, set up auto-fallback
+    if fallback and api_key:
+        fallback_provider = fallback.get("provider")
+        fallback_conditions = fallback.get("on", [])
+
+        # Check if fallback conditions include IP blocking
+        ip_block_conditions = {"ip_blocked", "rate_limited", "429"}
+        should_use_fallback = any(cond in ip_block_conditions for cond in fallback_conditions)
+        if should_use_fallback and fallback_provider == "transcriptapi":
+            logger.info(
+                "Creating YouTube provider with %s -> %s fallback",
+                provider_name,
+                fallback_provider,
+            )
+            return AutoFallbackProvider(api_key=api_key, proxy_config=proxy_config)
+
+    # Create the specified provider
+    if provider_name == "transcriptapi":
+        if not api_key:
+            msg = (
+                "TranscriptAPI provider requires an API key. "
+                "Set TRANSCRIPTAPI_KEY environment variable."
+            )
+            raise ValueError(msg)
+        logger.info("Creating TranscriptAPI provider")
+        return TranscriptAPIProvider(api_key=api_key)
+
+    if provider_name == "auto":
+        # Auto mode delegates to create_provider logic
+        return create_provider(
+            provider_name="auto",
+            api_key=api_key,
+            proxy_config=proxy_config,
+            config=config,
+        )
+
+    # Default: youtube-transcript-api with configured proxy
+    logger.info("Creating YouTubeTranscriptAPI provider")
     return YouTubeTranscriptAPIProvider(proxy_config=proxy_config)

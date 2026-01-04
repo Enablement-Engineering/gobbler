@@ -88,6 +88,32 @@ Environment variables override config file settings:
 | `WEBSHARE_PASS` | - | Webshare proxy password (for YouTube) |
 | `YOUTUBE_PROXY` | - | Custom proxy URL for YouTube |
 
+### YouTube Provider Configuration
+
+YouTube transcripts use a separate provider system with automatic fallback. Configure via environment variables:
+
+```bash
+# Recommended: Enable auto-fallback (free first, paid if blocked)
+export TRANSCRIPTAPI_KEY=your_api_key
+
+# Alternative: Use rotating proxy with free API
+export WEBSHARE_USER=your_username
+export WEBSHARE_PASS=your_password
+
+# Alternative: Use custom proxy with free API
+export YOUTUBE_PROXY=http://user:pass@proxy.example.com:8080
+```
+
+**Provider Selection Logic:**
+
+| Configuration | Provider Used | Behavior |
+|---------------|---------------|----------|
+| `TRANSCRIPTAPI_KEY` set | `AutoFallbackProvider` | Tries free API first, falls back to paid on IP block |
+| Only proxy configured | `YouTubeTranscriptAPIProvider` | Uses free API through proxy |
+| Nothing configured | `YouTubeTranscriptAPIProvider` | Uses free API directly (may get IP blocked) |
+
+For detailed YouTube provider documentation, see [YouTube Transcription](skills/youtube.md#transcript-providers).
+
 ## Service Configuration
 
 ### Docling (Document Conversion)

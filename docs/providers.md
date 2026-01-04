@@ -18,6 +18,11 @@ Providers are organized by **category** (the type of content they process):
 
 Each category has a default provider that can be overridden via configuration or CLI flags.
 
+!!! note "YouTube Transcripts Use a Separate Provider System"
+    YouTube transcript providers (`youtube-transcript-api`, `transcriptapi`, `auto`) are **not** part of this generic provider registry. They have their own provider system optimized for handling IP blocking and fallback logic.
+
+    See [YouTube Transcription](skills/youtube.md#transcript-providers) for details on YouTube providers.
+
 ## Available Providers
 
 ### Transcription Providers
