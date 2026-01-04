@@ -9,159 +9,25 @@ This document provides an in-depth explanation of Gobbler's architecture, design
 ## Table of Contents
 
 - [Overview](#overview)
-- [Skills vs MCP Integration](#skills-vs-mcp-integration)
 - [Component Architecture](#component-architecture)
 - [Design Decisions](#design-decisions)
 - [Integration Patterns](#integration-patterns)
 
 ## Overview
 
-Gobbler is designed as a Model Context Protocol (MCP) server with a dual-interface approach: Skills for context-efficient operations and MCP tools for comprehensive functionality. Both interfaces share the same backend logic, providing flexibility in how you interact with Gobbler's capabilities.
+Gobbler converts content to markdown through three interfaces that share the same backend:
 
-## Skills vs MCP Integration
+- **CLI** - Direct command-line usage (`gobbler youtube URL`)
+- **MCP Server** - For Claude Desktop/Code via Model Context Protocol
+- **Skills** - Context-efficient UV scripts for Claude Code
 
-Gobbler provides two complementary interfaces to the same backend services: Skills and MCP Tools. Understanding when to use each approach is key to maximizing efficiency.
+All three interfaces call the same provider layer, which connects to:
 
-### Architecture Comparison
-
-**Skills Path (Context-Efficient)**
-- ~100 tokens of metadata loaded into Claude's context
-- UV scripts execute directly, calling backend providers
-- Progressive disclosure - only loaded when relevant
-- Full Python scripting capabilities with CLI options
-- Works standalone without MCP server running
-
-**MCP Path (Full Toolset)**
-- ~4,500 tokens of tool definitions always loaded
-- MCP server coordinates all backend operations
-- Persistent server state and session management
-- Standardized tool interface across all MCP clients
-- Server-side job queue for long-running operations
-
-### Shared Backend Architecture
-
-Both Skills and MCP Tools call the same backend providers:
-
-```
-┌─────────────────────────────────────────┐
-│         Claude Code Interface            │
-├────────────────────┬────────────────────┤
-│   Skills (~100t)   │   MCP Tools (~4.5k)│
-└─────────┬──────────┴──────────┬─────────┘
-          │                     │
-          └──────────┬──────────┘
-                     │
-          ┌──────────▼──────────┐
-          │  Provider Layer      │
-          │  - YouTube Provider  │
-          │  - Crawl4AI Client   │
-          │  - Docling Client    │
-          │  - Whisper Provider  │
-          │  - Browser Relay     │
-          └──────────┬──────────┘
-                     │
-          ┌──────────▼──────────┐
-          │  Services Layer      │
-          │  - YouTube API       │
-          │  - Crawl4AI :11235   │
-          │  - Docling :5001     │
-          │  - faster-whisper    │
-          │  - WebSocket :4625   │
-          └─────────────────────┘
-```
-
-### When to Use Skills vs MCP Tools
-
-#### Use Skills When:
-
-1. **Minimizing context overhead** - Working with limited context windows
-2. **Interactive guidance needed** - Browser automation, multi-step workflows
-3. **Exploratory tasks** - Discovering capabilities before committing
-4. **Offline/standalone operation** - No MCP server available
-5. **Complex scripting** - Need full Python flexibility
-
-**Examples:**
-- "Use the gobbler-browser skill to extract this page"
-- "Run the notebooklm skill to query my notebook"
-- "Transcribe this video using the gobbler-youtube skill"
-
-#### Use MCP Tools When:
-
-1. **Server-side job management** - Background queues for long operations
-2. **Well-defined operations** - Single-purpose, straightforward tasks
-3. **Tool chaining** - Combining multiple operations efficiently
-4. **Automated pipelines** - Building reproducible workflows
-5. **Batch processing** - Processing multiple items with progress tracking
-
-**Examples:**
-- "Transcribe this playlist with auto_queue enabled"
-- "Convert all PDFs in this directory to markdown"
-- "Crawl this documentation site and save all pages"
-
-#### Both Work Equally Well For:
-
-- Single file conversions (YouTube, webpage, document, audio)
-- Simple browser operations without complex workflows
-- One-shot content extraction tasks
-- Individual document processing
-
-### Integration Methods
-
-Skills can call backend logic in two ways:
-
-**Direct Import (Current - Standalone)**
-```python
-# Skill script imports provider directly
-from gobbler_mcp.providers.youtube import AutoFallbackProvider
-provider = AutoFallbackProvider()
-result = provider.fetch(video_id, language)
-```
-
-**HTTP to Relay (Future - Integrated)**
-```python
-# Skill calls MCP server via HTTP relay
-import httpx
-response = httpx.post("http://localhost:4625/mcp/transcribe_youtube", json={...})
-```
-
-Both methods access the same backend logic. Direct import is simpler for standalone use; HTTP relay enables tighter integration with MCP server features.
-
-### Decision Framework
-
-Use this decision tree to choose the right approach:
-
-```
-Start
-  │
-  ├─ Need background queue? ────────────────► MCP Tools
-  │
-  ├─ Processing >10 items? ─────────────────► MCP Tools (batch)
-  │
-  ├─ Multi-step interactive workflow? ──────► Skills
-  │
-  ├─ Limited context window? ───────────────► Skills
-  │
-  ├─ MCP server not available? ─────────────► Skills
-  │
-  └─ Simple single operation? ──────────────► Either (choose based on context availability)
-```
-
-### Context Overhead Comparison
-
-| Interface | Initial Load | Per Use | Total (5 uses) |
-|-----------|--------------|---------|----------------|
-| Skills | 100 tokens | ~500 tokens | ~2,600 tokens |
-| MCP Tools | 4,500 tokens | ~100 tokens | ~5,000 tokens |
-
-Skills become more efficient when:
-- Used infrequently (1-2 times per session)
-- Context window is constrained
-- Interactive guidance reduces total operations
-
-MCP Tools become more efficient when:
-- Used frequently (5+ times per session)
-- Chaining multiple operations
-- Batch processing with shared state
+- **YouTube APIs** - Transcript extraction
+- **Crawl4AI** (Docker) - Web scraping with JavaScript rendering
+- **Docling** (Docker) - Document conversion with OCR
+- **faster-whisper** - Local audio transcription
+- **Browser Relay** - WebSocket to browser extension
 
 ## Component Architecture
 
@@ -183,182 +49,21 @@ The MCP server coordinates all operations and manages service communication:
 
 ### Provider Layer
 
-The provider layer implements a **pluggable backend abstraction** that enables swapping between different implementations for the same functionality. This design allows:
+The provider layer implements a **pluggable backend abstraction** that enables swapping between different implementations for the same functionality:
 
 - **Multiple backends**: Different providers for the same category (e.g., local vs API-based transcription)
 - **Configuration-driven selection**: Switch providers via config without code changes
 - **Graceful fallback**: Automatic fallback between providers on failure
-- **Easy extensibility**: Add new providers by implementing a base class
 
-#### Provider Registry Pattern
+| Category | Provider | Description |
+|----------|----------|-------------|
+| Transcription | `whisper-local` | Local faster-whisper with CoreML acceleration |
+| Document | `docling` | Docling Docker service for PDF, DOCX, PPTX, XLSX |
+| Webpage | `crawl4ai` | Crawl4AI Docker service with JavaScript rendering |
+| YouTube | Multiple | Auto-fallback between free and paid transcript APIs |
+| Browser | Relay | WebSocket relay to browser extension |
 
-The `ProviderRegistry` class serves as the central coordinator for all provider types. It maintains a mapping of category → name → provider class, enabling dynamic provider discovery and instantiation.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ProviderRegistry                         │
-├─────────────────────────────────────────────────────────────┤
-│  register(category, name, provider_class)                   │
-│  create(category, name, **kwargs) -> Provider               │
-│  list_providers(category) -> list[str]                      │
-│  get_provider_info(category, name) -> dict                  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│ transcription │     │   document    │     │   webpage     │
-├───────────────┤     ├───────────────┤     ├───────────────┤
-│ whisper-local │     │   docling     │     │   crawl4ai    │
-│ (future: API) │     │ (future: ...)│     │ (future: ...) │
-└───────────────┘     └───────────────┘     └───────────────┘
-```
-
-**Key Registry Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `register(category, name, cls)` | Register a provider class under category/name |
-| `create(category, name, **kwargs)` | Instantiate a provider with configuration |
-| `list_providers(category)` | List all registered providers for a category |
-| `get_provider_info(category, name)` | Get metadata about a specific provider |
-
-#### Base Classes
-
-Each provider category defines an abstract base class that all implementations must follow:
-
-| Category | Base Class | Result Type |
-|----------|------------|-------------|
-| `transcription` | `TranscriptionProvider` | `TranscriptionResult` |
-| `document` | `DocumentProvider` | `DocumentResult` |
-| `webpage` | `WebPageProvider` | `WebPageResult` |
-
-**Base Class Interface Example:**
-
-```python
-class TranscriptionProvider(ABC):
-    """Abstract base for transcription providers."""
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Provider identifier (e.g., 'whisper-local')."""
-
-    @abstractmethod
-    async def transcribe(
-        self,
-        audio_path: Path,
-        language: str = "auto",
-        **options,
-    ) -> TranscriptionResult:
-        """Transcribe audio to text."""
-
-    @abstractmethod
-    def supports_format(self, extension: str) -> bool:
-        """Check if audio format is supported."""
-```
-
-#### Provider Lookup Flow
-
-When a CLI command or MCP tool requests a specific provider, this flow executes:
-
-```
-CLI --provider flag / MCP tool parameter
-        ↓
-ProviderRegistry.create(category, name, **config)
-        ↓
-Registry looks up provider class by category + name
-        ↓
-Provider class instantiated with merged config
-        ↓
-Provider instance returned
-        ↓
-Converter uses provider.convert() / provider.transcribe()
-```
-
-**Example Flow:**
-
-```bash
-# CLI invocation
-gobbler audio transcribe recording.mp3 --provider whisper-local --model small
-```
-
-```python
-# Internal execution
-provider = ProviderRegistry.create(
-    category="transcription",
-    name="whisper-local",
-    model="small"  # passed as kwargs
-)
-result = await provider.transcribe(Path("recording.mp3"))
-```
-
-#### Registration Methods
-
-Providers can register themselves in two ways:
-
-**1. Self-Registration at Import (Recommended)**
-
-Providers register themselves when their module is imported:
-
-```python
-# In gobbler_core/providers/transcription/whisper.py
-from gobbler_core.providers.registry import ProviderRegistry
-from gobbler_core.providers.transcription.base import TranscriptionProvider
-
-class WhisperLocalProvider(TranscriptionProvider):
-    @property
-    def name(self) -> str:
-        return "whisper-local"
-
-    async def transcribe(self, audio_path, language="auto", **options):
-        # Implementation using faster-whisper
-        ...
-
-# Self-registration at module load
-ProviderRegistry.register("transcription", "whisper-local", WhisperLocalProvider)
-```
-
-**2. Decorator-Based Registration**
-
-For cleaner syntax, use the `@register_provider` decorator:
-
-```python
-from gobbler_core.providers.registry import register_provider
-
-@register_provider("transcription", "whisper-local")
-class WhisperLocalProvider(TranscriptionProvider):
-    ...
-```
-
-Both methods enable automatic discovery when the provider module is imported.
-
-#### Configuration Integration
-
-The `config.yaml` providers section maps directly to registry lookups:
-
-```yaml
-# config.yaml
-providers:
-  transcription:
-    default: whisper-local
-    whisper-local:
-      model: small
-      device: auto
-      compute_type: float16
-
-  document:
-    default: docling
-    docling:
-      url: http://localhost:5001
-      timeout: 120
-
-  webpage:
-    default: crawl4ai
-    crawl4ai:
-      url: http://localhost:11235
-      timeout: 60
-```
+For detailed provider documentation, configuration, and implementation patterns, see [Providers](providers.md).
 
 **Configuration Resolution:**
 
@@ -467,34 +172,6 @@ SQLite-based background processing for long-running operations:
 - Updates progress in SQLite database
 
 ## Design Decisions
-
-### Why Dual Interface (Skills + MCP)?
-
-**Problem:** MCP tool definitions consume ~4,500 tokens of context, even when not all tools are needed.
-
-**Solution:** Skills provide progressive disclosure - only ~100 tokens until used.
-
-**Benefits:**
-- Reduced context overhead for simple tasks
-- Full Python flexibility for complex workflows
-- Standalone operation without MCP server
-- Same backend logic, no duplication
-
-### Why SQLite for the Queue?
-
-**Problem:** External queue systems like Redis add operational complexity and dependency management.
-
-**Solution:** Use SQLite for zero-configuration, embedded queue storage that works everywhere Python runs.
-
-### Why Auto-Queue Threshold of 1:45?
-
-**Problem:** Users don't know when tasks will take long enough to warrant background processing.
-
-**Solution:** Auto-queue tasks estimated >1:45 based on empirical testing:
-- YouTube transcripts: <1s (never queue)
-- Audio transcription: Varies by file size (queue if >35s audio)
-- Video downloads: Almost always queue
-- Document conversion: Usually <1:45 (queue rarely)
 
 ### Why Tab Group Security Model?
 
@@ -662,46 +339,3 @@ def generate_frontmatter(content_type, metadata):
 - Preserved provenance
 - Rich context for AI
 
-## Future Enhancements
-
-### Planned Improvements
-
-1. **Skills → MCP HTTP Integration**
-   - Skills call MCP server via HTTP relay
-   - Share job queue and session state
-   - Unified progress tracking
-
-2. **Provider Abstraction Library**
-   - Shared provider interface package
-   - Import from both Skills and MCP
-   - Unified testing and documentation
-
-3. **Enhanced Session Management**
-   - Cross-tool session sharing
-   - Persistent browser sessions
-   - Session export/import
-
-4. **Advanced Queue Features**
-   - Job prioritization
-   - Scheduled execution
-   - Batch operation dependencies
-
-### Architecture Evolution
-
-The dual-interface approach allows gradual evolution:
-
-```
-Current: Skills ──import──> Providers <──import── MCP Tools
-                                │
-Future:  Skills ──HTTP──> MCP Server ──> Providers
-                    │           │
-                    └─── Relay ─┘
-```
-
-This maintains backward compatibility while enabling tighter integration.
-
-## Conclusion
-
-Gobbler's architecture balances context efficiency, flexibility, and power through its dual-interface approach. Skills provide lightweight, interactive workflows while MCP tools offer comprehensive automation with background processing. Both share the same robust backend, ensuring consistency and reducing maintenance burden.
-
-The key insight is **progressive disclosure**: start with minimal context (Skills), scale to full toolset (MCP) as needed, all while using the same underlying services.

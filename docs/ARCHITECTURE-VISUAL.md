@@ -1,11 +1,10 @@
 # Gobbler Architecture - Visual Guide
 
-This document provides comprehensive visual diagrams of Gobbler's architecture, data flows, and component interactions.
+Visual diagrams of Gobbler's architecture, data flows, and component interactions.
 
 ## Table of Contents
 
-- [Dual-Approach Architecture](#dual-approach-architecture)
-- [Overall System Architecture](#overall-system-architecture)
+- [System Architecture](#system-architecture)
 - [Data Flow Diagrams](#data-flow-diagrams)
   - [YouTube Transcript Flow](#youtube-transcript-flow)
   - [Web Scraping Flow](#web-scraping-flow)
@@ -15,67 +14,7 @@ This document provides comprehensive visual diagrams of Gobbler's architecture, 
 - [Browser Extension Communication](#browser-extension-communication)
 - [Background Queue System](#background-queue-system)
 
-## Dual-Approach Architecture
-
-Gobbler provides two complementary interfaces to the same backend: Skills (context-efficient) and MCP Tools (comprehensive). This diagram shows how both paths converge on shared providers and services.
-
-```mermaid
-graph TB
-    subgraph "Claude Code Interface"
-        User[User Request]
-        Skill[Skill Metadata<br>~100 tokens]
-        MCP[MCP Tool Schema<br>~4,500 tokens]
-    end
-
-    subgraph "Execution Layer"
-        SkillScript[UV Script Execution]
-        MCPServer[FastMCP Server]
-    end
-
-    subgraph "Shared Backend"
-        Providers[Provider Layer<br>YouTube • Crawl4AI • Docling<br>Whisper • Browser]
-        Converters[Converter Modules<br>Markdown Generation<br>Frontmatter • Formatting]
-        Services[External Services<br>Docker: Crawl4AI :11235<br>Docker: Docling :5001<br>Docker: Redis :6380<br>Host: faster-whisper<br>WebSocket: Relay :4625]
-    end
-
-    User -->|"Context-efficient<br>~100 tokens"| Skill
-    User -->|"Full toolset<br>~4,500 tokens"| MCP
-
-    Skill --> SkillScript
-    MCP --> MCPServer
-
-    SkillScript -->|"Import or HTTP"| Providers
-    MCPServer -->|"Direct import"| Providers
-
-    Providers --> Converters
-    Converters --> Services
-
-    style Skill fill:#27AE60,stroke:#333,stroke-width:2px
-    style MCP fill:#E8955C,stroke:#333,stroke-width:2px
-    style Providers fill:#3498DB,stroke:#333,stroke-width:2px
-    style Services fill:#9B59B6,stroke:#333,stroke-width:2px
-```
-
-### Context Usage Comparison
-
-| Approach | Initial Load | Per Operation | 5 Operations Total |
-|----------|--------------|---------------|-------------------|
-| **Skills** | 100 tokens | ~500 tokens | ~2,600 tokens |
-| **MCP Tools** | 4,500 tokens | ~100 tokens | ~5,000 tokens |
-
-**When to use Skills:**
-- Limited context window
-- Interactive multi-step workflows
-- Infrequent operations (1-2 per session)
-- Standalone/offline usage
-
-**When to use MCP Tools:**
-- Frequent operations (5+ per session)
-- Background queue processing
-- Batch operations with progress tracking
-- Automated pipelines
-
-## Overall System Architecture
+## System Architecture
 
 ```mermaid
 graph TB

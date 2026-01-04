@@ -4,60 +4,65 @@ icon: material/lightning-bolt
 
 # Gobbler Skills
 
-Claude Code Skills that bypass MCP entirely, using UV single-file scripts with inline dependencies. Skills provide progressive disclosure - only loading when relevant - saving ~65% context compared to always-loaded MCP tool definitions.
+Skills are reusable, filesystem-based instructions that provide Claude with domain-specific expertise. Gobbler's skills give Claude the knowledge to convert content to markdown using YouTube APIs, Whisper transcription, browser automation, and more.
 
-## When to Use Skills vs MCP Tools
+## What are Skills?
 
-Gobbler provides two complementary interfaces to the same backend services. Choose the right approach based on your needs.
+Skills are markdown files (`SKILL.md`) with YAML frontmatter that Claude discovers and loads on-demand. Each skill contains:
 
-### Decision Matrix
+- **Metadata** (frontmatter) - `name` and `description` that tell Claude when to use the skill
+- **Instructions** - Workflows, examples, and guidance for completing tasks
+- **Scripts** - Executable Python scripts that Claude runs via bash
 
-| Use Case | Recommended Approach | Reason |
-|----------|---------------------|--------|
-| Quick discovery/exploration | **Skills** | ~100 token context cost vs ~4,500 |
-| Heavy batch operations (>10 items) | **MCP Tools** | Server-side processing with progress tracking |
-| Browser automation workflows | **Skills** (gobbler-browser) | Interactive guidance for multi-step tasks |
-| NotebookLM interaction | **Skills** (gobbler-notebooklm) | Complex workflows with decision points |
-| Single file conversion | **Either** | Equivalent functionality, choose based on context |
-| Background queue jobs | **MCP Tools** | Server manages job state and auto-queue |
-| Frequent operations (5+) | **MCP Tools** | Amortized context cost becomes lower |
-| Infrequent operations (1-2) | **Skills** | Lower total context usage |
-| Automated pipelines | **MCP Tools** | Standardized tool interface, easier chaining |
-| Offline/standalone usage | **Skills** | Works without MCP server running |
+Skills use **progressive disclosure**: Claude only loads ~100 tokens of metadata at startup. The full instructions are read only when the skill is triggered, and scripts run without loading their code into context.
 
-### Use Skills When:
+## Skill Structure
 
-- **Minimal context overhead** - You want ~100 tokens vs ~4,500 for MCP tool definitions
-- **Interactive guidance needed** - Browser automation, NotebookLM queries, multi-step workflows
-- **Exploring capabilities** - Discovering what Gobbler can do before committing to a tool
-- **Workflow involves decision points** - Need to evaluate results between steps
-- **MCP server unavailable** - Want to use Gobbler standalone
+Each Gobbler skill follows this structure:
 
-### Use MCP Tools When:
+```
+skills/gobbler-youtube/
+├── SKILL.md           # Instructions with YAML frontmatter
+└── scripts/
+    ├── transcribe.py  # UV script for transcription
+    ├── download.py    # UV script for downloads
+    └── get_metadata.py
+```
 
-- **Server-side job management** - Queued batch operations with progress tracking
-- **Well-defined operations** - Single-purpose tasks that don't need guidance
-- **Efficient tool chaining** - Combining multiple operations in sequence
-- **Building automated pipelines** - Reproducible workflows with consistent interface
-- **Frequent usage** - Context overhead amortized over 5+ operations
+The `SKILL.md` file contains:
 
-### Both Work Equally Well For:
+```yaml
+---
+name: gobbler-youtube
+description: Transcribe YouTube videos to markdown. Use when the user wants to get a transcript, transcribe a video, or extract text from YouTube.
+---
 
-- Single file conversions (YouTube, webpage, document, audio)
-- Simple browser operations without complex workflows
-- One-shot content extraction tasks
-- Individual document processing
+# YouTube Transcription
 
-### Context Usage Comparison
+## Quick Start
+Run the transcription script:
+\`\`\`bash
+uv run scripts/transcribe.py "https://youtube.com/watch?v=VIDEO_ID"
+\`\`\`
 
-| Approach | Initial Load | Per Operation | 5 Operations Total |
-|----------|--------------|---------------|-------------------|
-| **Skills** | 100 tokens | ~500 tokens | ~2,600 tokens |
-| **MCP Tools** | 4,500 tokens | ~100 tokens | ~5,000 tokens |
+## Available Scripts
+- `transcribe.py` - Extract video transcripts
+- `download.py` - Download video/audio files
+...
+```
 
-**Break-even point:** Around 5 operations per session. Below this, Skills are more efficient. Above this, MCP Tools are more efficient.
+## How Claude Uses Skills
 
-## Overview
+1. **Discovery** - Claude sees skill metadata in its system prompt
+2. **Trigger** - When your request matches a skill's description, Claude reads `SKILL.md`
+3. **Execute** - Claude follows the instructions, running scripts via bash as needed
+4. **Output** - Scripts return markdown that Claude can use or save
+
+Skills work with Claude Code, Claude Desktop, and OpenCode. They're discovered from:
+- `skills/gobbler-*/SKILL.md` (in the Gobbler repo)
+- `.claude/skills/*/SKILL.md` (Claude Code compatible)
+
+## Available Skills
 
 | Skill | Description | Backend |
 |-------|-------------|---------|
@@ -73,65 +78,20 @@ Gobbler provides two complementary interfaces to the same backend services. Choo
 | `gobbler-setup` | Installation, configuration, and troubleshooting | Pure Python |
 | `gobbler-utils` | Shared utilities | Pure Python |
 
-## Architecture with Claude Desktop/Code
+## Backend Services
 
-When using Gobbler with Claude Desktop or Claude Code, there are **two interfaces** (MCP tools and Skills) that call the **same backends directly**:
+Skills execute UV scripts that connect to these backends:
 
-```
-┌───────────────────────────────────────────────────────────────────────┐
-│                          YOUR COMPUTER                                 │
-│                                                                        │
-│    ┌──────────────────┐                                               │
-│    │  Claude          │                                               │
-│    │  Desktop/Code    │                                               │
-│    └────────┬─────────┘                                               │
-│             │                                                          │
-│    ┌────────┴────────┐                                                │
-│    │                 │                                                 │
-│    ▼                 ▼                                                 │
-│  ┌───────────┐   ┌───────────────┐                                    │
-│  │MCP Server │   │ Skills        │    Both make direct HTTP calls     │
-│  │(stdio)    │   │ (uv scripts)  │    to the same backends            │
-│  └─────┬─────┘   └───────┬───────┘                                    │
-│        │                 │                                             │
-│        └────────┬────────┘                                             │
-│                 │                                                      │
-│    ┌────────────┼────────────┬────────────┬────────────┐              │
-│    │            │            │            │            │              │
-│    ▼            ▼            ▼            ▼            ▼              │
-│ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐         │
-│ │Crawl4AI│ │Docling │ │ YouTube  │ │ Whisper  │ │  Relay   │         │
-│ │ :11235 │ │ :5001  │ │ APIs     │ │ (local)  │ │  :4625   │         │
-│ │        │ │        │ │          │ │          │ │          │         │
-│ │ HTTP   │ │ HTTP   │ │ HTTP     │ │ Library  │ │  HTTP    │         │
-│ └────────┘ └────────┘ └──────────┘ └──────────┘ └────┬─────┘         │
-│                                                       │ WebSocket     │
-│                                                       ▼               │
-│                                                 ┌──────────┐          │
-│                                                 │ Browser  │          │
-│                                                 │Extension │          │
-│                                                 └──────────┘          │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-**Two interfaces to the same backends:**
-
-| Backend | MCP Tool | Skill | Connection |
-|---------|----------|-------|------------|
-| Crawl4AI | `mcp__gobbler-mcp__fetch_webpage` | `gobbler-webpage/scripts/fetch.py` | HTTP to :11235 |
-| Docling | `mcp__gobbler-mcp__convert_document` | `gobbler-document/scripts/convert.py` | HTTP to :5001 |
-| YouTube | `mcp__gobbler-mcp__transcribe_youtube` | `gobbler-youtube/scripts/transcribe.py` | HTTP to APIs |
-| Whisper | `mcp__gobbler-mcp__transcribe_audio` | `gobbler-audio/scripts/transcribe.py` | Local library |
-| Browser | `mcp__gobbler-mcp__browser_*` | `gobbler-browser/scripts/browser_api.py` | HTTP to :4625 |
-
-**Key insight:** MCP tools and Skills make identical HTTP calls to backends. The only difference is the interface exposed to Claude.
-
-**Why use Skills over MCP?**
-- **Context savings** - Skills load ~100 tokens vs ~4,500 for MCP tool definitions
-- **Flexibility** - Full Python scripting with CLI options
-- **Standalone** - Skills work without MCP server running
+| Backend | Port | Purpose |
+|---------|------|---------|
+| Crawl4AI | 11235 | Web scraping with JavaScript rendering |
+| Docling | 5001 | Document conversion (PDF, DOCX, etc.) |
+| YouTube APIs | - | Transcript extraction |
+| Whisper | - | Local audio transcription |
+| Relay | 4625 | WebSocket bridge to browser extension |
 
 **Browser skills require:**
+
 1. Relay server running on port 4625 (auto-starts when skill runs)
 2. Browser extension installed and showing "Connected"
 3. Target tabs in the "Gobbler" tab group
@@ -523,9 +483,9 @@ uv run frontmatter.py youtube --url "https://..." --title "Video" --duration 300
 uv run frontmatter.py webpage --url "https://..." --title "Page" --word-count 1000
 ```
 
-## Architecture
+## UV Script Format
 
-Skills use UV single-file scripts with PEP 723 inline dependencies:
+Skill scripts use PEP 723 inline dependencies, making them self-contained:
 
 ```python
 #!/usr/bin/env -S uv run --script
@@ -536,51 +496,9 @@ Skills use UV single-file scripts with PEP 723 inline dependencies:
 #   "yt-dlp>=2024.0.0",
 # ]
 # ///
+
+import sys
+# Script implementation...
 ```
 
-This allows:
-- **Self-contained scripts** - No separate requirements.txt needed
-- **Automatic dependency installation** - UV handles it on first run
-- **Progressive disclosure** - Skills only load when relevant
-- **Context savings** - ~65% less context than MCP tool definitions
-
-## Provider Interface Pattern
-
-The YouTube skill demonstrates a provider interface pattern that can be extended:
-
-```python
-class TranscriptProvider:
-    def fetch(self, video_id, language, include_timestamps) -> (segments, language, metadata)
-
-class YouTubeTranscriptAPIProvider(TranscriptProvider): ...  # Free
-class TranscriptAPIProvider(TranscriptProvider): ...         # Paid API
-class AutoFallbackProvider(TranscriptProvider): ...          # Try free → paid
-```
-
-This pattern allows:
-- Multiple backends for the same capability
-- Easy addition of new providers
-- Graceful fallback between providers
-- User choice of cost/reliability tradeoffs
-
-## Comparison: Skills vs MCP
-
-| Aspect | MCP Tools | Skills |
-|--------|-----------|--------|
-| Context usage | ~4,500 tokens always loaded | ~100 tokens metadata, full only when used |
-| Dependency management | Server-side | Per-script inline |
-| Execution | Via MCP protocol | Direct UV script execution |
-| Flexibility | Fixed tool interface | Full Python scripting |
-| Offline support | Requires MCP server | Works standalone |
-
-Skills are ideal for:
-- Complex multi-step workflows
-- Operations that benefit from scripting
-- Reducing context window usage
-- Offline or standalone usage
-
-MCP tools are ideal for:
-- Simple, frequent operations
-- Real-time streaming responses
-- Integration with MCP clients
-- Operations requiring server state
+When Claude runs `uv run scripts/transcribe.py`, UV automatically installs dependencies on first run. No separate `requirements.txt` or virtual environment setup is needed.
