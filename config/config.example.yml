@@ -145,6 +145,15 @@ output:
   # Timestamp format: iso8601, unix, or readable
   timestamp_format: iso8601
 
+  # Default output directory for saved content
+  # When set, CLI commands will suggest saving to this directory if no -o flag is provided
+  # Supports ~ for home directory expansion
+  # Examples:
+  #   default_directory: ~/Documents/Gobbler
+  #   default_directory: ~/Obsidian/Captures
+  #   default_directory: ~/Notes/Inbox
+  # default_directory: null
+
 # Service endpoints for Docker containers (usually no need to change)
 # Note: Audio transcription runs locally and doesn't use a service endpoint
 services:

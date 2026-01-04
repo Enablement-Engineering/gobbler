@@ -101,6 +101,7 @@ def cli() -> None:
         browser,
         chatgpt,
         claude,
+        config,
         convert,
         daemon,
         gemini,
@@ -113,6 +114,7 @@ def cli() -> None:
     # Add command groups
     app.add_typer(convert.app, name="convert", help="Convert individual content items")
     app.add_typer(batch.app, name="batch", help="Batch processing operations")
+    app.add_typer(config.app, name="config", help="View and manage configuration")
     app.add_typer(daemon.app, name="daemon", help="Daemon management")
     app.add_typer(jobs.app, name="jobs", help="Job management")
     app.add_typer(browser.app, name="browser", help="Browser extension automation")

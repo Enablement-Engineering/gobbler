@@ -66,6 +66,7 @@ class Config:
         "output": {
             "default_format": "frontmatter",
             "timestamp_format": "iso8601",
+            "default_directory": None,  # Set to a path like "~/Documents/Gobbler" to auto-save
         },
         "services": {
             "crawl4ai": {

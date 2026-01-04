@@ -56,6 +56,32 @@ gobbler document spreadsheet.xlsx --format table
 | Scanned PDF | Default (OCR on) | Required - images need OCR |
 | DOCX/PPTX/XLSX/XLS | Either works | Native text extraction regardless |
 
+## Saving Output
+
+When saving documents to a file, follow these steps:
+
+### Step 1: Check for default output directory
+
+```bash
+gobbler config get output.default_directory
+```
+
+### Step 2: Save to the default directory
+
+If a default directory is configured, use it with a descriptive filename:
+
+```bash
+gobbler document /path/to/report.pdf -o "<default_directory>/Report Summary.md"
+```
+
+### Step 3: If no default directory is configured
+
+If the config returns empty/null, save to the current directory or ask the user where to save:
+
+```bash
+gobbler document /path/to/report.pdf -o "Report Summary.md"
+```
+
 ## Supported Formats
 
 - **PDF** - Portable Document Format (with optional OCR for scanned pages)

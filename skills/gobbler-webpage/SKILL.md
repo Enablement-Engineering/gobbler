@@ -53,6 +53,32 @@ gobbler webpage "https://example.com" --format json
 gobbler webpage "https://example.com" --format table
 ```
 
+## Saving Output
+
+When saving pages to a file, follow these steps:
+
+### Step 1: Check for default output directory
+
+```bash
+gobbler config get output.default_directory
+```
+
+### Step 2: Save to the default directory
+
+If a default directory is configured, use it with a descriptive filename:
+
+```bash
+gobbler webpage "https://example.com/article" -o "<default_directory>/Article Title.md"
+```
+
+### Step 3: If no default directory is configured
+
+If the config returns empty/null, save to the current directory or ask the user where to save:
+
+```bash
+gobbler webpage "https://example.com/article" -o "Article Title.md"
+```
+
 ## Alternative: Using the Convert Subcommand
 
 ```bash

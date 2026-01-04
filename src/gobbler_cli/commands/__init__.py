@@ -5,6 +5,7 @@ __all__ = [
     "browser",
     "chatgpt",
     "claude",
+    "config",
     "convert",
     "daemon",
     "gemini",

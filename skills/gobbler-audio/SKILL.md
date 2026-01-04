@@ -12,8 +12,11 @@ Transcribe audio and video files to markdown using Whisper.
 ## Transcribe Audio/Video
 
 ```bash
-# Basic transcription
+# Basic transcription (outputs to stdout)
 gobbler audio /path/to/audio.mp3
+
+# Save to file
+gobbler audio /path/to/recording.m4a -o transcript.md
 
 # Choose model size (tiny, base, small, medium, large)
 gobbler audio /path/to/video.mp4 --model medium
@@ -29,9 +32,6 @@ gobbler audio /path/to/audio.mp3 --format json
 
 # Use a different transcription provider
 gobbler audio /path/to/audio.mp3 --provider whisper-local
-
-# Save to file
-gobbler audio /path/to/recording.m4a -o transcript.md
 ```
 
 ## CLI Options
@@ -59,6 +59,32 @@ gobbler audio /path/to/recording.m4a -o transcript.md
 
 - **Audio**: mp3, wav, flac, m4a, ogg, aac
 - **Video**: mp4, mov, avi, mkv, webm (audio extracted automatically)
+
+## Saving Output
+
+When saving transcripts to a file, follow these steps:
+
+### Step 1: Check for default output directory
+
+```bash
+gobbler config get output.default_directory
+```
+
+### Step 2: Save to the default directory
+
+If a default directory is configured, use it with a descriptive filename:
+
+```bash
+gobbler audio /path/to/recording.m4a -o "<default_directory>/Recording Transcript.md"
+```
+
+### Step 3: If no default directory is configured
+
+If the config returns empty/null, save to the current directory or ask the user where to save:
+
+```bash
+gobbler audio /path/to/recording.m4a -o "Recording Transcript.md"
+```
 
 ## Tips
 
