@@ -1,7 +1,7 @@
 ---
 name: gobbler-webpage
 description: Convert web pages to markdown, extract specific content with CSS selectors, and crawl websites. Use when user wants to fetch, scrape, or extract content from web pages or websites.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Gobbler Webpage
@@ -9,6 +9,17 @@ version: 2.0.0
 Convert web pages to markdown using the Crawl4AI service.
 
 **Requires**: Crawl4AI Docker container running (`docker compose up -d crawl4ai`)
+
+## CLI Options
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--output` | `-o` | Output file path (stdout if not specified) | - |
+| `--selector` | `-s` | CSS selector to extract specific content | - |
+| `--timeout` | `-t` | Request timeout in seconds | 30 |
+| `--images/--no-images` | - | Include images in output | `--images` |
+| `--format` | `-f` | Output format: `markdown`, `json`, `table` | `markdown` |
+| `--provider` | `-p` | Webpage conversion provider | `crawl4ai` |
 
 ## Fetch Single Page
 
@@ -21,6 +32,9 @@ gobbler webpage "https://example.com" -o page.md
 
 # Custom timeout
 gobbler webpage "https://example.com" --timeout 60
+
+# Exclude images from output
+gobbler webpage "https://example.com" --no-images -o page.md
 ```
 
 ## Extract with CSS Selector
@@ -30,13 +44,21 @@ gobbler webpage "https://example.com" --timeout 60
 gobbler webpage "https://example.com" --selector "article.main-content" -o article.md
 ```
 
+## Output Formats
+
+```bash
+# JSON format (includes metadata)
+gobbler webpage "https://example.com" --format json
+
+# Table format
+gobbler webpage "https://example.com" --format table
+```
+
 ## Alternative: Using the Convert Subcommand
 
 ```bash
 gobbler convert webpage "https://example.com" -o page.md
 ```
-
-
 
 ## Prerequisites
 

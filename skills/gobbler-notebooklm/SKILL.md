@@ -81,8 +81,8 @@ gobbler notebooklm query "Summarize" --tab 1700453262
 ```
 
 **Options**:
-- `--timeout SECONDS` - Max wait time (default: 150 / 2.5 min)
-- `--tab TAB_ID` - Target specific tab instead of first NotebookLM tab
+- `--timeout SECONDS` - Max wait time (default: 150 seconds / 2.5 min)
+- `-t/--tab TAB_ID` - Target specific tab instead of first NotebookLM tab
 
 The command waits until the response text is stable for 3 seconds before returning.
 
@@ -92,19 +92,36 @@ Get the last/most recent response from the chat. Use as a backup if the query re
 
 ```bash
 gobbler notebooklm last
+
+# Target specific notebook by tab ID
+gobbler notebooklm last --tab 1700453262
 ```
+
+**Options**:
+- `-t/--tab TAB_ID` - Target specific tab instead of first NotebookLM tab
 
 ### `gobbler notebooklm history`
 
 Get chat history from the notebook.
 
 ```bash
-# Get last 5 messages
-gobbler notebooklm history --count 5
+# Get last 5 messages (default)
+gobbler notebooklm history
+
+# Get last 10 messages
+gobbler notebooklm history --count 10
 
 # Get all messages
 gobbler notebooklm history --all
+
+# Target specific notebook by tab ID
+gobbler notebooklm history --tab 1700453262
 ```
+
+**Options**:
+- `-n/--count N` - Number of messages to show (default: 5)
+- `-a/--all` - Show all messages
+- `-t/--tab TAB_ID` - Target specific tab instead of first NotebookLM tab
 
 ### `gobbler notebooklm info`
 
@@ -112,7 +129,13 @@ Get notebook metadata (title, ID, source count).
 
 ```bash
 gobbler notebooklm info
+
+# Target specific notebook by tab ID
+gobbler notebooklm info --tab 1700453262
 ```
+
+**Options**:
+- `-t/--tab TAB_ID` - Target specific tab instead of first NotebookLM tab
 
 ---
 

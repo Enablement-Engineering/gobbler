@@ -77,12 +77,12 @@ gobbler chatgpt query "Explain quantum computing in simple terms"
 gobbler chatgpt query "Write a detailed analysis" --timeout 300
 
 # Target specific tab by ID
-gobbler chatgpt query "Continue our discussion" --tab 1234567
+gobbler chatgpt query "Continue our discussion" -t 1234567
 ```
 
 **Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first ChatGPT tab
 - `--timeout SECONDS` - Max wait time (default: 150 / 2.5 min)
-- `--tab TAB_ID` - Target specific tab instead of first ChatGPT tab
 
 The command waits until the response text is stable for 3 seconds before returning.
 
@@ -91,28 +91,72 @@ The command waits until the response text is stable for 3 seconds before returni
 Get the last/most recent response from ChatGPT. Use as a backup if the query response looks incomplete.
 
 ```bash
+# Get last response from first ChatGPT tab
 gobbler chatgpt last
+
+# Get last response from specific tab
+gobbler chatgpt last -t 1234567
 ```
+
+**Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first ChatGPT tab
 
 ### `gobbler chatgpt history`
 
 Get chat history from the conversation.
 
 ```bash
-# Get last 10 messages
-gobbler chatgpt history --count 10
+# Get last 10 messages (default)
+gobbler chatgpt history
+
+# Get last N messages
+gobbler chatgpt history -n 20
 
 # Get all messages
-gobbler chatgpt history --all
+gobbler chatgpt history -a
+
+# Get history from specific tab
+gobbler chatgpt history -t 1234567 -n 5
 ```
+
+**Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first ChatGPT tab
+- `-n, --count N` - Number of messages to show (default: 10)
+- `-a, --all` - Show all messages
 
 ### `gobbler chatgpt info`
 
 Get conversation metadata.
 
 ```bash
+# Get info from first ChatGPT tab
 gobbler chatgpt info
+
+# Get info from specific tab
+gobbler chatgpt info -t 1234567
 ```
+
+**Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first ChatGPT tab
+
+### `gobbler chatgpt download`
+
+Download images from the last ChatGPT response (e.g., DALL-E generated images).
+
+```bash
+# Download to current directory
+gobbler chatgpt download
+
+# Download to specific directory
+gobbler chatgpt download -o ./images
+
+# Download from specific tab
+gobbler chatgpt download -t 1234567 -o ./images
+```
+
+**Options**:
+- `-o, --output DIR` - Output directory for images
+- `-t, --tab TAB_ID` - Target specific tab instead of first ChatGPT tab
 
 ---
 

@@ -22,9 +22,29 @@ gobbler audio /path/to/video.mp4 --model medium
 # Specify language (auto-detect by default)
 gobbler audio /path/to/audio.wav --language en
 
+# Include timestamps in output
+gobbler audio /path/to/audio.mp3 --timestamps
+
+# Choose output format (markdown, json, table)
+gobbler audio /path/to/audio.mp3 --format json
+
+# Use a different transcription provider
+gobbler audio /path/to/audio.mp3 --provider whisper-local
+
 # Save to file
 gobbler audio /path/to/recording.m4a -o transcript.md
 ```
+
+## CLI Options
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--output` | `-o` | Output file path (stdout if not specified) | - |
+| `--language` | `-l` | Audio language (auto-detect if not specified) | auto |
+| `--model` | `-m` | Whisper model size | small |
+| `--timestamps` | - | Include timestamps in output | no-timestamps |
+| `--format` | `-f` | Output format (markdown/json/table) | markdown |
+| `--provider` | `-p` | Transcription provider | whisper-local |
 
 ## Model Sizes
 
@@ -40,14 +60,6 @@ gobbler audio /path/to/recording.m4a -o transcript.md
 
 - **Audio**: mp3, wav, flac, m4a, ogg, aac
 - **Video**: mp4, mov, avi, mkv, webm (audio extracted automatically)
-
-## Alternative: Using the Convert Subcommand
-
-```bash
-gobbler convert audio /path/to/recording.mp3 --model small -o transcript.md
-```
-
-
 
 ## Tips
 

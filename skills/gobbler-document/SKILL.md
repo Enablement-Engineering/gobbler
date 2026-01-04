@@ -1,7 +1,7 @@
 ---
 name: gobbler-document
-description: Convert PDF, DOCX, PPTX, and XLSX documents to markdown with optional OCR. Use when user wants to extract text from documents, PDFs, Word files, PowerPoint presentations, or Excel spreadsheets.
-version: 2.0.0
+description: Convert PDF, DOCX, PPTX, XLSX, and XLS documents to markdown with optional OCR. Use when user wants to extract text from documents, PDFs, Word files, PowerPoint presentations, or Excel spreadsheets.
+version: 2.1.0
 ---
 
 # Gobbler Document
@@ -10,14 +10,41 @@ Convert documents to markdown using the Docling service.
 
 **Requires**: Docling Docker container running (`docker compose up -d docling`)
 
-## Convert Document
+## CLI Reference
+
+```
+gobbler document [OPTIONS] FILE_PATH
+```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `FILE_PATH` | Yes | Path to the document file |
+
+### Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--output` | `-o` | stdout | Output file path |
+| `--ocr/--no-ocr` | | `--ocr` | Enable/disable OCR for scanned documents |
+| `--format` | `-f` | `markdown` | Output format: `markdown`, `json`, or `table` |
+| `--provider` | `-p` | `docling` | Document conversion provider |
+
+## Examples
 
 ```bash
-# Basic conversion (OCR enabled by default - works for all documents)
+# Basic conversion (OCR enabled by default)
 gobbler document /path/to/document.pdf -o output.md
 
 # Disable OCR for faster processing on digital PDFs
 gobbler document /path/to/document.pdf --no-ocr -o output.md
+
+# Output as JSON with metadata
+gobbler document report.pdf --format json -o result.json
+
+# Output as table format
+gobbler document spreadsheet.xlsx --format table
 ```
 
 **Note**: OCR is **enabled by default** for maximum compatibility with scanned documents. Use `--no-ocr` for faster processing when you know the PDF has embedded text.
@@ -28,7 +55,7 @@ gobbler document /path/to/document.pdf --no-ocr -o output.md
 |--------------|----------------|-------|
 | Digital PDF | Use `--no-ocr` | Faster - text is already embedded |
 | Scanned PDF | Default (OCR on) | Required - images need OCR |
-| DOCX/PPTX/XLSX | Either works | Native text extraction regardless |
+| DOCX/PPTX/XLSX/XLS | Either works | Native text extraction regardless |
 
 ## Supported Formats
 
@@ -36,14 +63,7 @@ gobbler document /path/to/document.pdf --no-ocr -o output.md
 - **DOCX** - Microsoft Word documents
 - **PPTX** - Microsoft PowerPoint presentations
 - **XLSX** - Microsoft Excel spreadsheets
-
-## Alternative: Using the Convert Subcommand
-
-```bash
-gobbler convert document /path/to/document.pdf -o output.md
-```
-
-
+- **XLS** - Legacy Microsoft Excel spreadsheets (auto-converted to XLSX for processing)
 
 ## Prerequisites
 

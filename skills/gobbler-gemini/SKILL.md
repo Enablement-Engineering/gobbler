@@ -35,7 +35,7 @@ gobbler gemini query "Question 2" &
 ## Prerequisites
 
 1. **Browser extension installed** - Load `browser-extension/` folder in Chrome
-2. **Gemini tab in "Gobbler" group** - Right-click tab → "Add to group" → name it "Gobbler"
+2. **Gemini tab in "Gobbler" group** - Right-click tab -> "Add to group" -> name it "Gobbler"
 3. **Relay running** - Auto-starts when you run commands
 4. **Signed into Google** - Gemini requires a Google account
 
@@ -66,6 +66,22 @@ gobbler gemini list
 
 **Output**: Table with Tab ID and conversation title.
 
+### `gobbler gemini info`
+
+Get conversation metadata.
+
+```bash
+# Use first available Gemini tab
+gobbler gemini info
+
+# Target specific tab
+gobbler gemini info -t 1234567
+gobbler gemini info --tab 1234567
+```
+
+**Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first Gemini tab
+
 ### `gobbler gemini query`
 
 Send a message to Gemini and wait for the complete response.
@@ -78,12 +94,13 @@ gobbler gemini query "Explain quantum computing in simple terms"
 gobbler gemini query "Write a detailed analysis" --timeout 300
 
 # Target specific tab by ID
+gobbler gemini query "Continue our discussion" -t 1234567
 gobbler gemini query "Continue our discussion" --tab 1234567
 ```
 
 **Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first Gemini tab
 - `--timeout SECONDS` - Max wait time (default: 150 / 2.5 min)
-- `--tab TAB_ID` - Target specific tab instead of first Gemini tab
 
 The command waits until the response text is stable for 3 seconds before returning.
 
@@ -92,28 +109,61 @@ The command waits until the response text is stable for 3 seconds before returni
 Get the last/most recent response from Gemini. Use as a backup if the query response looks incomplete.
 
 ```bash
+# Use first available Gemini tab
 gobbler gemini last
+
+# Target specific tab
+gobbler gemini last -t 1234567
+gobbler gemini last --tab 1234567
 ```
+
+**Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first Gemini tab
 
 ### `gobbler gemini history`
 
 Get chat history from the conversation.
 
 ```bash
-# Get last 10 messages
-gobbler gemini history --count 10
+# Get last 10 messages (default)
+gobbler gemini history
+
+# Get last N messages
+gobbler gemini history -n 5
+gobbler gemini history --count 20
 
 # Get all messages
+gobbler gemini history -a
 gobbler gemini history --all
+
+# Target specific tab
+gobbler gemini history -t 1234567 -n 5
 ```
 
-### `gobbler gemini info`
+**Options**:
+- `-t, --tab TAB_ID` - Target specific tab instead of first Gemini tab
+- `-n, --count N` - Number of messages to show (default: 10)
+- `-a, --all` - Show all messages
 
-Get conversation metadata.
+### `gobbler gemini download`
+
+Download images from the last Gemini response.
 
 ```bash
-gobbler gemini info
+# Download to current directory
+gobbler gemini download
+
+# Download to specific directory
+gobbler gemini download -o ./images
+gobbler gemini download --output /path/to/folder
+
+# Target specific tab
+gobbler gemini download -t 1234567 -o ./images
 ```
+
+**Options**:
+- `-o, --output PATH` - Output directory for images
+- `-t, --tab TAB_ID` - Target specific tab instead of first Gemini tab
 
 ---
 
@@ -205,8 +255,11 @@ Response:
 Machine learning is a subset of artificial intelligence...
 
 # Get chat history
-$ gobbler gemini history --count 4
+$ gobbler gemini history -n 4
 [Shows last 4 messages in conversation]
+
+# Download any images from last response
+$ gobbler gemini download -o ./gemini-images
 ```
 
 ---
@@ -225,9 +278,9 @@ The API uses text stability checks (3 consecutive polls with identical content) 
 
 | Issue | Check | Fix |
 |-------|-------|-----|
-| No tabs found | Tab in "Gobbler" group? | Right-click tab → Add to group → "Gobbler" |
+| No tabs found | Tab in "Gobbler" group? | Right-click tab -> Add to group -> "Gobbler" |
 | API not injected | Extension reloaded? | Reload extension, then refresh Gemini page |
-| Not connected | Extension loaded? | chrome://extensions → Load unpacked |
+| Not connected | Extension loaded? | chrome://extensions -> Load unpacked |
 | Relay error | Relay running? | `gobbler relay start` |
 | Timeout | Response too long? | Increase `--timeout` or simplify query |
 | Truncated | Terminal limit | Run `gobbler gemini last` |

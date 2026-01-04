@@ -60,12 +60,12 @@ gobbler claude query "Explain quantum computing in simple terms"
 gobbler claude query "Write a detailed analysis" --timeout 300
 
 # Target specific tab by ID
-gobbler claude query "Continue our discussion" --tab 1234567
+gobbler claude query "Continue our discussion" -t 1234567
 ```
 
 **Options**:
 - `--timeout SECONDS` - Max wait time (default: 150 / 2.5 min)
-- `--tab TAB_ID` - Target specific tab instead of first Claude tab
+- `-t/--tab TAB_ID` - Target specific tab instead of first Claude tab
 
 The command waits until the response text is stable for 3 seconds before returning.
 
@@ -75,19 +75,36 @@ Get the last/most recent response from Claude. Use as a backup if the query resp
 
 ```bash
 gobbler claude last
+
+# Target specific tab
+gobbler claude last -t 1234567
 ```
+
+**Options**:
+- `-t/--tab TAB_ID` - Target specific tab instead of first Claude tab
 
 ### `gobbler claude history`
 
 Get chat history from the conversation.
 
 ```bash
-# Get last 10 messages
-gobbler claude history --count 10
+# Get last 10 messages (default)
+gobbler claude history
+
+# Get specific number of messages
+gobbler claude history -n 20
 
 # Get all messages
 gobbler claude history --all
+
+# Target specific tab
+gobbler claude history -t 1234567 -n 5
 ```
+
+**Options**:
+- `-n/--count NUMBER` - Number of messages to show (default: 10)
+- `-a/--all` - Show all messages
+- `-t/--tab TAB_ID` - Target specific tab instead of first Claude tab
 
 ### `gobbler claude info`
 
@@ -95,7 +112,13 @@ Get conversation metadata.
 
 ```bash
 gobbler claude info
+
+# Target specific tab
+gobbler claude info -t 1234567
 ```
+
+**Options**:
+- `-t/--tab TAB_ID` - Target specific tab instead of first Claude tab
 
 ---
 
@@ -175,7 +198,7 @@ Response:
 Machine learning is a subset of artificial intelligence...
 
 # Get chat history
-$ gobbler claude history --count 4
+$ gobbler claude history -n 4
 [Shows last 4 messages in conversation]
 ```
 

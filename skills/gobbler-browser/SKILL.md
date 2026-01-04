@@ -49,6 +49,9 @@ gobbler browser list
 # Filter by site
 gobbler browser list --filter notebooklm
 gobbler browser list --filter claude
+
+# JSON output
+gobbler browser list --json
 ```
 
 ### Open URLs
@@ -57,6 +60,15 @@ gobbler browser list --filter claude
 # Open one or more URLs in Gobbler tab group
 gobbler browser open "https://example.com"
 gobbler browser open "https://example.com" "https://google.com"
+
+# Read URLs from file
+gobbler browser open -f urls.txt
+
+# Read from stdin
+cat urls.txt | gobbler browser open -f -
+
+# JSON output
+gobbler browser open "https://example.com" --json
 ```
 
 ### Navigate Current Tab
@@ -74,7 +86,7 @@ gobbler browser extract
 # Save to file
 gobbler browser extract -o page.md
 
-# With CSS selector (experimental)
+# With CSS selector
 gobbler browser extract --selector "article.content"
 
 # From specific tab
