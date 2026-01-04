@@ -1,14 +1,17 @@
 {
   "name": "gobbler-marketplace",
-  "description": "Official Gobbler skills marketplace - content conversion and browser automation for Claude Code",
   "owner": {
     "name": "Enablement Engineering"
+  },
+  "metadata": {
+    "description": "Official Gobbler plugin marketplace - universal content conversion to markdown for AI"
   },
   "plugins": [
     {
       "name": "gobbler",
       "source": "./",
-      "description": "Content conversion and browser automation skills. Convert YouTube, web pages, documents, audio to markdown. Control browsers and NotebookLM."
+      "description": "Convert YouTube, web pages, documents, and audio to markdown. Browser automation for NotebookLM, ChatGPT, Claude.ai, and Gemini.",
+      "version": "2.0.0"
     }
   ]
 }

@@ -193,6 +193,15 @@ gobbler gemini history --count 10          # Get history
 
 ## Installation
 
+### Via Claude Code Plugin (Recommended)
+
+In Claude Code, add the Gobbler marketplace and install the plugin:
+
+```
+/plugin marketplace add Enablement-Engineering/gobbler
+/plugin install gobbler@gobbler-marketplace
+```
+
 ### Via Git Clone
 
 ```bash

@@ -1,11 +1,11 @@
 {
   "name": "gobbler",
   "version": "2.0.0",
-  "description": "Content conversion and browser automation skills for Claude Code. Convert YouTube videos, web pages, documents, and audio to markdown. Control browser via extension and interact with NotebookLM.",
+  "description": "Convert YouTube videos, web pages, documents, and audio to markdown. Control browsers via extension for NotebookLM, ChatGPT, Claude.ai, and Gemini.",
   "author": {
     "name": "Enablement Engineering"
   },
-  "homepage": "https://github.com/Enablement-Engineering/gobbler",
+  "homepage": "https://enablement-engineering.github.io/gobbler/",
   "repository": "https://github.com/Enablement-Engineering/gobbler",
   "license": "MIT",
   "keywords": [
@@ -17,8 +17,7 @@
     "notebooklm",
     "markdown",
     "whisper",
-    "crawl4ai",
-    "docling"
-  ],
-  "skills": "./skills/"
+    "audio",
+    "pdf"
+  ]
 }
