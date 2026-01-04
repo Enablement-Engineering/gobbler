@@ -41,13 +41,16 @@ gobbler notebooklm query "Question 2" &
 ## Quick Workflow
 
 ```bash
-# 1. List available NotebookLM tabs
+# 1. Inject APIs (required after page refresh or extension reload)
+gobbler browser inject
+
+# 2. List available NotebookLM tabs
 gobbler notebooklm list
 
-# 2. Send query and get response (waits for complete answer)
+# 3. Send query and get response (waits for complete answer)
 gobbler notebooklm query "Your question here" --timeout 120
 
-# 3. If response looks incomplete, get full last response
+# 4. If response looks incomplete, get full last response
 gobbler notebooklm last
 ```
 
@@ -141,7 +144,15 @@ gobbler notebooklm info --tab 1700453262
 
 ## Recommended Workflow for AI Agents
 
-### Step 1: List Notebooks
+### Step 1: Inject APIs
+
+Always inject APIs first to ensure they're available (required after page refresh or extension reload):
+
+```bash
+gobbler browser inject
+```
+
+### Step 2: List Notebooks
 
 ```bash
 gobbler notebooklm list
@@ -149,7 +160,7 @@ gobbler notebooklm list
 
 Note the Tab ID if you have multiple notebooks.
 
-### Step 2: Send Query and Wait
+### Step 3: Send Query and Wait
 
 ```bash
 gobbler notebooklm query "Your question" --timeout 120
@@ -159,7 +170,7 @@ The command returns the complete response. **Wait for it to finish before sendin
 
 **Timeout**: Default is 150 seconds (2.5 minutes). For very complex queries, increase with `--timeout 300`.
 
-### Step 3: Verify Response (if needed)
+### Step 4: Verify Response (if needed)
 
 If the response looks cut off:
 
@@ -167,7 +178,7 @@ If the response looks cut off:
 gobbler notebooklm last
 ```
 
-### Step 4: Follow-up Questions
+### Step 5: Follow-up Questions
 
 Send the next query only AFTER the previous one completes:
 

@@ -48,7 +48,7 @@
   // Gemini API object
   const GeminiAPI = {
     // API version
-    version: '1.0.0',
+    version: '1.2.0',
 
     // Check if we're on a conversation page
     isConversationPage() {
@@ -98,27 +98,39 @@
       return null;
     },
 
-    // Find the send button
+    // Find the send button (not the stop button)
     _findSendButton() {
-      const selectors = [
-        // Gemini specific selectors
-        'button[aria-label="Send message"]',
-        'button.send-button',
-        'button[aria-label*="Send"]',
-        'button mat-icon[fonticon="send"]',
-        // Find button containing send icon
-        'button:has(mat-icon[fonticon="send"])'
+      // First, try to find the submit button specifically (not stop button)
+      const submitSelectors = [
+        'button.send-button.submit',  // Submit state button
+        'button[aria-label="Send message"]',  // Explicit send label
       ];
 
-      for (const selector of selectors) {
+      for (const selector of submitSelectors) {
         try {
           const btn = document.querySelector(selector);
           if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
             return btn;
           }
         } catch (e) {
-          // :has() selector might not be supported in all browsers
           continue;
+        }
+      }
+
+      // Check if the send-button exists but is in stop mode
+      const sendButton = document.querySelector('button.send-button');
+      if (sendButton) {
+        const isStop = sendButton.classList.contains('stop');
+        const ariaLabel = sendButton.getAttribute('aria-label');
+        
+        // Don't return the stop button - we need to wait for it to become submit
+        if (isStop || ariaLabel === 'Stop response') {
+          return null;
+        }
+        
+        // Button exists and is not stop mode
+        if (!sendButton.disabled && sendButton.getAttribute('aria-disabled') !== 'true') {
+          return sendButton;
         }
       }
 
@@ -127,7 +139,10 @@
       for (const icon of sendIcons) {
         const btn = icon.closest('button');
         if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
-          return btn;
+          // Make sure it's not the stop button
+          if (!btn.classList.contains('stop') && btn.getAttribute('aria-label') !== 'Stop response') {
+            return btn;
+          }
         }
       }
 
@@ -213,10 +228,13 @@
         const imgs = lastMsg.querySelectorAll('img[alt*="Image"]');
         const images = Array.from(imgs).map(img => img.src).filter(src => src && src.includes('googleusercontent'));
 
-        // Check if still streaming
-        const ariaBusy = markdownEl.getAttribute('aria-busy');
+        // Check if still streaming using robust detection
+        const spinners = lastMsg.querySelectorAll('mat-progress-spinner');
+        const hasVisibleSpinner = Array.from(spinners).some(s => s.offsetHeight > 0);
         const loadingText = text.toLowerCase().includes('loading') || text.toLowerCase().includes('nano banana');
-        const isStreaming = ariaBusy === 'true' || loadingText;
+        const isDoneProcessing = !!lastMsg.querySelector('.is-done-processing');
+        // Stream if: visible spinner OR loading text, but NOT if explicitly done
+        const isStreaming = !isDoneProcessing && (hasVisibleSpinner || loadingText);
 
         return {
           success: true,
@@ -234,6 +252,15 @@
     // Send a message to Gemini
     async sendMessage(message) {
       try {
+        // Wait for any ongoing response to complete (button to exit stop mode)
+        const maxWait = 10000; // 10 seconds max wait
+        const startWait = Date.now();
+        while (Date.now() - startWait < maxWait) {
+          const stopBtn = document.querySelector('button.send-button.stop');
+          if (!stopBtn) break;
+          await delay(500);
+        }
+
         const input = this._findInput();
         if (!input) {
           return { success: false, error: 'Could not find chat input field' };
@@ -264,12 +291,20 @@
         // Also dispatch a change event for Angular
         input.dispatchEvent(new Event('change', { bubbles: true }));
 
-        await delay(300);
+        // Wait for Angular to process and button to become enabled
+        await delay(500);
 
-        // Find and click send button
-        const sendButton = this._findSendButton();
+        // Wait for send button to appear (up to 5 seconds)
+        let sendButton = null;
+        const buttonWaitStart = Date.now();
+        while (Date.now() - buttonWaitStart < 5000) {
+          sendButton = this._findSendButton();
+          if (sendButton) break;
+          await delay(200);
+        }
+
         if (!sendButton) {
-          // Try pressing Enter
+          // Try pressing Enter as fallback
           const enterEvent = new KeyboardEvent('keydown', {
             key: 'Enter',
             code: 'Enter',
@@ -318,23 +353,39 @@
       };
 
       const isStillStreaming = () => {
-        // Check for aria-busy on markdown content
-        const markdownEls = document.querySelectorAll('message-content .markdown, .markdown[aria-busy]');
-        for (const el of markdownEls) {
-          const ariaBusy = el.getAttribute('aria-busy');
+        const modelResponses = document.querySelectorAll('model-response');
+        if (modelResponses.length === 0) return false;
+
+        const lastResponse = modelResponses[modelResponses.length - 1];
+
+        // Check for visible spinner (most reliable indicator)
+        const spinners = lastResponse.querySelectorAll('mat-progress-spinner');
+        const hasVisibleSpinner = Array.from(spinners).some(s => s.offsetHeight > 0);
+        if (hasVisibleSpinner) return true;
+
+        // Check for image generation loading state (Nano Banana / Loading text)
+        const text = lastResponse.textContent?.toLowerCase() || '';
+        if (text.includes('loading') || text.includes('nano banana')) {
+          return true; // Still loading images
+        }
+
+        // Check if explicitly marked as done processing
+        const isDoneProcessing = !!lastResponse.querySelector('.is-done-processing');
+
+        // Check for content in markdown
+        const markdown = lastResponse.querySelector('message-content .markdown');
+        const hasContent = markdown?.textContent?.trim().length > 0;
+
+        // If done processing and has content, not streaming
+        if (isDoneProcessing && hasContent) return false;
+
+        // Fallback: check aria-busy, but only if no content yet
+        // (aria-busy can get stuck even after response is complete)
+        if (!hasContent) {
+          const ariaBusy = markdown?.getAttribute('aria-busy');
           if (ariaBusy === 'true') return true;
         }
-        
-        // Check for image generation loading state (Nano Banana / Loading text)
-        const modelResponses = document.querySelectorAll('model-response');
-        if (modelResponses.length > 0) {
-          const lastResponse = modelResponses[modelResponses.length - 1];
-          const text = lastResponse.textContent?.toLowerCase() || '';
-          if (text.includes('loading') || text.includes('nano banana')) {
-            return true; // Still loading images
-          }
-        }
-        
+
         return false;
       };
 

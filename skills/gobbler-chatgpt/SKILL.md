@@ -41,13 +41,16 @@ gobbler chatgpt query "Question 2" &
 ## Quick Workflow
 
 ```bash
-# 1. List available ChatGPT tabs
+# 1. Inject APIs (required after page refresh or extension reload)
+gobbler browser inject
+
+# 2. List available ChatGPT tabs
 gobbler chatgpt list
 
-# 2. Send message and get response (waits for complete answer)
+# 3. Send message and get response (waits for complete answer)
 gobbler chatgpt query "Your message here"
 
-# 3. If response looks incomplete, get full last response
+# 4. If response looks incomplete, get full last response
 gobbler chatgpt last
 ```
 
@@ -162,7 +165,15 @@ gobbler chatgpt download -t 1234567 -o ./images
 
 ## Recommended Workflow for AI Agents
 
-### Step 1: List Conversations
+### Step 1: Inject APIs
+
+Always inject APIs first to ensure they're available (required after page refresh or extension reload):
+
+```bash
+gobbler browser inject
+```
+
+### Step 2: List Conversations
 
 ```bash
 gobbler chatgpt list
@@ -170,7 +181,7 @@ gobbler chatgpt list
 
 Note the Tab ID if you have multiple ChatGPT tabs.
 
-### Step 2: Send Message and Wait
+### Step 3: Send Message and Wait
 
 ```bash
 gobbler chatgpt query "Your message" --timeout 150
@@ -178,7 +189,7 @@ gobbler chatgpt query "Your message" --timeout 150
 
 The command returns the complete response. **Wait for it to finish before sending another message.**
 
-### Step 3: Verify Response (if needed)
+### Step 4: Verify Response (if needed)
 
 If the response looks cut off:
 
@@ -186,7 +197,7 @@ If the response looks cut off:
 gobbler chatgpt last
 ```
 
-### Step 4: Follow-up Messages
+### Step 5: Follow-up Messages
 
 Send the next message only AFTER the previous one completes:
 

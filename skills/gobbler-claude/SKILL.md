@@ -26,13 +26,16 @@ Why? The query command waits for the "last message" in the chat. If you send mul
 ## Quick Workflow
 
 ```bash
-# 1. List available Claude.ai tabs
+# 1. Inject APIs (required after page refresh or extension reload)
+gobbler browser inject
+
+# 2. List available Claude.ai tabs
 gobbler claude list
 
-# 2. Send message and get response (waits for complete answer)
+# 3. Send message and get response (waits for complete answer)
 gobbler claude query "Your message here"
 
-# 3. If response looks incomplete, get full last response
+# 4. If response looks incomplete, get full last response
 gobbler claude last
 ```
 
@@ -124,7 +127,15 @@ gobbler claude info -t 1234567
 
 ## Recommended Workflow for AI Agents
 
-### Step 1: List Conversations
+### Step 1: Inject APIs
+
+Always inject APIs first to ensure they're available (required after page refresh or extension reload):
+
+```bash
+gobbler browser inject
+```
+
+### Step 2: List Conversations
 
 ```bash
 gobbler claude list
@@ -132,7 +143,7 @@ gobbler claude list
 
 Note the Tab ID if you have multiple Claude tabs.
 
-### Step 2: Send Message and Wait
+### Step 3: Send Message and Wait
 
 ```bash
 gobbler claude query "Your message" --timeout 150
@@ -140,7 +151,7 @@ gobbler claude query "Your message" --timeout 150
 
 The command returns the complete response. **Wait for it to finish before sending another message.**
 
-### Step 3: Verify Response (if needed)
+### Step 4: Verify Response (if needed)
 
 If the response looks cut off:
 
@@ -148,7 +159,7 @@ If the response looks cut off:
 gobbler claude last
 ```
 
-### Step 4: Follow-up Messages
+### Step 5: Follow-up Messages
 
 Send the next message only AFTER the previous one completes:
 

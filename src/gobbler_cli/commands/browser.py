@@ -409,6 +409,149 @@ async def _execute(script: str, tab_id: int | None, timeout: int, json_output: b
         raise typer.Exit(1) from None
 
 
+@app.command("inject")
+def inject_apis(
+    tab_id: Annotated[
+        int | None,
+        typer.Option("--tab", "-t", help="Specific tab ID (all matching tabs if not specified)"),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output as JSON"),
+    ] = False,
+) -> None:
+    """Inject page APIs into Gobbler tabs.
+
+    This manually injects the page-specific APIs (Claude, ChatGPT, Gemini, NotebookLM)
+    into tabs in the Gobbler group. Useful after browser restart or extension reload.
+
+    Examples:
+        gobbler browser inject              # Inject into all matching tabs
+        gobbler browser inject --tab 12345  # Inject into specific tab
+    """
+    asyncio.run(_inject_apis(tab_id, json_output))
+
+
+async def _inject_apis(tab_id: int | None, json_output: bool) -> None:
+    """Async implementation of inject APIs."""
+    from gobbler_relay.client import get_injected_apis, inject_api  # noqa: PLC0415
+
+    ok, auto_started, msg = await _check_relay_and_extension()
+    if auto_started and not json_output:
+        print_info("Relay server started automatically")
+    if not ok:
+        if json_output:
+            console.print_json(json.dumps({"success": False, "error": msg}))
+        else:
+            print_error(msg)
+        raise typer.Exit(1)
+
+    try:
+        if tab_id:
+            # Inject into specific tab
+            result = await inject_api(tab_id)
+
+            if json_output:
+                console.print_json(json.dumps(result))
+            elif result.get("success"):
+                api_name = result.get("apiName", "API")
+                print_success(f"Injected {api_name} into tab {tab_id}")
+            else:
+                print_error(result.get("error", "Injection failed"))
+                raise typer.Exit(1)
+        else:
+            # Get all tabs and their API status
+            status = await get_injected_apis()
+
+            if not status.get("success"):
+                if json_output:
+                    console.print_json(json.dumps(status))
+                else:
+                    print_error(status.get("error", "Failed to get API status"))
+                raise typer.Exit(1)
+
+            tabs = status.get("tabs", [])
+            injected_count = 0
+            results = []
+
+            for tab in tabs:
+                # Skip tabs that don't have a matching API
+                if not tab.get("hasMatchingApi"):
+                    continue
+
+                # Skip tabs that are already injected
+                if tab.get("injectedApi"):
+                    results.append(
+                        {
+                            "tabId": tab["tabId"],
+                            "title": tab["title"],
+                            "status": "already_injected",
+                            "api": tab["injectedApi"],
+                        }
+                    )
+                    continue
+
+                # Inject API
+                inject_result = await inject_api(tab["tabId"])
+                if inject_result.get("success"):
+                    injected_count += 1
+                    results.append(
+                        {
+                            "tabId": tab["tabId"],
+                            "title": tab["title"],
+                            "status": "injected",
+                            "api": inject_result.get("apiName"),
+                        }
+                    )
+                else:
+                    results.append(
+                        {
+                            "tabId": tab["tabId"],
+                            "title": tab["title"],
+                            "status": "failed",
+                            "error": inject_result.get("error"),
+                        }
+                    )
+
+            if json_output:
+                console.print_json(json.dumps({"success": True, "results": results}))
+            else:
+                if not results:
+                    print_info("No tabs with matching APIs found")
+                else:
+                    rows = []
+                    for r in results:
+                        status_icon = (
+                            "✓"
+                            if r["status"] == "injected"
+                            else ("○" if r["status"] == "already_injected" else "✗")
+                        )
+                        rows.append(
+                            [
+                                str(r["tabId"]),
+                                r["title"][:40],
+                                r.get("api", "-"),
+                                f"{status_icon} {r['status']}",
+                            ]
+                        )
+
+                    print_table(
+                        title="API Injection Status",
+                        columns=["Tab ID", "Title", "API", "Status"],
+                        rows=rows,
+                    )
+
+                    if injected_count > 0:
+                        print_success(f"Injected APIs into {injected_count} tab(s)")
+
+    except RuntimeError as e:
+        if json_output:
+            console.print_json(json.dumps({"success": False, "error": str(e)}))
+        else:
+            print_error(str(e))
+        raise typer.Exit(1) from None
+
+
 @app.command("open")
 def open_tabs(
     urls: Annotated[

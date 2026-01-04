@@ -45,10 +45,19 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // Debug mode
+  const DEBUG = true;
+  
+  function debugLog(...args) {
+    if (DEBUG) {
+      console.log('[Gobbler Claude]', ...args);
+    }
+  }
+
   // Claude API object
   const ClaudeAPI = {
     // API version
-    version: '1.0.0',
+    version: '1.2.0',
 
     // Check if we're on a conversation page
     isConversationPage() {
@@ -57,14 +66,14 @@
 
     // Get current conversation info
     getConversationInfo() {
-      // Try to get title from the page
-      const titleEl = document.querySelector('h1, [data-testid="conversation-title"], .conversation-title');
+      // Try to get title from the page - check for chat title button first
+      const titleEl = document.querySelector('[data-testid="chat-title-button"], h1, .conversation-title');
       const title = titleEl?.textContent?.trim() || document.title.replace(' - Claude', '') || 'New Conversation';
       const url = window.location.href;
       const conversationId = url.match(/\/chat\/([^/?]+)/)?.[1] || null;
 
-      // Count messages using the correct selectors
-      const userMessages = document.querySelectorAll('[data-testid][class*="font-user-message"]').length;
+      // Count messages using the correct selectors (updated for current Claude.ai DOM)
+      const userMessages = document.querySelectorAll('[data-testid="user-message"]').length;
       const assistantMessages = document.querySelectorAll('[data-is-streaming]').length;
 
       return {
@@ -79,13 +88,15 @@
 
     // Find the chat input element
     _findInput() {
-      // Claude.ai uses a contenteditable div or ProseMirror editor
+      // Claude.ai uses a ProseMirror editor with data-testid="chat-input"
       const selectors = [
-        // Claude.ai specific selectors
+        // Primary selector - data-testid is most reliable
+        '[data-testid="chat-input"]',
+        // Claude.ai specific selectors (fallbacks)
         'div[contenteditable="true"].ProseMirror',
-        'div[contenteditable="true"][data-placeholder]',
         'div.ProseMirror[contenteditable="true"]',
-        // Fallbacks
+        'div[contenteditable="true"][data-placeholder]',
+        // Generic fallbacks
         'div[contenteditable="true"]',
         'textarea[placeholder*="message"]',
         'textarea[placeholder*="Reply"]'
@@ -101,27 +112,30 @@
     // Find the send button
     _findSendButton() {
       const selectors = [
-        // Claude.ai uses aria-label for the send button
+        // Primary selector - exact match for Claude.ai's current send button
+        'button[aria-label="Send message"]',
+        // Fallback variations
         'button[aria-label="Send Message"]',
         'button[aria-label*="Send"]',
         'button[aria-label*="send"]',
-        // Look for button with send icon (arrow)
+        // Generic fallbacks
         'button[type="submit"]',
         'button.send-button'
       ];
 
       for (const selector of selectors) {
         const btn = document.querySelector(selector);
-        if (btn && !btn.disabled) return btn;
+        // Return button even if disabled - caller can check state
+        if (btn) return btn;
       }
 
-      // Fallback: find button near input
-      const input = this._findInput();
-      if (input) {
-        const form = input.closest('form');
-        if (form) {
-          const btn = form.querySelector('button[type="button"]:last-of-type, button:last-of-type');
-          if (btn && !btn.disabled) return btn;
+      // Fallback: find button near input in the chat-input-grid-container
+      const inputGrid = document.querySelector('[data-testid="chat-input-grid-container"]');
+      if (inputGrid) {
+        const parent = inputGrid.closest('form') || inputGrid.parentElement;
+        if (parent) {
+          const btn = parent.querySelector('button[aria-label*="Send"], button[type="submit"]');
+          if (btn) return btn;
         }
       }
 
@@ -131,11 +145,11 @@
     // Get all messages in the conversation
     async getChatContent() {
       try {
-        // Claude.ai uses:
-        // - data-testid for user messages (with class containing font-user-message)
-        // - data-is-streaming for assistant messages
-        const userMessages = document.querySelectorAll('[data-testid][class*="font-user-message"]');
-        const assistantMessages = document.querySelectorAll('[data-is-streaming]');
+        // Claude.ai uses (updated Jan 2025):
+        // - [data-testid="user-message"] for user messages
+        // - [data-is-streaming] containers for assistant messages (content in .font-claude-response)
+        const userMessages = document.querySelectorAll('[data-testid="user-message"]');
+        const assistantContainers = document.querySelectorAll('[data-is-streaming]');
 
         const content = [];
         
@@ -153,11 +167,13 @@
           }
         });
 
-        assistantMessages.forEach(msg => {
-          const text = msg.textContent?.trim() || '';
+        assistantContainers.forEach(container => {
+          // Get the actual response text from .font-claude-response child
+          const responseEl = container.querySelector('.font-claude-response');
+          const text = responseEl?.textContent?.trim() || container.textContent?.trim() || '';
           if (text) {
             allElements.push({
-              element: msg,
+              element: container,
               role: 'assistant',
               content: text.slice(0, 10000)
             });
@@ -191,25 +207,61 @@
       }
     },
 
+    // Extract response text, excluding thinking sections
+    _extractResponseText(container) {
+      const responseEl = container.querySelector('.font-claude-response');
+      if (!responseEl) {
+        return container.textContent?.trim() || '';
+      }
+      
+      // Claude has thinking in first div, response in subsequent divs
+      // Get all direct children divs
+      const children = Array.from(responseEl.children);
+      
+      if (children.length <= 1) {
+        // Single child - just return its text
+        return responseEl.textContent?.trim() || '';
+      }
+      
+      // Multiple children - check if first is thinking section
+      const firstChild = children[0];
+      const hasThinking = firstChild?.textContent?.toLowerCase().includes('thinking') ||
+                          firstChild?.className?.includes('thinking') ||
+                          firstChild?.className?.includes('transition');
+      
+      if (hasThinking && children.length > 1) {
+        // Skip first child (thinking), get text from remaining children
+        const responseText = children.slice(1)
+          .map(child => child.textContent?.trim())
+          .filter(text => text && text.length > 0)
+          .join('\n\n');
+        debugLog('Extracted response (skipped thinking):', responseText.slice(0, 100));
+        return responseText;
+      }
+      
+      // No thinking section detected, return full text
+      return responseEl.textContent?.trim() || '';
+    },
+
     // Get the last assistant response
     async getLastResponse() {
       try {
-        // Claude.ai uses data-is-streaming attribute for assistant messages
-        const messages = document.querySelectorAll('[data-is-streaming]');
+        // Claude.ai uses data-is-streaming attribute on containers for assistant messages
+        const containers = document.querySelectorAll('[data-is-streaming]');
         
-        if (messages.length === 0) {
+        if (containers.length === 0) {
           return { success: false, error: 'No assistant response found' };
         }
 
-        const lastMsg = messages[messages.length - 1];
-        const text = lastMsg.textContent?.trim() || '';
-        const isStreaming = lastMsg.dataset.isStreaming === 'true';
+        const lastContainer = containers[containers.length - 1];
+        const text = this._extractResponseText(lastContainer);
+        const isStreaming = lastContainer.dataset.isStreaming === 'true';
 
         return { 
           success: true, 
           response: text,
           isStreaming,
-          totalMessages: messages.length
+          totalMessages: containers.length
         };
       } catch (error) {
         return { success: false, error: error.message };
@@ -282,49 +334,57 @@
       let stableCount = 0;
       const STABLE_THRESHOLD = 3; // 3 consecutive checks with same text = done
 
-      // Claude.ai uses data-is-streaming attribute for assistant messages
-      const getAssistantMessages = () => {
+      // Claude.ai uses data-is-streaming attribute on containers for assistant messages
+      const getAssistantContainers = () => {
         return document.querySelectorAll('[data-is-streaming]');
       };
 
       const getLastMessageText = () => {
-        const messages = getAssistantMessages();
-        if (messages.length === 0) return '';
-        return messages[messages.length - 1].textContent?.trim() || '';
+        const containers = getAssistantContainers();
+        if (containers.length === 0) return '';
+        const lastContainer = containers[containers.length - 1];
+        // Use the extraction method that skips thinking sections
+        return this._extractResponseText(lastContainer);
       };
 
       const isStillStreaming = () => {
-        const messages = getAssistantMessages();
-        if (messages.length === 0) return false;
-        const lastMsg = messages[messages.length - 1];
-        return lastMsg.dataset.isStreaming === 'true';
+        const containers = getAssistantContainers();
+        if (containers.length === 0) return false;
+        const lastContainer = containers[containers.length - 1];
+        return lastContainer.dataset.isStreaming === 'true';
       };
 
-      const initialCount = getAssistantMessages().length;
+      const initialCount = getAssistantContainers().length;
+      debugLog('Starting waitForResponse, initial count:', initialCount, 'timeout:', timeout);
 
       while (Date.now() - startTime < timeout) {
-        await delay(1000);
+        await delay(500); // Check more frequently
 
-        const messages = getAssistantMessages();
-        const currentCount = messages.length;
+        const containers = getAssistantContainers();
+        const currentCount = containers.length;
+        const elapsed = Date.now() - startTime;
         
         // Wait for a new message to appear
         if (currentCount <= initialCount) {
+          debugLog('Waiting for new message, count:', currentCount);
           stableCount = 0;
           continue;
         }
 
         // Check if still streaming
-        if (isStillStreaming()) {
+        const streaming = isStillStreaming();
+        if (streaming) {
+          debugLog('Still streaming, elapsed:', elapsed);
           stableCount = 0;
           lastText = getLastMessageText();
           continue;
         }
 
         const currentText = getLastMessageText();
+        debugLog('Streaming stopped, text length:', currentText.length, 'stable count:', stableCount);
 
-        // Skip if still showing loading indicators
-        if (currentText.length < 20 || currentText.includes('Thinking')) {
+        // Skip if no actual response text yet (still loading or only thinking)
+        if (currentText.length === 0) {
           stableCount = 0;
           continue;
         }
@@ -333,10 +393,11 @@
         if (currentText === lastText && currentText.length > 0) {
           stableCount++;
           if (stableCount >= STABLE_THRESHOLD) {
+            debugLog('Response complete (stable), length:', currentText.length);
             return {
               success: true,
               response: currentText,
-              elapsed: Date.now() - startTime
+              elapsed: elapsed
             };
           }
         } else {
@@ -347,6 +408,8 @@
 
       // Timeout - return partial if available
       const finalText = getLastMessageText();
+      debugLog('Timeout reached, final text length:', finalText?.length || 0);
+      
       if (finalText && finalText.length > 0) {
         return {
           success: true,
@@ -403,7 +466,10 @@
   // Expose API globally
   window.gobblerClaude = ClaudeAPI;
 
-  console.log('[Gobbler] Claude API v' + ClaudeAPI.version + ' injected successfully');
+  console.log('[Gobbler] Claude API v' + ClaudeAPI.version + ' injected successfully (DEBUG=' + DEBUG + ')');
   console.log('[Gobbler] Available at window.gobblerClaude');
   console.log('[Gobbler] Methods: ask, sendMessage, waitForResponse, getChatContent, getLastResponse, getConversationInfo');
+  
+  // Log page structure for debugging
+  debugLog('Page structure:', ClaudeAPI.getPageStructure());
 })();

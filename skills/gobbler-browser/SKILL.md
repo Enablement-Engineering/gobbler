@@ -18,6 +18,9 @@ Control the browser via the Gobbler CLI and browser extension.
 ## Quick Start
 
 ```bash
+# Inject APIs into all Gobbler tabs (required for ChatGPT/Claude/Gemini/NotebookLM)
+gobbler browser inject
+
 # Check browser connection
 gobbler browser status
 
@@ -31,6 +34,20 @@ gobbler browser extract -o page.md
 ---
 
 ## CLI Commands
+
+### Inject APIs
+
+Inject page-specific APIs into all tabs in the Gobbler group. **Required** before using ChatGPT, Claude, Gemini, or NotebookLM commands (especially after page refresh or extension reload).
+
+```bash
+# Inject APIs into all Gobbler tabs
+gobbler browser inject
+```
+
+This command:
+- Scans all tabs in the Gobbler group
+- Injects the appropriate API (ChatGPT, Claude, Gemini, NotebookLM) based on URL
+- Shows which APIs were injected or already present
 
 ### Check Status
 

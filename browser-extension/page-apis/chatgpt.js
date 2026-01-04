@@ -45,10 +45,19 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // Debug mode - set to true for verbose logging
+  const DEBUG = true;
+  
+  function debugLog(...args) {
+    if (DEBUG) {
+      console.log('[Gobbler ChatGPT]', ...args);
+    }
+  }
+
   // ChatGPT API object
   const ChatGPTAPI = {
     // API version
-    version: '1.0.0',
+    version: '1.4.1',
 
     // Check if we're on a conversation page
     isConversationPage() {
@@ -105,12 +114,13 @@
     // Find the send button
     _findSendButton() {
       const selectors = [
-        // ChatGPT specific selectors
+        // ChatGPT 2025 selectors (order matters - most specific first)
+        'button[aria-label="Send prompt"]',
+        'button.composer-submit-btn',
+        // Legacy selectors as fallback
         '#composer-submit-button',
         'button[data-testid="send-button"]',
-        'button[aria-label="Send prompt"]',
-        'button[aria-label*="Send"]',
-        'button.composer-submit-btn'
+        'button[aria-label*="Send"]'
       ];
 
       for (const selector of selectors) {
@@ -217,10 +227,20 @@
         // Deduplicate images
         const uniqueImages = [...new Set(images)];
 
-        // Check if still streaming - look for stop button (most reliable)
-        const isStreaming = !!document.querySelector('button[data-testid="stop-button"]') ||
+        // Check if still streaming - look for stop button or thinking state
+        let isStreaming = !!document.querySelector('button[data-testid="stop-button"]') ||
                           !!document.querySelector('button[aria-label="Stop streaming"]') ||
-                          !!document.querySelector('button[aria-label="Stop generating"]');
+                          !!document.querySelector('button[aria-label="Stop generating"]') ||
+                          !!document.querySelector('button[aria-label*="Stop"]') ||
+                          !!document.querySelector('button.composer-stop-btn');
+        
+        // Also check for thinking state (empty result-thinking element)
+        if (!isStreaming) {
+          const thinkingEl = lastMsg.querySelector('.result-thinking');
+          if (thinkingEl && !thinkingEl.textContent?.trim()) {
+            isStreaming = true;
+          }
+        }
 
         return {
           success: true,
@@ -301,72 +321,233 @@
     async waitForResponse(timeout = 120000) {
       const startTime = Date.now();
       let wasStreaming = false;
+      let stableTextCount = 0;
+      let lastStableText = '';
 
       const getAssistantMessages = () => {
         return document.querySelectorAll('[data-message-author-role="assistant"]');
       };
 
       const getLastMessageText = () => {
-        const messages = getAssistantMessages();
-        if (messages.length === 0) return '';
-        // Find the last message with actual content (skip empty pending messages)
-        for (let i = messages.length - 1; i >= 0; i--) {
-          const msg = messages[i];
-          const textEl = msg.querySelector('.markdown') || msg;
-          const text = textEl.textContent?.trim() || '';
-          if (text.length > 0) {
+        // Try multiple extraction methods
+        
+        // Method 1: Direct message query (most reliable)
+        const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
+        if (messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          const markdownEl = lastMsg.querySelector('.markdown');
+          if (markdownEl) {
+            const text = markdownEl.textContent?.trim() || '';
+            if (text) {
+              debugLog('Extracted text via .markdown, length:', text.length);
+              return text;
+            }
+          }
+          const text = lastMsg.textContent?.trim() || '';
+          if (text) {
+            debugLog('Extracted text via textContent, length:', text.length);
             return text;
           }
         }
+        
+        // Method 2: Use article structure with wildcard match
+        const articles = document.querySelectorAll('article[data-testid^="conversation-turn"]');
+        const assistantArticles = Array.from(articles).filter(a => 
+          a.querySelector('[data-message-author-role="assistant"]')
+        );
+        
+        if (assistantArticles.length > 0) {
+          const lastArticle = assistantArticles[assistantArticles.length - 1];
+          const msg = lastArticle.querySelector('[data-message-author-role="assistant"]');
+          if (msg) {
+            const markdownEl = msg.querySelector('.markdown');
+            if (markdownEl) {
+              const text = markdownEl.textContent?.trim() || '';
+              debugLog('Extracted text via article .markdown, length:', text.length);
+              return text;
+            }
+            const text = msg.textContent?.trim() || '';
+            debugLog('Extracted text via article textContent, length:', text.length);
+            return text;
+          }
+        }
+        
+        debugLog('No text found');
         return '';
       };
 
       const isStillStreaming = () => {
-        // Check for stop button (most reliable indicator of active generation)
-        const stopBtn = document.querySelector('button[data-testid="stop-button"]') ||
-                       document.querySelector('button[aria-label="Stop streaming"]') ||
-                       document.querySelector('button[aria-label="Stop generating"]');
-        return !!stopBtn;
+        // Check for stop button with multiple selectors (ChatGPT changes these frequently)
+        const stopSelectors = [
+          'button[data-testid="stop-button"]',
+          'button[aria-label="Stop streaming"]',
+          'button[aria-label="Stop generating"]',
+          'button[aria-label="Stop response"]',
+          'button[aria-label*="Stop"]',
+          'button.composer-stop-btn',
+          // SVG-based stop button (square icon in circular button)
+          'button svg rect[width="10"]',
+          // Check for any button with stop-related content
+          'button[class*="stop"]'
+        ];
+        
+        for (const selector of stopSelectors) {
+          const el = document.querySelector(selector);
+          if (el) {
+            debugLog('Found stop button:', selector);
+            return true;
+          }
+        }
+        
+        // Check for streaming indicator in the response itself
+        const streamingCursor = document.querySelector('.result-streaming');
+        if (streamingCursor) {
+          debugLog('Found streaming cursor');
+          return true;
+        }
+        
+        return false;
+      };
+      
+      const isResponseComplete = () => {
+        // Check for action buttons on the last message
+        // These appear only after response is fully complete
+        const messages = document.querySelectorAll('[data-message-author-role="assistant"]');
+        if (messages.length === 0) return false;
+        
+        const lastMsg = messages[messages.length - 1];
+        
+        // Find the parent article/container that holds action buttons
+        const container = lastMsg.closest('article') || lastMsg.closest('[data-testid]') || lastMsg.parentElement?.parentElement;
+        
+        if (container) {
+          // Multiple selectors for action buttons
+          const actionButtonSelectors = [
+            'button[aria-label="Copy"]',
+            'button[aria-label="Copy response"]', 
+            'button[data-testid="copy-turn-action-button"]',
+            'button[aria-label="Good response"]',
+            'button[aria-label="Bad response"]',
+            'button[aria-label="Read aloud"]',
+            // Generic: any button group after the message
+            '.flex button[aria-label]'
+          ];
+          
+          for (const selector of actionButtonSelectors) {
+            const btn = container.querySelector(selector);
+            if (btn) {
+              debugLog('Found action button:', selector);
+              return true;
+            }
+          }
+        }
+        
+        return false;
       };
 
       const initialCount = getAssistantMessages().length;
+      const initialLastText = getLastMessageText();
+      let newMessageAppeared = false;
+      
+      debugLog('Starting waitForResponse, initial count:', initialCount, 'timeout:', timeout);
 
       while (Date.now() - startTime < timeout) {
-        await delay(500); // Check more frequently
+        await delay(500); // Check frequently
 
         const currentCount = getAssistantMessages().length;
         const streaming = isStillStreaming();
+        const complete = isResponseComplete();
+        const currentText = getLastMessageText();
+        const elapsed = Date.now() - startTime;
+
+        // Track if a new message appeared
+        if (currentCount > initialCount) {
+          if (!newMessageAppeared) {
+            debugLog('New message appeared, count:', currentCount);
+          }
+          newMessageAppeared = true;
+        }
 
         // Track if we've seen streaming start
         if (streaming) {
           wasStreaming = true;
+          stableTextCount = 0; // Reset stability counter
+          debugLog('Streaming active, elapsed:', elapsed);
           continue;
         }
 
-        // If we were streaming and now stopped, response is complete
-        if (wasStreaming && !streaming) {
-          await delay(1500); // Wait for DOM to fully sync after streaming stops
-          let response = getLastMessageText();
-          // If still empty, wait a bit more and retry
-          if (!response) {
-            await delay(1000);
-            response = getLastMessageText();
+        // Stability check: if text hasn't changed for 3 checks (1.5s) and we have content
+        if (currentText && currentText === lastStableText && currentText !== initialLastText) {
+          stableTextCount++;
+          debugLog('Text stable for', stableTextCount, 'checks, length:', currentText.length);
+          
+          if (stableTextCount >= 3) {
+            debugLog('Text stable, checking if complete...');
+            // Give extra time for action buttons to appear
+            await delay(500);
+            if (isResponseComplete() || stableTextCount >= 6) {
+              debugLog('Returning response (stable text), length:', currentText.length);
+              return {
+                success: true,
+                response: currentText,
+                elapsed: elapsed,
+                method: stableTextCount >= 6 ? 'stability-timeout' : 'stability-complete'
+              };
+            }
           }
-          return {
-            success: true,
-            response: response,
-            elapsed: Date.now() - startTime
-          };
+        } else {
+          stableTextCount = 0;
+          lastStableText = currentText;
         }
 
-        // If a new message appeared and no streaming, it might be complete already
-        if (currentCount > initialCount && !streaming) {
+        // Best indicator: action buttons appeared (Copy, Good response, etc.)
+        if (newMessageAppeared && complete) {
+          await delay(300); // Brief wait for final DOM sync
           const response = getLastMessageText();
-          if (response.length > 0) {
+          if (response && response !== initialLastText) {
+            debugLog('Returning response (action buttons), length:', response.length);
             return {
               success: true,
               response: response,
-              elapsed: Date.now() - startTime
+              elapsed: elapsed,
+              method: 'action-buttons'
+            };
+          }
+        }
+
+        // Fallback: if we were streaming and now stopped, check for response
+        if (wasStreaming && !streaming) {
+          debugLog('Streaming stopped, waiting for DOM sync...');
+          await delay(1000); // Wait for DOM to sync
+          
+          // Check if complete via action buttons
+          if (isResponseComplete()) {
+            const response = getLastMessageText();
+            if (response && response !== initialLastText) {
+              debugLog('Returning response (post-stream), length:', response.length);
+              return {
+                success: true,
+                response: response,
+                elapsed: elapsed,
+                method: 'post-stream'
+              };
+            }
+          }
+          
+          // Keep waiting - might still be processing
+          wasStreaming = false;
+        }
+
+        // If a new message appeared with content and appears complete
+        if (currentCount > initialCount && !streaming && complete) {
+          const response = getLastMessageText();
+          if (response && response.length > 0 && response !== initialLastText) {
+            debugLog('Returning response (new message complete), length:', response.length);
+            return {
+              success: true,
+              response: response,
+              elapsed: elapsed,
+              method: 'new-message-complete'
             };
           }
         }
@@ -374,7 +555,9 @@
 
       // Timeout - return partial if available
       const finalText = getLastMessageText();
-      if (finalText && finalText.length > 0) {
+      debugLog('Timeout reached, final text length:', finalText?.length || 0);
+      
+      if (finalText && finalText.length > 0 && finalText !== initialLastText) {
         return {
           success: true,
           response: finalText,
@@ -386,7 +569,13 @@
       return {
         success: false,
         error: 'Timeout waiting for response',
-        elapsed: Date.now() - startTime
+        elapsed: Date.now() - startTime,
+        debug: {
+          initialCount,
+          finalCount: getAssistantMessages().length,
+          wasStreaming,
+          newMessageAppeared
+        }
       };
     },
 
@@ -434,7 +623,10 @@
   // Expose API globally
   window.gobblerChatGPT = ChatGPTAPI;
 
-  console.log('[Gobbler] ChatGPT API v' + ChatGPTAPI.version + ' injected successfully');
+  console.log('[Gobbler] ChatGPT API v' + ChatGPTAPI.version + ' injected successfully (DEBUG=' + DEBUG + ')');
   console.log('[Gobbler] Available at window.gobblerChatGPT');
   console.log('[Gobbler] Methods: ask, sendMessage, waitForResponse, getChatContent, getLastResponse, getConversationInfo');
+  
+  // Log page structure for debugging
+  debugLog('Page structure:', ChatGPTAPI.getPageStructure());
 })();

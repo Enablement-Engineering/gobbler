@@ -558,7 +558,7 @@ function connectWebSocket() {
   console.log('Connecting to Gobbler server via WebSocket...');
   ws = new WebSocket(WS_URL);
 
-  ws.onopen = () => {
+  ws.onopen = async () => {
     console.log('WebSocket connected to Gobbler server');
     // Send registration message
     ws.send(JSON.stringify({
@@ -570,6 +570,19 @@ function connectWebSocket() {
     if (reconnectInterval) {
       clearInterval(reconnectInterval);
       reconnectInterval = null;
+    }
+
+    // Inject APIs into all Gobbler tabs on connection
+    // This ensures APIs are available after extension reload or browser restart
+    try {
+      const results = await injectApisIntoAllGobblerTabs();
+      const injected = results.filter(r => r.success && r.apiName);
+      if (injected.length > 0) {
+        console.log(`[Gobbler] Injected APIs into ${injected.length} tab(s) on connect:`, 
+          injected.map(r => r.apiName).join(', '));
+      }
+    } catch (error) {
+      console.error('[Gobbler] Error injecting APIs on connect:', error);
     }
 
     // Send ping every 30 seconds to keep connection alive
@@ -1024,16 +1037,46 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 // Initialize WebSocket connection on startup
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   console.log('Gobbler extension installed');
   setupContextMenus();
   connectWebSocket();
+  
+  // Inject APIs into existing Gobbler tabs after install/update
+  // Small delay to ensure tabs are ready
+  setTimeout(async () => {
+    try {
+      const results = await injectApisIntoAllGobblerTabs();
+      const injected = results.filter(r => r.success && r.apiName);
+      if (injected.length > 0) {
+        console.log(`[Gobbler] Injected APIs into ${injected.length} tab(s) on install:`, 
+          injected.map(r => r.apiName).join(', '));
+      }
+    } catch (error) {
+      console.error('[Gobbler] Error injecting APIs on install:', error);
+    }
+  }, 1000);
 });
 
-chrome.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(async () => {
   console.log('Gobbler extension started');
   setupContextMenus();
   connectWebSocket();
+  
+  // Inject APIs into existing Gobbler tabs on browser startup
+  // Small delay to ensure tabs are ready
+  setTimeout(async () => {
+    try {
+      const results = await injectApisIntoAllGobblerTabs();
+      const injected = results.filter(r => r.success && r.apiName);
+      if (injected.length > 0) {
+        console.log(`[Gobbler] Injected APIs into ${injected.length} tab(s) on startup:`, 
+          injected.map(r => r.apiName).join(', '));
+      }
+    } catch (error) {
+      console.error('[Gobbler] Error injecting APIs on startup:', error);
+    }
+  }, 1000);
 });
 
 // Connect immediately if service worker is running

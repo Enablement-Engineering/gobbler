@@ -290,3 +290,37 @@ async def execute_script_in_tab(
         host=host,
         port=port,
     )
+
+
+async def inject_api(
+    tab_id: int,
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+) -> dict:
+    """Manually inject page API into a specific tab.
+
+    Args:
+        tab_id: Tab ID to inject API into
+        host: Relay host
+        port: Relay port
+
+    Returns:
+        Response from the browser extension with injection result
+    """
+    return await send_command("inject_api", {"tabId": tab_id}, host=host, port=port)
+
+
+async def get_injected_apis(
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+) -> dict:
+    """Get information about injected APIs in Gobbler tabs.
+
+    Args:
+        host: Relay host
+        port: Relay port
+
+    Returns:
+        Response with tabs and their API injection status
+    """
+    return await send_command("get_injected_apis", {}, host=host, port=port)
