@@ -3,7 +3,10 @@
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+import yaml
+
 from gobbler_core.utils.frontmatter import (
+    _escape_yaml_string,
     count_words,
     create_audio_frontmatter,
     create_document_frontmatter,
@@ -46,6 +49,55 @@ class TestBasicFrontmatter:
         assert '"Title: With Colon"' in result
         assert '"Description # with hash"' in result
 
+    def test_create_frontmatter_with_newlines(self):
+        """Test that multiline strings are properly escaped."""
+        metadata = {
+            "description": "Line 1\nLine 2\nLine 3",
+        }
+
+        result = create_frontmatter(metadata)
+
+        # Newlines should be escaped as \n in double-quoted string
+        assert r'"Line 1\nLine 2\nLine 3"' in result
+
+        # Should parse correctly
+        yaml_content = "\n".join(result.strip().split("\n")[1:-1])
+        parsed = yaml.safe_load(yaml_content)
+        assert parsed["description"] == "Line 1\nLine 2\nLine 3"
+
+    def test_create_frontmatter_with_quotes(self):
+        """Test that double quotes in strings are escaped."""
+        metadata = {
+            "description": 'He said "hello" to everyone',
+        }
+
+        result = create_frontmatter(metadata)
+
+        # Should parse correctly with escaped quotes
+        yaml_content = "\n".join(result.strip().split("\n")[1:-1])
+        parsed = yaml.safe_load(yaml_content)
+        assert parsed["description"] == 'He said "hello" to everyone'
+
+    def test_create_frontmatter_youtube_description_with_special_chars(self):
+        """Test YouTube-style descriptions with multiple special characters."""
+        metadata = {
+            "description": """""Speaker: Test Person
+Check out: https://example.com
+#hashtag @mention
+
+Multiple
+Lines
+Here""",
+        }
+
+        result = create_frontmatter(metadata)
+
+        # Should parse correctly
+        yaml_content = "\n".join(result.strip().split("\n")[1:-1])
+        parsed = yaml.safe_load(yaml_content)
+        assert '""Speaker: Test Person' in parsed["description"]
+        assert "Multiple\nLines\nHere" in parsed["description"]
+
     def test_create_frontmatter_with_different_types(self):
         """Test frontmatter with different value types."""
         metadata = {
@@ -63,6 +115,84 @@ class TestBasicFrontmatter:
         assert "float_val: 45.67" in result
         assert "bool_val: True" in result
         assert "null_val: null" in result
+
+
+class TestYamlStringEscaping:
+    """Test YAML string escaping functionality."""
+
+    def test_escape_simple_string(self):
+        """Test that simple strings are not quoted."""
+        result = _escape_yaml_string("Hello World")
+        assert result == "Hello World"
+
+    def test_escape_string_with_colon(self):
+        """Test that strings with colons are quoted."""
+        result = _escape_yaml_string("Key: Value")
+        assert result == '"Key: Value"'
+
+    def test_escape_string_with_hash(self):
+        """Test that strings with hash are quoted."""
+        result = _escape_yaml_string("Test #comment")
+        assert result == '"Test #comment"'
+
+    def test_escape_string_with_newlines(self):
+        """Test that strings with newlines are properly escaped."""
+        result = _escape_yaml_string("Line 1\nLine 2")
+        assert result == r'"Line 1\nLine 2"'
+
+    def test_escape_string_with_quotes(self):
+        """Test that strings with quotes are properly escaped."""
+        result = _escape_yaml_string('He said "hello"')
+        assert result == r'"He said \"hello\""'
+
+    def test_escape_string_with_backslash(self):
+        """Test that backslashes alone don't require quoting in YAML."""
+        result = _escape_yaml_string("path\\to\\file")
+        # Backslashes alone don't need quoting, they're literal in YAML
+        assert result == "path\\to\\file"
+
+    def test_escape_string_with_backslash_and_special_char(self):
+        """Test that backslashes are escaped when string needs quoting."""
+        result = _escape_yaml_string("path\\to: file")
+        # When quoted due to colon, backslash must be escaped
+        assert result == r'"path\\to: file"'
+
+    def test_escape_string_with_leading_special_char(self):
+        """Test that strings starting with special chars are quoted."""
+        test_cases = [
+            (" leading space", '" leading space"'),
+            ("'single quote", '"\'single quote"'),
+            ('"double quote', '"\\"double quote"'),
+            ("-dash", '"-dash"'),
+            ("[bracket", '"[bracket"'),
+            ("{brace", '"{brace"'),
+            ("@at", '"@at"'),
+            ("`backtick", '"`backtick"'),
+            ("!exclaim", '"!exclaim"'),
+            ("&ampersand", '"&ampersand"'),
+            ("*asterisk", '"*asterisk"'),
+            ("|pipe", '"|pipe"'),
+            (">greater", '">greater"'),
+            ("%percent", '"%percent"'),
+        ]
+        for input_str, expected in test_cases:
+            result = _escape_yaml_string(input_str)
+            assert result == expected, f"Failed for input: {input_str}"
+
+    def test_escape_string_with_trailing_space(self):
+        """Test that strings ending with space are quoted."""
+        result = _escape_yaml_string("trailing space ")
+        assert result == '"trailing space "'
+
+    def test_escape_preserves_tabs(self):
+        """Test that tabs are escaped."""
+        result = _escape_yaml_string("col1\tcol2")
+        assert result == r'"col1\tcol2"'
+
+    def test_escape_preserves_carriage_return(self):
+        """Test that carriage returns are escaped."""
+        result = _escape_yaml_string("line1\r\nline2")
+        assert result == r'"line1\r\nline2"'
 
 
 class TestTimestampGeneration:

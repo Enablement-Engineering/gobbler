@@ -4,6 +4,44 @@ from datetime import UTC, datetime
 from typing import Any
 
 
+def _escape_yaml_string(value: str) -> str:
+    """Escape a string for safe YAML output.
+
+    Uses double-quoted scalar style for strings containing special characters.
+    This handles newlines, quotes, colons, and other YAML special characters.
+
+    Args:
+        value: String value to escape
+
+    Returns:
+        Properly escaped YAML string
+    """
+    # Characters that appear anywhere requiring quoting
+    special_chars = ("\n", "\r", "\t", '"', ":", "#")
+
+    # Characters at the start that require quoting (YAML special syntax)
+    special_start_chars = (" ", "'", '"', "-", "[", "{", "@", "`", "!", "&", "*", "|", ">", "%")
+
+    # Check if quoting is needed
+    needs_quoting = (
+        any(char in value for char in special_chars)
+        or value.startswith(special_start_chars)
+        or value.endswith(" ")
+    )
+
+    if not needs_quoting:
+        return value
+
+    # Escape special characters for double-quoted style
+    escaped = value.replace("\\", "\\\\")  # Backslash first
+    escaped = escaped.replace('"', '\\"')  # Double quotes
+    escaped = escaped.replace("\n", "\\n")  # Newlines
+    escaped = escaped.replace("\r", "\\r")  # Carriage returns
+    escaped = escaped.replace("\t", "\\t")  # Tabs
+
+    return f'"{escaped}"'
+
+
 def create_frontmatter(metadata: dict[str, Any]) -> str:
     """Create YAML frontmatter from metadata dictionary.
 
@@ -17,8 +55,7 @@ def create_frontmatter(metadata: dict[str, Any]) -> str:
     for key, value in metadata.items():
         # Format value based on type
         if isinstance(value, str):
-            # Escape special characters if needed
-            formatted_value = f'"{value}"' if ":" in value or "#" in value else value
+            formatted_value = _escape_yaml_string(value)
             lines.append(f"{key}: {formatted_value}")
         elif isinstance(value, (int, float, bool)):
             lines.append(f"{key}: {value}")
