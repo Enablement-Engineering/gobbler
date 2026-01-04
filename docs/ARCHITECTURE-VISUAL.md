@@ -27,7 +27,7 @@ graph TB
         MCP[MCP Server<br/>FastMCP + Python]
         YT[YouTube Tools<br/>yt-dlp + API]
         FW[faster-whisper<br/>Metal/CoreML]
-        RQ[RQ Worker<br/>Background Tasks]
+        WK[Queue Worker<br/>SQLite Database]
         CFG[Config Manager<br/>~/.config/gobbler]
         HLT[Health Checker<br/>Service Monitor]
     end
@@ -35,7 +35,10 @@ graph TB
     subgraph "Docker Services"
         C4[Crawl4AI<br/>Port 11235<br/>Web Scraping]
         DL[Docling<br/>Port 5001<br/>Doc Conversion]
-        RD[Redis<br/>Port 6380<br/>Job Queue]
+    end
+
+    subgraph "Local Storage"
+        DB[(SQLite DB<br/>Job Queue)]
     end
 
     subgraph "External Services"
@@ -45,7 +48,8 @@ graph TB
     end
 
     CC <-->|MCP Protocol<br/>JSON-RPC| MCP
-    BE <-->|WebSocket<br/>Bidirectional| MCP
+    BE <-->|WebSocket| RLY[Relay Server<br/>Port 4625]
+    RLY <-->|HTTP| MCP
 
     MCP --> CFG
     MCP --> HLT
@@ -53,27 +57,26 @@ graph TB
     MCP --> FW
     MCP -->|HTTP REST| C4
     MCP -->|HTTP REST| DL
-    MCP -->|Redis Protocol| RD
+    MCP --> DB
 
-    RQ -->|Poll Jobs| RD
-    RQ --> YT
-    RQ --> FW
-    RQ -->|HTTP REST| C4
-    RQ -->|HTTP REST| DL
+    WK -->|Poll Jobs| DB
+    WK --> YT
+    WK --> FW
+    WK -->|HTTP REST| C4
+    WK -->|HTTP REST| DL
 
     YT -->|API Calls| YTA
     C4 -->|HTTP/Playwright| WEB
 
     MCP --> FS
-    RQ --> FS
+    WK --> FS
 
     HLT -.->|Health Check| C4
     HLT -.->|Health Check| DL
-    HLT -.->|Health Check| RD
 
     style MCP fill:#4a9eff,stroke:#333,stroke-width:3px
     style BE fill:#ff9a4a,stroke:#333,stroke-width:2px
-    style RD fill:#dc382d,stroke:#333,stroke-width:2px
+    style DB fill:#3498db,stroke:#333,stroke-width:2px
     style C4 fill:#2ecc71,stroke:#333,stroke-width:2px
     style DL fill:#9b59b6,stroke:#333,stroke-width:2px
     style FS fill:#f39c12,stroke:#333,stroke-width:2px
@@ -203,7 +206,7 @@ sequenceDiagram
     participant Claude
     participant MCP as MCP Server
     participant Queue as Job Queue Check
-    participant RQ as RQ Worker
+    participant WK as Queue Worker
     participant FW as faster-whisper
     participant FS as File System
 
@@ -216,10 +219,10 @@ sequenceDiagram
         Queue-->>MCP: job_id
         MCP-->>Claude: Queued: job_id + ETA
 
-        Note over RQ: Worker picks up job
-        RQ->>FS: read_file(file_path)
-        FS-->>RQ: audio_data
-        RQ->>FW: transcribe(audio_data, model)
+        Note over WK: Worker picks up job
+        WK->>FS: read_file(file_path)
+        FS-->>WK: audio_data
+        WK->>FW: transcribe(audio_data, model)
     else immediate execution
         MCP->>FS: read_file(file_path)
         FS-->>MCP: audio_data
@@ -229,17 +232,17 @@ sequenceDiagram
     FW->>FW: Load Model<br/>(tiny/base/small/medium/large)
     FW->>FW: Detect Language<br/>(if auto)
     FW->>FW: Transcribe with Metal/CoreML<br/>(M-series acceleration)
-    FW-->>RQ: transcript_data
+    FW-->>WK: transcript_data
 
-    RQ->>RQ: Format to Markdown
-    RQ->>RQ: Add YAML Frontmatter
+    WK->>WK: Format to Markdown
+    WK->>WK: Add YAML Frontmatter
 
     alt output_file specified
-        RQ->>FS: write_file(output_file)
-        FS-->>RQ: file_path
-        RQ->>Queue: update_job(success)
+        WK->>FS: write_file(output_file)
+        FS-->>WK: file_path
+        WK->>Queue: update_job(success)
     else return content
-        RQ->>Queue: update_job(result)
+        WK->>Queue: update_job(result)
     end
 
     Note over Claude,FW: Speed varies by model:<br/>small: 3x real-time<br/>large: 1.25x real-time
@@ -251,8 +254,8 @@ sequenceDiagram
 sequenceDiagram
     participant Claude
     participant MCP as MCP Server
-    participant Redis
-    participant RQ as RQ Worker
+    participant DB as SQLite DB
+    participant WK as Queue Worker
     participant Tools as YouTube/Crawl4AI/Whisper
     participant FS as File System
 
@@ -261,40 +264,40 @@ sequenceDiagram
     MCP->>MCP: Validate Items<br/>Check Limits
 
     alt auto_queue=true AND items > 10
-        MCP->>Redis: create_batch_job(items)
-        Redis-->>MCP: batch_id
+        MCP->>DB: create_batch_job(items)
+        DB-->>MCP: batch_id
         MCP-->>Claude: Queued: batch_id
 
-        Note over RQ: Worker starts batch
-        RQ->>Redis: get_batch_items(batch_id)
+        Note over WK: Worker starts batch
+        WK->>DB: get_batch_items(batch_id)
     else immediate execution
         MCP->>MCP: items = batch_items
     end
 
     loop For each item
         alt skip_existing=true
-            RQ->>FS: check_file_exists()
+            WK->>FS: check_file_exists()
             alt file exists
-                RQ->>RQ: Skip item
-                RQ->>Redis: update_progress(skipped)
+                WK->>WK: Skip item
+                WK->>DB: update_progress(skipped)
             end
         end
 
-        RQ->>Tools: process_item(item)
-        Tools-->>RQ: result
+        WK->>Tools: process_item(item)
+        Tools-->>WK: result
 
         alt success
-            RQ->>FS: write_file(output)
-            RQ->>Redis: update_progress(success)
+            WK->>FS: write_file(output)
+            WK->>DB: update_progress(success)
         else failure
-            RQ->>Redis: update_progress(failure, error)
+            WK->>DB: update_progress(failure, error)
         end
 
-        Note over RQ: Respect concurrency limit<br/>Add delay between requests
+        Note over WK: Respect concurrency limit<br/>Add delay between requests
     end
 
-    RQ->>RQ: Generate Summary Report
-    RQ->>Redis: finalize_batch(summary)
+    WK->>WK: Generate Summary Report
+    WK->>DB: finalize_batch(summary)
 
     Note over Claude,FS: Real-time progress via<br/>get_batch_progress(batch_id)
 ```
@@ -367,16 +370,12 @@ graph TB
         DEC[Auto-Queue Decision]
     end
 
-    subgraph "Redis Queue"
-        Q1[Default Queue]
-        Q2[Transcription Queue]
-        Q3[Download Queue]
+    subgraph "SQLite Job Queue"
+        DB[(SQLite Database<br/>Jobs Table)]
     end
 
-    subgraph "Worker Pool"
-        W1[RQ Worker 1]
-        W2[RQ Worker 2]
-        W3[RQ Worker 3]
+    subgraph "Worker"
+        WK[Queue Worker]
     end
 
     subgraph "Job Processing"
@@ -397,17 +396,11 @@ graph TB
     EST -->|Duration Check| DEC
 
     DEC -->|< 1:45 min| MCP
-    DEC -->|> 1:45 min| Q1
-    DEC -->|Transcription| Q2
-    DEC -->|Download| Q3
+    DEC -->|> 1:45 min| DB
 
-    Q1 -.->|Poll| W1
-    Q2 -.->|Poll| W2
-    Q3 -.->|Poll| W3
+    DB -.->|Poll| WK
 
-    W1 --> PROC
-    W2 --> PROC
-    W3 --> PROC
+    WK --> PROC
 
     PROC --> TOOLS
     TOOLS --> FS
@@ -422,9 +415,7 @@ graph TB
     RES -.->|Retrieve| Claude
 
     style DEC fill:#f39c12,stroke:#333,stroke-width:2px
-    style Q1 fill:#dc382d,stroke:#333,stroke-width:2px
-    style Q2 fill:#dc382d,stroke:#333,stroke-width:2px
-    style Q3 fill:#dc382d,stroke:#333,stroke-width:2px
+    style DB fill:#3498db,stroke:#333,stroke-width:2px
     style PROC fill:#2ecc71,stroke:#333,stroke-width:2px
 ```
 
@@ -434,7 +425,7 @@ graph TB
 stateDiagram-v2
     [*] --> Submitted: Tool call with auto_queue
 
-    Submitted --> Queued: Add to Redis queue
+    Submitted --> Queued: Add to SQLite queue
     Queued --> Started: Worker picks up job
 
     Started --> Processing: Execute tool logic
@@ -482,8 +473,8 @@ stateDiagram-v2
 - Extract page content and convert to markdown
 - Provide tab management UI
 
-### RQ Worker
-- Poll Redis queues for background jobs
+### Queue Worker
+- Poll SQLite database for background jobs
 - Execute long-running tasks
 - Update job progress and status
 - Handle retries and error reporting
@@ -492,7 +483,10 @@ stateDiagram-v2
 ### Docker Services
 - **Crawl4AI**: Web scraping with JavaScript rendering
 - **Docling**: Document conversion with OCR
-- **Redis**: Job queue and state management
+
+### Local Services
+- **SQLite Database**: Job queue and state management
+- **Relay Server**: WebSocket bridge for browser extension
 
 ### Converters
 - **YouTube Tools**: Transcript extraction and video downloads
@@ -523,7 +517,7 @@ stateDiagram-v2
 ### Service Isolation
 1. Docker services run in isolated containers
 2. Host-based components use local-only connections
-3. Redis queue isolated to localhost:6380
+3. SQLite job database stored locally
 4. No external network access except for intended APIs
 5. Configuration stored in user-specific directory
 
