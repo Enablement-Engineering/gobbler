@@ -81,7 +81,7 @@ gobbler batch youtube-playlist URL  # Batch processing
 
 ### 2. Skills (For AI Agents)
 
-Skills are markdown instruction files (`SKILL.md`) that Claude loads on-demand. Each skill contains YAML frontmatter for discovery, workflows for common tasks, and executable scripts:
+Skills are markdown instruction files (`SKILL.md`) that teach Claude how to use the `gobbler` CLI. Each skill contains YAML frontmatter for discovery and CLI commands for completing tasks:
 
 ```
 skills/
@@ -96,7 +96,7 @@ skills/
 └── gobbler-gemini/      # Gemini via browser
 ```
 
-Skills use **progressive disclosure**—Claude only loads skill metadata at startup, then reads full instructions when triggered.
+Skills use **progressive disclosure**—Claude only loads skill metadata at startup, then reads full CLI instructions when triggered.
 
 ### 3. MCP Protocol (For Claude Desktop/Code)
 
@@ -161,7 +161,7 @@ gobbler batch webpages urls.txt --output-dir ./pages
 
 ## Architecture
 
-Gobbler provides three interfaces (CLI, Skills, MCP) that all share the same backend:
+Gobbler provides three interfaces that all use the same CLI and backends:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -170,7 +170,7 @@ Gobbler provides three interfaces (CLI, Skills, MCP) that all share the same bac
                │              │              │
       ┌────────▼────┐  ┌──────▼─────┐  ┌─────▼─────┐
       │   Skills    │  │  gobbler   │  │    MCP    │
-      │ (UV scripts)│  │    CLI     │  │  Server   │
+      │(CLI instrs) │  │    CLI     │  │  Server   │
       └────────┬────┘  └──────┬─────┘  └─────┬─────┘
                │              │              │
                └──────────────┼──────────────┘
@@ -187,6 +187,8 @@ Gobbler provides three interfaces (CLI, Skills, MCP) that all share the same bac
     │ (local) │        │ (Docker)  │       │(Docker) │
     └─────────┘        └───────────┘       └─────────┘
 ```
+
+**Skills** are markdown files that teach Claude which CLI commands to run. **MCP** exposes the same functionality as tools for Claude Desktop/Code.
 
 ## Installation
 

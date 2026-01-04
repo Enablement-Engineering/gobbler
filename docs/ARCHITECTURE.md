@@ -19,9 +19,9 @@ Gobbler converts content to markdown through three interfaces that share the sam
 
 - **CLI** - Direct command-line usage (`gobbler youtube URL`)
 - **MCP Server** - For Claude Desktop/Code via Model Context Protocol
-- **Skills** - Context-efficient UV scripts for Claude Code
+- **Skills** - Markdown instructions that teach Claude how to use the CLI
 
-All three interfaces call the same provider layer, which connects to:
+All three interfaces use the same provider layer, which connects to:
 
 - **YouTube APIs** - Transcript extraction
 - **Crawl4AI** (Docker) - Web scraping with JavaScript rendering

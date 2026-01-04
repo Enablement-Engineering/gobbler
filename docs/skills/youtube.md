@@ -284,22 +284,3 @@ gobbler youtube "URL" --language de  # German
 gobbler youtube "URL" --language ja  # Japanese
 ```
 
-## Skills Usage
-
-When using Gobbler as a Claude Code skill:
-
-```bash
-cd skills/gobbler-youtube/scripts
-
-# Basic transcription
-uv run transcribe.py "https://youtube.com/watch?v=VIDEO_ID"
-
-# With provider selection
-uv run transcribe.py "https://youtube.com/watch?v=VIDEO_ID" --provider auto
-
-# Download video
-uv run download.py "https://youtube.com/watch?v=VIDEO_ID" --output-dir ./downloads
-
-# Get metadata only
-uv run get_metadata.py "https://youtube.com/watch?v=VIDEO_ID"
-```

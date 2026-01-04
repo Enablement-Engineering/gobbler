@@ -82,7 +82,7 @@ gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 === "Skills"
 
-    Markdown instruction files for AI agents. Skills provide progressive disclosure—AI only loads what it needs.
+    Markdown instruction files that teach Claude how to use the CLI. Skills provide progressive disclosure—AI only loads what it needs.
     
     [:octicons-arrow-right-24: Learn about Skills](SKILLS.md)
 
