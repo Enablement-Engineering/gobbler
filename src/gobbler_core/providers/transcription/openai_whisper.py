@@ -312,7 +312,7 @@ class OpenAIWhisperProvider(TranscriptionProvider):
 
         try:
             # Extract audio using ffmpeg with aggressive compression
-            result = subprocess.run(  # noqa: S603, S607
+            result = subprocess.run(
                 [
                     "ffmpeg",
                     "-i",

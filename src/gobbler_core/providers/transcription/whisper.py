@@ -269,7 +269,7 @@ class WhisperLocalProvider(TranscriptionProvider):
 
         try:
             # Extract audio using ffmpeg
-            result = subprocess.run(  # noqa: S603 S607
+            result = subprocess.run(
                 [
                     "ffmpeg",
                     "-i",

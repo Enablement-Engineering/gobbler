@@ -48,7 +48,7 @@ class Crawl4AIProvider(WebPageProvider):
     def __init__(
         self,
         service_url: str = "http://localhost:11235",
-        api_token: str = "gobbler-local-token",  # noqa: S107
+        api_token: str = "gobbler-local-token",  # nosec B107 # noqa: S107 # nosec B107
         proxy_url: str | None = None,
     ) -> None:
         """Initialize the Crawl4AI provider.

@@ -282,9 +282,11 @@ exclude_dirs = [
 skips = [
     "B101",  # assert_used (needed for pytest)
     "B404",  # import_subprocess - we use subprocess safely with list args, not shell
+    "B603",  # subprocess_without_shell_equals_true - we use list args, not shell=True
+    "B607",  # start_process_with_partial_path - ffmpeg path varies by system
 ]
-# Note: We run bandit with default severity to catch all issues.
-# Individual false positives are suppressed with inline # nosec comments.
+# Note: B107 (hardcoded passwords) is NOT skipped globally to catch real issues.
+# Use inline # nosec B107 comments for intentional local dev tokens.
 
 [tool.interrogate]
 # Docstring coverage configuration
