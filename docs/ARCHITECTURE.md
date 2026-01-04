@@ -1,3 +1,7 @@
+---
+icon: material/sitemap
+---
+
 # Gobbler Architecture
 
 This document provides an in-depth explanation of Gobbler's architecture, design decisions, and integration strategies.
@@ -188,6 +192,8 @@ The provider layer implements a **pluggable backend abstraction** that enables s
 
 #### Provider Registry Pattern
 
+The `ProviderRegistry` class serves as the central coordinator for all provider types. It maintains a mapping of category → name → provider class, enabling dynamic provider discovery and instantiation.
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     ProviderRegistry                         │
@@ -208,32 +214,188 @@ The provider layer implements a **pluggable backend abstraction** that enables s
 └───────────────┘     └───────────────┘     └───────────────┘
 ```
 
+**Key Registry Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `register(category, name, cls)` | Register a provider class under category/name |
+| `create(category, name, **kwargs)` | Instantiate a provider with configuration |
+| `list_providers(category)` | List all registered providers for a category |
+| `get_provider_info(category, name)` | Get metadata about a specific provider |
+
 #### Base Classes
 
-Each provider category defines an abstract base class:
+Each provider category defines an abstract base class that all implementations must follow:
 
-| Category | Base Class | Key Method | Result Type |
-|----------|------------|------------|-------------|
-| `transcription` | `TranscriptionProvider` | `transcribe(path, language)` | `TranscriptionResult` |
-| `document` | `DocumentProvider` | `convert(path, ocr)` | `DocumentResult` |
-| `webpage` | `WebPageProvider` | `fetch(url, timeout)` | `WebPageResult` |
+| Category | Base Class | Result Type |
+|----------|------------|-------------|
+| `transcription` | `TranscriptionProvider` | `TranscriptionResult` |
+| `document` | `DocumentProvider` | `DocumentResult` |
+| `webpage` | `WebPageProvider` | `WebPageResult` |
 
-#### Registration and Discovery
-
-Providers self-register at module import time:
+**Base Class Interface Example:**
 
 ```python
-# In whisper.py
+class TranscriptionProvider(ABC):
+    """Abstract base for transcription providers."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Provider identifier (e.g., 'whisper-local')."""
+
+    @abstractmethod
+    async def transcribe(
+        self,
+        audio_path: Path,
+        language: str = "auto",
+        **options,
+    ) -> TranscriptionResult:
+        """Transcribe audio to text."""
+
+    @abstractmethod
+    def supports_format(self, extension: str) -> bool:
+        """Check if audio format is supported."""
+```
+
+#### Provider Lookup Flow
+
+When a CLI command or MCP tool requests a specific provider, this flow executes:
+
+```
+CLI --provider flag / MCP tool parameter
+        ↓
+ProviderRegistry.create(category, name, **config)
+        ↓
+Registry looks up provider class by category + name
+        ↓
+Provider class instantiated with merged config
+        ↓
+Provider instance returned
+        ↓
+Converter uses provider.convert() / provider.transcribe()
+```
+
+**Example Flow:**
+
+```bash
+# CLI invocation
+gobbler audio transcribe recording.mp3 --provider whisper-local --model small
+```
+
+```python
+# Internal execution
+provider = ProviderRegistry.create(
+    category="transcription",
+    name="whisper-local",
+    model="small"  # passed as kwargs
+)
+result = await provider.transcribe(Path("recording.mp3"))
+```
+
+#### Registration Methods
+
+Providers can register themselves in two ways:
+
+**1. Self-Registration at Import (Recommended)**
+
+Providers register themselves when their module is imported:
+
+```python
+# In gobbler_core/providers/transcription/whisper.py
 from gobbler_core.providers.registry import ProviderRegistry
+from gobbler_core.providers.transcription.base import TranscriptionProvider
 
 class WhisperLocalProvider(TranscriptionProvider):
-    ...
+    @property
+    def name(self) -> str:
+        return "whisper-local"
+
+    async def transcribe(self, audio_path, language="auto", **options):
+        # Implementation using faster-whisper
+        ...
 
 # Self-registration at module load
 ProviderRegistry.register("transcription", "whisper-local", WhisperLocalProvider)
 ```
 
-This enables automatic discovery of all available providers.
+**2. Decorator-Based Registration**
+
+For cleaner syntax, use the `@register_provider` decorator:
+
+```python
+from gobbler_core.providers.registry import register_provider
+
+@register_provider("transcription", "whisper-local")
+class WhisperLocalProvider(TranscriptionProvider):
+    ...
+```
+
+Both methods enable automatic discovery when the provider module is imported.
+
+#### Configuration Integration
+
+The `config.yaml` providers section maps directly to registry lookups:
+
+```yaml
+# config.yaml
+providers:
+  transcription:
+    default: whisper-local
+    whisper-local:
+      model: small
+      device: auto
+      compute_type: float16
+
+  document:
+    default: docling
+    docling:
+      url: http://localhost:5001
+      timeout: 120
+
+  webpage:
+    default: crawl4ai
+    crawl4ai:
+      url: http://localhost:11235
+      timeout: 60
+```
+
+**Configuration Resolution:**
+
+```python
+from gobbler_mcp.config import get_config
+
+config = get_config()
+
+# Get default provider for category
+default_name = config.providers["transcription"]["default"]  # "whisper-local"
+
+# Get provider-specific config
+provider_config = config.providers["transcription"]["whisper-local"]
+# {"model": "small", "device": "auto", "compute_type": "float16"}
+
+# Create provider with config
+provider = ProviderRegistry.create(
+    category="transcription",
+    name=default_name,
+    **provider_config
+)
+```
+
+**CLI Override:**
+
+Users can override the default provider via CLI flags:
+
+```bash
+# Use default from config
+gobbler audio transcribe audio.mp3
+
+# Override with specific provider
+gobbler audio transcribe audio.mp3 --provider whisper-local
+
+# Override with provider + options
+gobbler audio transcribe audio.mp3 --provider whisper-local --model large-v3
+```
 
 #### Available Providers
 

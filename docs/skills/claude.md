@@ -1,3 +1,7 @@
+---
+icon: material/robot
+---
+
 # Claude.ai Integration
 
 Send messages to and receive responses from Claude.ai through the Gobbler CLI.

@@ -1,3 +1,7 @@
+---
+icon: material/swap-horizontal
+---
+
 # Providers
 
 Gobbler uses a **provider abstraction** system that allows pluggable backends for content conversion. This enables swapping between local and cloud-based services, adding new backends without changing application code, and graceful fallback between multiple providers.
@@ -8,7 +12,7 @@ Providers are organized by **category** (the type of content they process):
 
 | Category | Purpose | Available Providers |
 |----------|---------|---------------------|
-| `transcription` | Audio/video to text | `whisper-local` |
+| `transcription` | Audio/video to text | `whisper-local`, `openai-whisper` |
 | `document` | PDF, DOCX, PPTX, XLSX to markdown | `docling` |
 | `webpage` | Web pages to markdown | `crawl4ai` |
 
@@ -21,6 +25,7 @@ Each category has a default provider that can be overridden via configuration or
 | Provider | Description | Requirements |
 |----------|-------------|--------------|
 | `whisper-local` | Local transcription using faster-whisper with CoreML acceleration on M-series Macs | ffmpeg |
+| `openai-whisper` | Cloud-based transcription using OpenAI Whisper API | `OPENAI_API_KEY` |
 
 #### whisper-local
 
@@ -41,6 +46,30 @@ Uses the [faster-whisper](https://github.com/guillaumekln/faster-whisper) librar
 | **small** | ~6x realtime | Good | ~2GB | **Default** |
 | medium | ~2x realtime | Better | ~5GB | Important content |
 | large | ~1x realtime | Best | ~10GB | Critical accuracy |
+
+#### openai-whisper
+
+Uses the [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) for cloud-based transcription with high accuracy.
+
+**Features:**
+- High-quality cloud transcription
+- Automatic language detection
+- Word-level timestamps
+- No local hardware requirements
+- Automatic audio extraction and compression for large files
+
+**Configuration:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `api_key` | string | `$OPENAI_API_KEY` | OpenAI API key |
+| `model` | string | `whisper-1` | OpenAI Whisper model |
+| `timeout` | float | `120.0` | Request timeout in seconds |
+
+**File size handling:**
+- OpenAI API has a 25MB file limit
+- Files exceeding 25MB are automatically compressed via ffmpeg
+- Audio is extracted to mono 16kHz MP3 at 64kbps for optimal compression
 
 ### Document Providers
 
@@ -122,6 +151,18 @@ providers:
       device: auto          # auto, cpu, cuda, mps
 ```
 
+#### openai-whisper
+
+```yaml
+providers:
+  transcription:
+    default: openai-whisper
+    openai-whisper:
+      api_key: ${OPENAI_API_KEY}  # Or set directly
+      model: whisper-1
+      timeout: 120
+```
+
 #### docling
 
 ```yaml
@@ -153,7 +194,7 @@ Provider configuration can also be set via environment variables:
 | `GOBBLER_WHISPER_MODEL` | Default Whisper model | `small` |
 | `GOBBLER_DOCLING_URL` | Docling service URL | `http://localhost:5001` |
 | `GOBBLER_CRAWL4AI_URL` | Crawl4AI service URL | `http://localhost:11235` |
-| `OPENAI_API_KEY` | OpenAI API key (for future openai-whisper provider) | - |
+| `OPENAI_API_KEY` | OpenAI API key (required for `openai-whisper` provider) | - |
 
 ## CLI Usage
 
@@ -218,8 +259,11 @@ Description:
 Override the default provider for any conversion command:
 
 ```bash
-# Audio transcription with specific provider
+# Audio transcription with local Whisper
 gobbler audio recording.mp3 --provider whisper-local
+
+# Audio transcription with OpenAI API (requires OPENAI_API_KEY)
+gobbler audio recording.mp3 --provider openai-whisper
 
 # Document conversion (provider override)
 gobbler document report.pdf --provider docling
@@ -335,11 +379,12 @@ The provider abstraction uses a registry pattern:
                               │
         ┌─────────────────────┼─────────────────────┐
         ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│ transcription │     │   document    │     │   webpage     │
-├───────────────┤     ├───────────────┤     ├───────────────┤
-│ whisper-local │     │   docling     │     │   crawl4ai    │
-└───────────────┘     └───────────────┘     └───────────────┘
+┌────────────────┐    ┌───────────────┐     ┌───────────────┐
+│  transcription │    │   document    │     │   webpage     │
+├────────────────┤    ├───────────────┤     ├───────────────┤
+│ whisper-local  │    │   docling     │     │   crawl4ai    │
+│ openai-whisper │    │               │     │               │
+└────────────────┘    └───────────────┘     └───────────────┘
 ```
 
 ### Base Classes

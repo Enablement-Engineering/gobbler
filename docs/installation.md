@@ -1,3 +1,7 @@
+---
+icon: material/download
+---
+
 # Installation
 
 Complete installation guide for Gobbler.
@@ -68,6 +72,9 @@ make install
 
 # With development dependencies (for contributing)
 make dev
+
+# Optional: For browser automation features
+uv run playwright install chromium
 ```
 
 ### 3. Start Docker Services (Optional)
@@ -77,11 +84,16 @@ Docker services are needed for:
 - **Web scraping** (Crawl4AI)
 - **Document conversion** (Docling)
 
+!!! note "Docker Resource Requirements"
+    - **Docling** needs ~8GB RAM
+    - **Crawl4AI** needs ~2GB RAM
+    - Initial Docker image downloads can be large
+
 ```bash
 # Start all services
 make start-docker
 
-# Check service health
+# Check status
 make status
 ```
 
@@ -148,7 +160,7 @@ Restart Claude Code after configuration.
 
 ## Configuration
 
-Gobbler uses a YAML configuration file at `~/.config/gobbler/config.yaml`:
+Gobbler uses a YAML configuration file at `~/.config/gobbler/config.yml`:
 
 ```yaml
 services:

@@ -1,3 +1,7 @@
+---
+icon: material/rocket-launch
+---
+
 # Gobbler MCP - Quick Start Guide
 
 Get up and running with Gobbler in 5 minutes! This guide covers the essentials to get your first transcription.
@@ -68,14 +72,14 @@ You should see:
 If you want to use Gobbler's full feature set (web scraping, document conversion):
 
 ```bash
-# Start Docker services
+# Start all services (recommended)
 make start
 
 # Verify services are running
 make status
 ```
 
-This starts:
+This starts Docker services AND the background worker:
 - **Crawl4AI** - Web scraping with JavaScript rendering
 - **Docling** - Document conversion (PDF, DOCX, PPTX, XLSX)
 - **Redis** - Background job queue
@@ -111,13 +115,13 @@ sudo systemctl start docker
 ### Issue: "Services unavailable"
 **Solution:** Start the services:
 ```bash
-make start-docker
+make start
 ```
 
 ### Issue: YouTube transcription works, but web scraping doesn't
 **Solution:** This is normal! YouTube transcription doesn't need Docker. For web scraping:
 ```bash
-make start-docker
+make start
 ```
 
 ## What You Can Do Without Docker
@@ -159,7 +163,7 @@ Now that you're up and running:
 
 3. **Explore skills** - See all available skills in the [Skills Reference](SKILLS.md)
 
-4. **Configure Gobbler** - Customize settings at `~/.config/gobbler/config.yml` (optional)
+4. **Configure Gobbler** - Customize settings in `~/.config/gobbler/config.yml` (optional)
 
 ## Getting Help
 

@@ -1,3 +1,7 @@
+---
+icon: material/lightning-bolt
+---
+
 # Gobbler Skills
 
 Claude Code Skills that bypass MCP entirely, using UV single-file scripts with inline dependencies. Skills provide progressive disclosure - only loading when relevant - saving ~65% context compared to always-loaded MCP tool definitions.

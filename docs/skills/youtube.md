@@ -1,3 +1,7 @@
+---
+icon: material/youtube
+---
+
 # YouTube Transcription
 
 Convert YouTube videos to markdown transcripts.

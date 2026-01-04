@@ -1,3 +1,7 @@
+---
+icon: material/heart
+---
+
 # Contributing
 
 Thank you for your interest in contributing to Gobbler!

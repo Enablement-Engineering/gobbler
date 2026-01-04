@@ -1,3 +1,7 @@
+---
+icon: material/google-chrome
+---
+
 # Browser Control
 
 Control the browser via the Gobbler CLI and browser extension.

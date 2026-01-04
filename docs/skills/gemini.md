@@ -1,3 +1,7 @@
+---
+icon: material/google
+---
+
 # Gemini Integration
 
 Send messages to and receive responses from Google Gemini through the Gobbler CLI.

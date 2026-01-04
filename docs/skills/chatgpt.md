@@ -1,3 +1,7 @@
+---
+icon: material/chat
+---
+
 # ChatGPT Integration
 
 Send messages to and receive responses from ChatGPT through the Gobbler CLI.

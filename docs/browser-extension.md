@@ -1,3 +1,7 @@
+---
+icon: material/puzzle
+---
+
 # Browser Extension
 
 The Gobbler browser extension enables bidirectional communication between Gobbler and your browser, allowing extraction of authenticated content and browser automation.
@@ -80,6 +84,21 @@ gobbler browser status
 
 ```bash
 gobbler browser list
+
+# Filter by page type
+gobbler browser list --filter notebooklm
+gobbler browser list --filter claude
+
+# JSON output for scripting
+gobbler browser list --json
+```
+
+### Open URLs in Gobbler Tab Group
+
+```bash
+# Open URLs in Gobbler tab group
+gobbler browser open "https://example.com"
+gobbler browser open "url1" "url2" "url3"
 ```
 
 ### Extract Page
@@ -88,7 +107,7 @@ gobbler browser list
 # Full page
 gobbler browser extract -o page.md
 
-# With selector
+# With selector (experimental)
 gobbler browser extract --selector "article.content" -o article.md
 ```
 

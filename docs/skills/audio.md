@@ -1,3 +1,7 @@
+---
+icon: material/microphone
+---
+
 # Audio Transcription
 
 Transcribe audio and video files to markdown using Whisper.
@@ -51,32 +55,51 @@ Audio is extracted automatically from video files.
 
 ## Choosing a Provider
 
-Gobbler supports multiple transcription providers through its [provider abstraction](../providers.md). Currently available:
+Gobbler supports multiple transcription providers:
 
-| Provider | Description | Best For |
-|----------|-------------|----------|
-| `whisper-local` | Local transcription using faster-whisper | Privacy, offline use, large volumes |
+| Provider | Description |
+|----------|-------------|
+| `whisper-local` | Local transcription using faster-whisper (default) |
+| `openai-whisper` | OpenAI's Whisper API |
 
-### whisper-local vs API Providers
-
-**whisper-local (default)**:
-- Fully offline - no API keys or internet required
-- CoreML acceleration on M-series Macs
-- No per-request costs
-- Your audio never leaves your machine
-
-**Future API providers** (planned):
-- OpenAI Whisper API - no local setup, latest models
-- Deepgram - real-time streaming support
-
-### Using --provider Flag
+### Selecting a Provider
 
 ```bash
-# Explicit provider selection
-gobbler audio recording.mp3 --provider whisper-local
+# Use default (whisper-local)
+gobbler audio file.mp3
 
-# With model options
-gobbler audio recording.mp3 --provider whisper-local --model medium
+# Use OpenAI Whisper API
+gobbler audio file.mp3 --provider openai-whisper
+```
+
+### Provider Comparison
+
+| Provider | Cost | Speed | Privacy | Setup |
+|----------|------|-------|---------|-------|
+| whisper-local | Free | Depends on hardware | Data stays local | Just ffmpeg |
+| openai-whisper | ~$0.006/min | Fast | Data sent to OpenAI | API key required |
+
+### When to Use Each
+
+**whisper-local (default)**:
+- Privacy-sensitive content
+- No API costs
+- Offline usage
+- Your audio never leaves your machine
+
+**openai-whisper**:
+- Long files where faster processing is needed
+- Consistent quality regardless of hardware
+- When you don't want to download models locally
+
+### Setup
+
+**whisper-local**: No API key needed. Models auto-download on first use.
+
+**openai-whisper**: Requires `OPENAI_API_KEY` environment variable:
+
+```bash
+export OPENAI_API_KEY=sk-...
 ```
 
 ## Alternative Command

@@ -1,3 +1,7 @@
+---
+icon: material/wrench
+---
+
 # Setup & Troubleshooting
 
 Complete guide for diagnosing and fixing Gobbler issues.

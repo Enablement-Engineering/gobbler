@@ -1,3 +1,7 @@
+---
+icon: material/api
+---
+
 # API Reference
 
 Complete API specification for Gobbler MCP tools.

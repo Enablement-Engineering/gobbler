@@ -1,39 +1,118 @@
 # Gobbler
 
 <p align="center">
-  <img src="assets/Gobby Feasting (small).png" alt="Gobby the Turkey mascot consuming PDF, HTML, DOCX, and VIDEO files, outputting clean MD blocks" width="400">
+  <img src="assets/Gobby Feasting (small).png" alt="Gobby the Turkey mascot" width="300">
 </p>
 
-**Universal Content Conversion to Markdown for AI**
+<p align="center">
+  <strong>Universal Content Conversion to Markdown for AI</strong>
+</p>
 
-Gobbler transforms any content—YouTube videos, web pages, documents, audio files, even live browser sessions—into clean, structured markdown that AI systems can immediately reason about.
-
----
-
-## The Problem
-
-AI assistants work best with markdown. But content exists in countless formats—PDFs, videos, web pages behind logins, audio recordings. Getting that content into a format AI can use requires:
-
-- Different tools for each content type
-- Custom scripts to extract and format
-- Lost metadata and inconsistent output
-- No unified way for AI agents to access content
-
-**Gobbler solves this.** One tool, one output format, multiple access patterns.
+<p align="center">
+  <a href="QUICK_START/">Get Started</a> &nbsp;|&nbsp;
+  <a href="cli/">CLI Reference</a> &nbsp;|&nbsp;
+  <a href="https://github.com/Enablement-Engineering/gobbler">GitHub</a>
+</p>
 
 ---
 
-## Quick Example
+## What is Gobbler?
+
+Gobbler transforms any content into clean, structured markdown that AI systems can immediately use:
 
 ```bash
-# Every content type -> Same pattern -> Same output format
 gobbler youtube "https://youtube.com/watch?v=..." -o transcript.md
 gobbler document report.pdf -o report.md
 gobbler audio meeting.mp3 -o meeting.md
 gobbler webpage "https://docs.example.com" -o docs.md
 ```
 
-Every conversion produces **markdown with YAML frontmatter**:
+**One tool. One output format. Every content type.**
+
+---
+
+## Install in 60 Seconds
+
+```bash
+# Clone and install
+git clone https://github.com/Enablement-Engineering/gobbler.git
+cd gobbler && make install
+
+# Try it
+gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+```
+
+[:octicons-arrow-right-24: Full installation guide](installation.md)
+
+---
+
+## What Can Gobbler Convert?
+
+| Content | Command | Requirements |
+|---------|---------|--------------|
+| YouTube videos | `gobbler youtube URL` | None |
+| Audio/video files | `gobbler audio FILE` | ffmpeg |
+| PDF, DOCX, PPTX, XLSX | `gobbler document FILE` | Docker |
+| Web pages | `gobbler webpage URL` | Docker |
+| Browser sessions | `gobbler browser extract` | Browser extension |
+
+---
+
+## Three Ways to Use Gobbler
+
+=== "CLI"
+
+    Direct command-line usage for humans and scripts:
+    
+    ```bash
+    gobbler youtube "URL" -o transcript.md
+    gobbler audio recording.mp3 --model medium
+    gobbler document report.pdf --no-ocr
+    ```
+
+=== "MCP Protocol"
+
+    For Claude Desktop and Claude Code:
+    
+    ```bash
+    claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
+    ```
+    
+    Then ask Claude: *"Transcribe this YouTube video: URL"*
+
+=== "Skills"
+
+    Markdown instruction files for AI agents. Skills provide progressive disclosure—AI only loads what it needs.
+    
+    [:octicons-arrow-right-24: Learn about Skills](SKILLS.md)
+
+---
+
+## Pluggable Providers
+
+Swap backends without changing your workflow:
+
+```bash
+# Use local Whisper (default, free, private)
+gobbler audio recording.mp3
+
+# Use OpenAI's API (faster, paid)
+gobbler audio recording.mp3 --provider openai-whisper
+```
+
+| Category | Providers |
+|----------|-----------|
+| Transcription | `whisper-local`, `openai-whisper` |
+| Documents | `docling` |
+| Web Pages | `crawl4ai` |
+
+[:octicons-arrow-right-24: Provider documentation](providers.md)
+
+---
+
+## Output Format
+
+Every conversion produces markdown with YAML frontmatter:
 
 ```markdown
 ---
@@ -42,7 +121,6 @@ type: youtube_transcript
 title: "Video Title"
 duration: 847
 word_count: 2341
-converted_at: 2026-01-03T10:30:00Z
 ---
 
 # Video Title
@@ -52,97 +130,32 @@ Content here, ready for AI consumption...
 
 ---
 
-## Three Ways to Use Gobbler
-
-### 1. CLI (For Humans & Scripts)
-
-```bash
-gobbler youtube URL              # YouTube transcripts
-gobbler audio FILE               # Audio/video transcription
-gobbler document FILE            # PDF, DOCX, PPTX, XLSX
-gobbler webpage URL              # Web pages (JS-rendered)
-gobbler batch youtube-playlist URL  # Batch processing
-```
-
-### 2. Skills (For AI Agents)
-
-Skills are markdown instruction files that teach AI agents how to use Gobbler. They provide **progressive disclosure**—AI only loads what it needs.
-
-### 3. MCP Protocol (For Claude Desktop/Code)
-
-```bash
-# Add to Claude Code
-claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
-```
-
----
-
-## Features at a Glance
-
-| Type | Command | Backend |
-|------|---------|---------|
-| YouTube | `gobbler youtube URL` | youtube-transcript-api |
-| Audio/Video | `gobbler audio FILE` | faster-whisper (local) |
-| Documents | `gobbler document FILE` | Docling (Docker) |
-| Web Pages | `gobbler webpage URL` | Crawl4AI (Docker) |
-
----
-
-## Get Started
+## Next Steps
 
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch:{ .lg .middle } **Quick Start**
 
-    ---
-
     Get up and running in 5 minutes
 
     [:octicons-arrow-right-24: Quick Start](QUICK_START.md)
 
--   :material-download:{ .lg .middle } **Installation**
+-   :material-console:{ .lg .middle } **CLI Reference**
 
-    ---
+    All commands and options
 
-    Detailed installation instructions
+    [:octicons-arrow-right-24: CLI Usage](cli.md)
 
-    [:octicons-arrow-right-24: Installation](installation.md)
+-   :material-cog:{ .lg .middle } **Configuration**
 
--   :material-book-open-variant:{ .lg .middle } **Skills Guide**
+    Customize Gobbler's behavior
 
-    ---
+    [:octicons-arrow-right-24: Configuration](configuration.md)
 
-    Learn about AI agent skills
+-   :material-puzzle:{ .lg .middle } **Browser Extension**
 
-    [:octicons-arrow-right-24: Skills](SKILLS.md)
+    Extract authenticated content
 
--   :material-code-braces:{ .lg .middle } **Architecture**
-
-    ---
-
-    Understand how Gobbler works
-
-    [:octicons-arrow-right-24: Architecture](ARCHITECTURE.md)
+    [:octicons-arrow-right-24: Browser Extension](browser-extension.md)
 
 </div>
-
----
-
-## Philosophy
-
-> **"Markdown is the lingua franca of human-AI communication."**
-
-Gobbler exists because:
-
-1. AI works best with structured text
-2. Content exists in many formats
-3. Converting content shouldn't require expertise in each format
-4. AI agents need reliable, documented procedures—not just raw tools
-
-We provide **excellent operating procedures** wrapped around excellent tools.
-
----
-
-## License
-
-MIT License - see [LICENSE](https://github.com/Enablement-Engineering/gobbler/blob/main/LICENSE) for details.

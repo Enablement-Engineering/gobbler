@@ -1,18 +1,26 @@
+---
+icon: material/cog
+---
+
 # Configuration
 
 Gobbler can be configured via YAML configuration file or environment variables.
 
 ## Configuration File
 
-Default location: `~/.config/gobbler/config.yaml`
+Default location: `~/.config/gobbler/config.yml`
 
 ### Full Example
 
 ```yaml
 # Service endpoints
 services:
-  docling: "http://localhost:5001"
-  crawl4ai: "http://localhost:11235"
+  crawl4ai:
+    host: localhost
+    port: 11235
+  docling:
+    host: localhost
+    port: 5001
 
 # Storage settings
 storage:
@@ -54,7 +62,7 @@ documents:
 # Queue settings
 queue:
   enabled: true
-  auto_queue_threshold: 10  # Auto-queue batches larger than this
+  auto_queue_threshold: 105  # Auto-queue jobs taking longer than this (seconds)
   default_timeout: "30m"    # Default job timeout
   queues:
     - default
@@ -74,12 +82,11 @@ Environment variables override config file settings:
 
 | Variable | Config Path | Description |
 |----------|-------------|-------------|
-| `GOBBLER_CONFIG` | - | Config file path |
-| `GOBBLER_LOG_LEVEL` | `logging.level` | Log level |
-| `GOBBLER_DOCLING_URL` | `services.docling` | Docling service URL |
-| `GOBBLER_CRAWL4AI_URL` | `services.crawl4ai` | Crawl4AI service URL |
 | `TRANSCRIPTAPI_KEY` | - | TranscriptAPI.com API key |
-| `GOBBLER_WHISPER_MODEL` | `whisper.model` | Default Whisper model |
+| `OPENAI_API_KEY` | - | OpenAI API key (for openai-whisper provider) |
+| `WEBSHARE_USER` | - | Webshare proxy username (for YouTube) |
+| `WEBSHARE_PASS` | - | Webshare proxy password (for YouTube) |
+| `YOUTUBE_PROXY` | - | Custom proxy URL for YouTube |
 
 ## Service Configuration
 
@@ -87,7 +94,9 @@ Environment variables override config file settings:
 
 ```yaml
 services:
-  docling: "http://localhost:5001"
+  docling:
+    host: localhost
+    port: 5001
 
 documents:
   enable_ocr: true
@@ -106,7 +115,9 @@ docling:
 
 ```yaml
 services:
-  crawl4ai: "http://localhost:11235"
+  crawl4ai:
+    host: localhost
+    port: 11235
 
 crawl:
   timeout: 30
@@ -123,35 +134,95 @@ crawl4ai:
 
 ## Providers
 
-Gobbler uses a provider abstraction system that allows pluggable backends for content conversion. Configure providers to set defaults and provider-specific options.
+Gobbler uses a provider abstraction system that allows pluggable backends for content conversion. Each content category (transcription, document, webpage) can have multiple provider implementations with independent configurations.
+
+### Provider Configuration
 
 ```yaml
-# Provider configuration
 providers:
   transcription:
-    default: whisper-local       # Default transcription provider
+    default: whisper-local
     whisper-local:
-      model: small               # Model size for whisper-local
-      device: auto               # auto, cpu, cuda, mps
+      model: small
+    openai-whisper:
+      model: whisper-1
+  document:
+    default: docling
+    docling:
+      ocr: true
+  webpage:
+    default: crawl4ai
+    crawl4ai:
+      timeout: 30
+```
+
+### Setting Default Providers
+
+Each category has a `default` key that specifies which provider to use when none is explicitly requested:
+
+```yaml
+providers:
+  transcription:
+    default: whisper-local    # Use local Whisper by default
+  document:
+    default: docling          # Use Docling by default
+  webpage:
+    default: crawl4ai         # Use Crawl4AI by default
+```
+
+When you run a conversion command without specifying a provider, Gobbler uses the configured default.
+
+### Provider-Specific Options
+
+Each provider can have its own configuration options nested under its name:
+
+```yaml
+providers:
+  transcription:
+    default: whisper-local
+    whisper-local:
+      model: small            # Model size: tiny, base, small, medium, large
+      device: auto            # Device: auto, cpu, cuda, mps
+      language: auto          # Language code or "auto" for detection
+    openai-whisper:
+      model: whisper-1        # OpenAI model name
+      # Requires OPENAI_API_KEY environment variable
 
   document:
-    default: docling             # Default document provider
+    default: docling
     docling:
-      service_url: http://localhost:5001
-      timeout: 120
+      ocr: true               # Enable OCR for scanned documents
+      timeout: 300            # Conversion timeout in seconds
 
   webpage:
-    default: crawl4ai            # Default webpage provider
+    default: crawl4ai
     crawl4ai:
-      service_url: http://localhost:11235
-      api_token: gobbler-local-token
+      timeout: 30             # Request timeout in seconds
+      respect_robots: true    # Respect robots.txt
 ```
+
+### CLI Provider Override
+
+The `--provider` flag on CLI commands overrides the config default:
+
+```bash
+# Use config default provider
+gobbler audio convert recording.mp3
+
+# Override to use OpenAI Whisper instead
+gobbler audio convert recording.mp3 --provider openai-whisper
+
+# Override webpage provider
+gobbler webpage convert https://example.com --provider crawl4ai
+```
+
+This allows you to set sensible defaults in your config while still having flexibility to use alternative providers on a per-command basis.
 
 ### Provider Categories
 
 | Category | Available Providers | Default |
 |----------|---------------------|---------|
-| `transcription` | `whisper-local` | `whisper-local` |
+| `transcription` | `whisper-local`, `openai-whisper` | `whisper-local` |
 | `document` | `docling` | `docling` |
 | `webpage` | `crawl4ai` | `crawl4ai` |
 
@@ -159,10 +230,7 @@ providers:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GOBBLER_WHISPER_MODEL` | Default Whisper model | `small` |
-| `GOBBLER_DOCLING_URL` | Docling service URL | `http://localhost:5001` |
-| `GOBBLER_CRAWL4AI_URL` | Crawl4AI service URL | `http://localhost:11235` |
-| `OPENAI_API_KEY` | OpenAI API key (for future providers) | - |
+| `OPENAI_API_KEY` | OpenAI API key (required for openai-whisper) | - |
 
 For detailed provider documentation, see [Providers](providers.md).
 
@@ -202,7 +270,7 @@ create_crawl_session(
 
 ```yaml
 queue:
-  auto_queue_threshold: 10  # Queue batches > 10 items
+  auto_queue_threshold: 105  # Queue jobs taking longer than this (seconds)
 
 # Per-tool limits (hardcoded):
 # - YouTube playlist: max 500 videos
@@ -226,7 +294,7 @@ Access metrics at `http://localhost:9090/metrics`.
 
 1. **Command-line arguments** (highest priority)
 2. **Environment variables**
-3. **Config file** (`~/.config/gobbler/config.yaml`)
+3. **Config file** (`~/.config/gobbler/config.yml`)
 4. **Default values** (lowest priority)
 
 ## Validation

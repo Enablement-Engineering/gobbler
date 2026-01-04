@@ -1,10 +1,23 @@
+---
+icon: material/console
+---
+
 # CLI Usage
 
 Gobbler provides a powerful command-line interface for content conversion.
 
 ## Provider Management
 
-Manage and inspect available content providers.
+Gobbler uses a pluggable provider system for content conversion. Each category (transcription, document, webpage) can have multiple provider implementations.
+
+### Available Providers
+
+| Category | Provider | Description |
+|----------|----------|-------------|
+| transcription | `whisper-local` | Local faster-whisper (default, no API key required) |
+| transcription | `openai-whisper` | OpenAI Whisper API (requires `OPENAI_API_KEY`) |
+| document | `docling` | Docling Docker service (default) |
+| webpage | `crawl4ai` | Crawl4AI Docker service (default) |
 
 ### List Providers
 
@@ -17,7 +30,7 @@ gobbler providers list --category transcription
 gobbler providers list -c document
 gobbler providers list -c webpage
 
-# JSON output
+# JSON output for scripting
 gobbler providers list --format json
 ```
 
@@ -26,6 +39,7 @@ gobbler providers list --format json
 ```bash
 # Get detailed information about a provider
 gobbler providers info transcription whisper-local
+gobbler providers info transcription openai-whisper
 gobbler providers info document docling
 gobbler providers info webpage crawl4ai
 
@@ -62,7 +76,7 @@ gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" --language es
 ### Audio/Video Transcription
 
 ```bash
-# Basic transcription
+# Basic transcription (uses whisper-local by default)
 gobbler audio meeting.mp3
 
 # Specify model size (tiny, base, small, medium, large)
@@ -71,24 +85,32 @@ gobbler audio meeting.mp3 --model small
 # Save to file
 gobbler audio interview.mp4 -o interview.md
 
-# Specify language
+# Specify language (skip auto-detection)
 gobbler audio podcast.mp3 --language en
 
-# Use specific provider (default: whisper-local)
-gobbler audio meeting.mp3 --provider whisper-local
+# Use OpenAI Whisper API (requires OPENAI_API_KEY)
+gobbler audio meeting.mp3 --provider openai-whisper
+
+# Use local Whisper explicitly
+gobbler audio meeting.mp3 --provider whisper-local --model medium
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--model` | Whisper model size | `small` |
-| `--language` | Audio language (ISO 639-1) | auto-detect |
-| `--provider` | Transcription provider | `whisper-local` |
+| `--model`, `-m` | Whisper model size | `small` |
+| `--language`, `-l` | Audio language (ISO 639-1) | auto-detect |
+| `--provider`, `-p` | Transcription provider | `whisper-local` |
 | `-o, --output` | Output file path | stdout |
+
+**Provider Notes:**
+
+- `whisper-local`: Runs locally using faster-whisper, no API key needed
+- `openai-whisper`: Uses OpenAI's Whisper API, requires `OPENAI_API_KEY` environment variable
 
 ### Document Conversion
 
 ```bash
-# PDF conversion
+# PDF conversion (uses docling by default)
 gobbler document report.pdf -o report.md
 
 # Without OCR (faster for digital PDFs)
@@ -103,38 +125,46 @@ gobbler document paper.docx -o paper.md
 # Excel spreadsheet
 gobbler document data.xlsx -o data.md
 
-# Use specific provider (default: docling)
-gobbler document report.pdf --provider docling
+# Explicitly specify provider
+gobbler document report.pdf --provider docling -o report.md
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--ocr/--no-ocr` | Enable/disable OCR | enabled |
-| `--provider` | Document provider | `docling` |
+| `--provider`, `-p` | Document provider | `docling` |
 | `-o, --output` | Output file path | stdout |
+
+**Provider Notes:**
+
+- `docling`: Requires the Docling Docker service running locally
 
 ### Web Page Conversion
 
 ```bash
-# Basic fetch
+# Basic fetch (uses crawl4ai by default)
 gobbler webpage "https://example.com/article"
 
 # Save to file
 gobbler webpage "https://docs.python.org" -o python-docs.md
 
-# With timeout
+# With timeout for slow sites
 gobbler webpage "https://slow-site.com" --timeout 60
 
-# Use specific provider (default: crawl4ai)
-gobbler webpage "https://example.com" --provider crawl4ai
+# Explicitly specify provider
+gobbler webpage "https://example.com" --provider crawl4ai -o page.md
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--selector` | CSS selector for content extraction | full page |
-| `--timeout` | Request timeout in seconds | 30 |
-| `--provider` | Webpage provider | `crawl4ai` |
+| `--selector`, `-s` | CSS selector for content extraction | full page |
+| `--timeout`, `-t` | Request timeout in seconds | 30 |
+| `--provider`, `-p` | Webpage provider | `crawl4ai` |
 | `-o, --output` | Output file path | stdout |
+
+**Provider Notes:**
+
+- `crawl4ai`: Requires the Crawl4AI Docker service running locally
 
 ## Batch Processing
 
@@ -145,8 +175,8 @@ gobbler webpage "https://example.com" --provider crawl4ai
 gobbler batch youtube-playlist "https://youtube.com/playlist?list=PLxxx" \
     --output-dir ./transcripts
 
-# Limit number of videos
-gobbler batch youtube-playlist "URL" --max-videos 10 -o ./transcripts
+# With custom output directory
+gobbler batch youtube-playlist "URL" -o ./transcripts
 ```
 
 ### Directory Processing
@@ -166,13 +196,7 @@ gobbler batch directory ./files --recursive -o ./output
 
 ```bash
 # Process URLs from file
-gobbler batch webpages urls.txt --output-dir ./pages
-
-# Process URLs directly
-gobbler batch webpages \
-    "https://example.com/page1" \
-    "https://example.com/page2" \
-    -o ./pages
+gobbler batch webpages urls.txt -o ./pages
 ```
 
 ## Browser Automation
@@ -221,8 +245,6 @@ Content here...
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--output` | `-o` | Output file path |
-| `--quiet` | `-q` | Suppress progress output |
-| `--verbose` | `-v` | Show detailed output |
 | `--help` | `-h` | Show help message |
 
 ## Environment Variables
@@ -230,6 +252,7 @@ Content here...
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `GOBBLER_CONFIG` | Config file path | `~/.config/gobbler/config.yaml` |
+| `OPENAI_API_KEY` | OpenAI API key (for `openai-whisper` provider) | None |
 | `TRANSCRIPTAPI_KEY` | TranscriptAPI.com API key | None |
 | `GOBBLER_LOG_LEVEL` | Logging level | `INFO` |
 
@@ -243,6 +266,17 @@ Content here...
 | 3 | Service unavailable |
 | 4 | File not found |
 | 5 | Network error |
+
+## Additional Commands
+
+The following command groups are also available:
+
+| Command | Description |
+|---------|-------------|
+| `gobbler relay` | Browser relay server management |
+| `gobbler daemon` | Daemon management |
+| `gobbler jobs` | Background job queue management |
+| `gobbler completion` | Shell completion scripts |
 
 ## Examples
 
@@ -273,10 +307,6 @@ gobbler batch status
 ### Documentation Archival
 
 ```bash
-# Archive entire documentation site
-gobbler batch webpages \
-    "https://docs.example.com/intro" \
-    "https://docs.example.com/api" \
-    "https://docs.example.com/guides" \
-    -o ./archive
+# Archive documentation site pages from a file
+gobbler batch webpages doc-urls.txt -o ./archive
 ```

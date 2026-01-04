@@ -1,3 +1,7 @@
+---
+icon: material/file-document
+---
+
 # Document Conversion
 
 Convert documents to markdown using the Docling service.

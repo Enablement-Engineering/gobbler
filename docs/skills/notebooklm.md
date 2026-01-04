@@ -1,3 +1,7 @@
+---
+icon: material/notebook
+---
+
 # NotebookLM Integration
 
 Query Google NotebookLM notebooks through the Gobbler CLI.

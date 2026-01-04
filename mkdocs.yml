@@ -8,22 +8,24 @@ repo_url: https://github.com/Enablement-Engineering/gobbler
 
 theme:
   name: material
-  logo: assets/Gobby Feasting (small).png
-  favicon: assets/Gobby Feasting (small).png
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  icon:
+    repo: fontawesome/brands/github
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep orange
-      accent: orange
+      primary: brown
+      accent: deep orange
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep orange
-      accent: orange
+      primary: brown
+      accent: deep orange
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -32,12 +34,13 @@ theme:
     - navigation.tracking
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
     - navigation.top
+    - navigation.indexes
     - search.suggest
     - search.highlight
     - content.code.copy
     - content.code.annotate
+    - toc.integrate
 
 plugins:
   - search
@@ -75,36 +78,35 @@ nav:
     - Quick Start: QUICK_START.md
     - Installation: installation.md
     - Setup & Troubleshooting: setup-troubleshooting.md
-  - User Guide:
+  - Guide:
     - CLI Usage: cli.md
     - Configuration: configuration.md
     - Browser Extension: browser-extension.md
     - Skills Overview: SKILLS.md
-  - Skills Reference:
-    - YouTube: skills/youtube.md
-    - Audio Transcription: skills/audio.md
-    - Document Conversion: skills/document.md
-    - Web Pages: skills/webpage.md
-    - Browser Control: skills/browser.md
-    - NotebookLM: skills/notebooklm.md
-    - Claude.ai: skills/claude.md
-    - ChatGPT: skills/chatgpt.md
-    - Gemini: skills/gemini.md
-  - Examples:
-    - Browser Automation: examples/browser-automation.md
-  - Architecture:
-    - Overview: ARCHITECTURE.md
-    - Visual Diagrams: ARCHITECTURE-VISUAL.md
-    - Architecture Diagrams: ARCHITECTURE-DIAGRAMS.md
-    - Skills Architecture: PLAN-skill-based-mcp-alternatives.md
+    - Skills:
+      - YouTube: skills/youtube.md
+      - Audio: skills/audio.md
+      - Documents: skills/document.md
+      - Web Pages: skills/webpage.md
+      - Browser: skills/browser.md
+      - NotebookLM: skills/notebooklm.md
+      - Claude.ai: skills/claude.md
+      - ChatGPT: skills/chatgpt.md
+      - Gemini: skills/gemini.md
+    - Examples:
+      - Browser Automation: examples/browser-automation.md
   - Reference:
     - API: api.md
     - Providers: providers.md
     - NotebookLM API: notebooklm-api.md
+    - Architecture: ARCHITECTURE.md
+    - Visual Diagrams: ARCHITECTURE-VISUAL.md
+    - Architecture Diagrams: ARCHITECTURE-DIAGRAMS.md
   - Development:
     - Contributing: contributing.md
     - Changelog: changelog.md
-  - Branding: BRANDING.md
+    - Skills Architecture: PLAN-skill-based-mcp-alternatives.md
+    - Branding: BRANDING.md
 
 extra:
   social:
