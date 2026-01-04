@@ -423,14 +423,13 @@ AVAILABLE SKILLS:
 │ gobbler-audio      │ Audio/video file transcription (Whisper)               │
 │ gobbler-document   │ PDF, DOCX, PPTX, XLSX conversion                       │
 │ gobbler-webpage    │ Web page to markdown                                   │
-│ gobbler-browser    │ Browser automation via extension                       │
-│ gobbler-notebooklm │ NotebookLM query integration                           │
-│ gobbler-claude     │ Claude.ai web automation                               │
-│ gobbler-chatgpt    │ ChatGPT web automation                                 │
-│ gobbler-gemini     │ Google Gemini web automation                           │
+│ gobbler-browser    │ Browser automation + AI chat integrations*             │
 │ gobbler-setup      │ Setup and installation instructions                    │
 │ gobbler-utils      │ Utility commands (relay, jobs, etc.)                   │
 └────────────────────┴────────────────────────────────────────────────────────┘
+
+* gobbler-browser includes NotebookLM, Claude.ai, ChatGPT, and Gemini
+  integrations (DOM automation - may break with site updates)
 
 SKILL LOADING FLOW:
   1. Agent context includes skills/ directory

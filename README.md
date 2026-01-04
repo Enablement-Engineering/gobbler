@@ -89,12 +89,12 @@ skills/
 ├── gobbler-audio/       # Audio/video transcription
 ├── gobbler-document/    # Document conversion
 ├── gobbler-webpage/     # Web scraping
-├── gobbler-browser/     # Browser automation
-├── gobbler-notebooklm/  # NotebookLM integration
-├── gobbler-chatgpt/     # ChatGPT via browser
-├── gobbler-claude/      # Claude.ai via browser
-└── gobbler-gemini/      # Gemini via browser
+├── gobbler-browser/     # Browser automation + AI chat integrations
+├── gobbler-setup/       # Installation and troubleshooting
+└── gobbler-utils/       # Utility commands
 ```
+
+The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini (DOM automation - may break with site updates).
 
 Skills use **progressive disclosure**—Claude only loads skill metadata at startup, then reads full CLI instructions when triggered.
 

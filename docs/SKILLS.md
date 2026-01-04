@@ -69,12 +69,10 @@ Skills work with Claude Code, Claude Desktop, and OpenCode. They're discovered f
 | `gobbler-audio` | Audio/video transcription | `gobbler audio FILE` |
 | `gobbler-document` | PDF, DOCX, PPTX, XLSX conversion | `gobbler document FILE` |
 | `gobbler-webpage` | Web page to markdown | `gobbler webpage URL` |
-| `gobbler-browser` | Browser control via extension | `gobbler browser ...` |
-| `gobbler-notebooklm` | NotebookLM interaction | `gobbler notebooklm ...` |
-| `gobbler-chatgpt` | ChatGPT via browser | `gobbler chatgpt ...` |
-| `gobbler-claude` | Claude.ai via browser | `gobbler claude ...` |
-| `gobbler-gemini` | Gemini via browser | `gobbler gemini ...` |
+| `gobbler-browser` | Browser control + AI chat integrations | `gobbler browser ...` |
 | `gobbler-setup` | Installation and troubleshooting | Various |
+
+The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini. These use DOM automation and may break with site updates.
 
 ## Skill Reference
 
@@ -129,66 +127,36 @@ gobbler webpage "https://example.com" -o page.md
 
 ### gobbler-browser
 
-Control browser tabs via the Gobbler extension.
+Control browser tabs via the Gobbler extension. Includes AI chat integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini.
 
 **Requires:** Browser extension installed, tabs in "Gobbler" group
 
+> **Note:** AI chat integrations use DOM automation and may break when sites update their UI.
+
 ```bash
+# Core browser commands
 gobbler browser status              # Check connection
 gobbler browser list                # List controlled tabs
 gobbler browser extract             # Extract current page
-gobbler browser extract -o page.md  # Save to file
-```
+gobbler browser inject              # Inject APIs (required for AI chats)
 
-### gobbler-notebooklm
-
-Interact with NotebookLM via browser automation.
-
-**Requires:** Browser extension, NotebookLM tab in Gobbler group
-
-```bash
+# AI Chat Integrations (all follow same pattern)
 gobbler notebooklm list                              # List notebooks
 gobbler notebooklm query "What are the key points?"  # Query notebook
-gobbler notebooklm info                              # Get notebook info
-```
 
-### gobbler-chatgpt
-
-Send messages to ChatGPT via browser automation.
-
-**Requires:** Browser extension, ChatGPT tab in Gobbler group
-
-```bash
 gobbler chatgpt list                        # List ChatGPT tabs
 gobbler chatgpt query "Your message here"   # Send message
-gobbler chatgpt last                        # Get last response
-gobbler chatgpt history --count 10          # Get history
-```
 
-### gobbler-claude
+gobbler claude list                         # List Claude tabs
+gobbler claude query "Your message here"    # Send message
 
-Send messages to Claude.ai via browser automation.
+gobbler gemini list                         # List Gemini tabs
+gobbler gemini query "Your message here"    # Send message
 
-**Requires:** Browser extension, Claude.ai tab in Gobbler group
-
-```bash
-gobbler claude list                        # List Claude tabs
-gobbler claude query "Your message here"   # Send message
-gobbler claude last                        # Get last response
-gobbler claude history --count 10          # Get history
-```
-
-### gobbler-gemini
-
-Send messages to Google Gemini via browser automation.
-
-**Requires:** Browser extension, Gemini tab in Gobbler group, signed into Google
-
-```bash
-gobbler gemini list                        # List Gemini tabs
-gobbler gemini query "Your message here"   # Send message
-gobbler gemini last                        # Get last response
-gobbler gemini history --count 10          # Get history
+# Common commands for all AI chats
+gobbler <service> last                      # Get last response
+gobbler <service> history --count 10        # Get history
+gobbler <service> info                      # Get metadata
 ```
 
 ## Installation
