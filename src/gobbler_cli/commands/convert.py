@@ -185,14 +185,11 @@ async def _convert_audio(
                 raise typer.Exit(1) from None
 
         with ProgressTracker("Transcribing audio file"):
-            # Note: timestamps option is not currently supported by the underlying converter
-            if timestamps and output_format != OutputFormat.JSON:
-                print_warning("Timestamps option is not yet implemented in the audio converter")
-
             result, metadata = await convert_audio_to_markdown(
                 file_path=str(file_path),
                 language=language or "auto",
                 model=model,
+                include_timestamps=timestamps,
                 provider=transcription_provider,
             )
 
@@ -321,6 +318,10 @@ def webpage(
         int,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
     ] = 30,
+    include_images: Annotated[
+        bool,
+        typer.Option("--images/--no-images", help="Include images in output"),
+    ] = True,
     output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
@@ -336,6 +337,7 @@ def webpage(
         gobbler webpage https://example.com
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
+        gobbler webpage https://example.com --no-images
         gobbler webpage https://example.com --provider crawl4ai
     """
     asyncio.run(
@@ -344,6 +346,7 @@ def webpage(
             output=output,
             css_selector=css_selector,
             timeout=timeout,
+            include_images=include_images,
             output_format=output_format,
             provider_name=provider,
         )
@@ -355,6 +358,7 @@ async def _convert_webpage(
     output: Path | None,
     css_selector: str | None,
     timeout: int,
+    include_images: bool,
     output_format: OutputFormat,
     provider_name: str | None = None,
 ) -> None:
@@ -386,6 +390,7 @@ async def _convert_webpage(
             result, metadata = await convert_webpage_to_markdown(
                 url=url,
                 timeout=timeout,
+                include_images=include_images,
                 provider=webpage_provider,
             )
 
