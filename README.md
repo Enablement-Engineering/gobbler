@@ -98,13 +98,27 @@ The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, Cha
 
 Skills use **progressive disclosure**—Claude only loads skill metadata at startup, then reads full CLI instructions when triggered.
 
-### 3. MCP Protocol (For Claude Desktop/Code)
+### 3. MCP Protocol (For AI Coding Assistants)
 
 ```bash
-# Add to Claude Code
+# For Claude Code
 claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
+```
 
-# Or configure Claude Desktop (~/.config/claude/claude_desktop_config.json)
+```jsonc
+// For OpenCode (opencode.json)
+{
+  "mcp": {
+    "gobbler": {
+      "type": "local",
+      "command": ["uv", "--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
+    }
+  }
+}
+```
+
+```jsonc
+// For Claude Desktop (~/.config/claude/claude_desktop_config.json)
 {
   "mcpServers": {
     "gobbler-mcp": {

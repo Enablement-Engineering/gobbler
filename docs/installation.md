@@ -123,9 +123,33 @@ These features work immediately without Docker:
 | Audio transcription | faster-whisper (local) |
 | YouTube downloads | yt-dlp |
 
-## Claude Code Integration
+## AI Assistant Integration
 
-### Add to Claude Code
+### OpenCode
+
+Add MCP server to your `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "gobbler": {
+      "type": "local",
+      "command": ["uv", "--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
+    }
+  }
+}
+```
+
+For skills, symlink to OpenCode's skill directory:
+
+```bash
+mkdir -p ~/.config/opencode/skill
+for skill in skills/gobbler-*/; do
+  ln -sf "$(pwd)/$skill" ~/.config/opencode/skill/
+done
+```
+
+### Claude Code
 
 ```bash
 # Show installation command
@@ -135,15 +159,16 @@ make claude-install
 claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
 ```
 
-### Manual Configuration
+Skills are auto-discovered when working in the Gobbler repo directory.
 
-Add to `~/.mcp.json`:
+### Claude Desktop
+
+Add to `~/.config/claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "gobbler-mcp": {
-      "type": "stdio",
       "command": "uv",
       "args": [
         "--directory",
@@ -156,7 +181,7 @@ Add to `~/.mcp.json`:
 }
 ```
 
-Restart Claude Code after configuration.
+Restart Claude Desktop after configuration.
 
 ## Configuration
 

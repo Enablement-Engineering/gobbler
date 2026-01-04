@@ -161,16 +161,50 @@ gobbler <service> info                      # Get metadata
 
 ## Installation
 
-### Via Claude Code Plugin (Recommended)
+### For OpenCode
 
-In Claude Code, add the Gobbler marketplace and install the plugin:
+OpenCode discovers skills from `.opencode/skill/` or `~/.config/opencode/skill/`. Clone Gobbler and symlink the skills:
 
+```bash
+# Clone the repo
+git clone https://github.com/Enablement-Engineering/gobbler.git
+cd gobbler && make install
+
+# Symlink skills to OpenCode's skill directory
+mkdir -p ~/.config/opencode/skill
+for skill in skills/gobbler-*/; do
+  ln -sf "$(pwd)/$skill" ~/.config/opencode/skill/
+done
 ```
-/plugin marketplace add Enablement-Engineering/gobbler
-/plugin install gobbler@gobbler-marketplace
+
+For MCP tools, add to your `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "gobbler": {
+      "type": "local",
+      "command": ["uv", "--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
+    }
+  }
+}
 ```
 
-### Via Git Clone
+### For Claude Code
+
+Clone the repo and add to Claude Code:
+
+```bash
+git clone https://github.com/Enablement-Engineering/gobbler.git
+cd gobbler && make install
+
+# Add MCP server to Claude Code
+claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
+```
+
+Skills are auto-discovered from `skills/gobbler-*/SKILL.md` when working in the repo.
+
+### Via Git Clone (Manual)
 
 ```bash
 git clone https://github.com/Enablement-Engineering/gobbler.git
