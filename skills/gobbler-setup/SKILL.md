@@ -1,7 +1,6 @@
 ---
 name: gobbler-setup
-description: Install, configure, and troubleshoot Gobbler. Use when user needs help setting up Gobbler, diagnosing issues, or fixing problems with conversions.
-version: 1.0.0
+description: Installs, configures, and troubleshoots Gobbler. Triggers on install gobbler, setup, not working, connection refused, docker not running, or diagnostic/troubleshooting requests.
 ---
 
 # Gobbler Setup & Troubleshooting
@@ -57,7 +56,7 @@ brew install uv ffmpeg
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/gobbler.git
+git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler
 
 # Install Python packages
@@ -342,6 +341,6 @@ launchctl load ~/Library/LaunchAgents/com.gobbler.plist
 
 ## Getting Help
 
-- **Issues**: https://github.com/yourusername/gobbler/issues
+- **Issues**: https://github.com/Enablement-Engineering/gobbler/issues
 - **Check logs**: `gobbler daemon logs -f`
 - **Docker logs**: `docker logs gobbler-docling --tail 50`

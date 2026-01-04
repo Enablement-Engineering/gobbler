@@ -1,7 +1,6 @@
 ---
 name: gobbler-document
-description: Convert PDF, DOCX, PPTX, XLSX, and XLS documents to markdown with optional OCR. Use when user wants to extract text from documents, PDFs, Word files, PowerPoint presentations, or Excel spreadsheets.
-version: 2.1.0
+description: Converts PDF, DOCX, PPTX, XLSX documents to markdown with OCR support. Triggers on .pdf, .docx, .pptx, .xlsx files, or requests to extract text from documents, Word files, PowerPoint, or Excel spreadsheets.
 ---
 
 # Gobbler Document

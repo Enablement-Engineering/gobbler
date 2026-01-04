@@ -1,7 +1,6 @@
 ---
 name: gobbler-browser
-description: Control browser via Gobbler extension - navigate, execute JavaScript, extract content. Includes AI chat integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini (fragile - may break with site updates).
-version: 3.0.0
+description: Controls browser via Gobbler extension for navigation, JavaScript execution, and content extraction. Includes NotebookLM, Claude.ai, ChatGPT, Gemini integrations. Triggers on browser extract, grab from tab, control browser, or AI chat service queries.
 ---
 
 # Gobbler Browser

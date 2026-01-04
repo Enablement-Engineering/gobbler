@@ -1,7 +1,6 @@
 ---
-name: gobbler-utils
-description: Shared utilities for Gobbler content conversion skills. Provides batch processing, frontmatter generation, output formatting, and Docker service health checks. Other gobbler-* skills depend on these utilities.
-version: 2.1.0
+name: batch-processing
+description: Batch converts directories of files, YouTube playlists, or URL lists to markdown. Triggers on batch convert, process all files, convert playlist, bulk processing, or multiple file/URL requests.
 ---
 
 # Gobbler Utilities

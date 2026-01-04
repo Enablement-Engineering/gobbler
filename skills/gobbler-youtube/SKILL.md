@@ -1,7 +1,6 @@
 ---
 name: gobbler-youtube
-description: Transcribe YouTube videos to markdown. Use when user wants to get transcripts, captions, or subtitles from YouTube videos.
-version: 2.0.0
+description: Transcribes YouTube videos to markdown. Triggers on youtube, video transcript, youtu.be links, youtube.com links, or requests for captions/subtitles from videos.
 ---
 
 # Gobbler YouTube
