@@ -65,7 +65,7 @@ class Job:
     progress_message: str = ""
     result: dict[str, Any] | None = None
     error: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
     worker_pid: int | None = None

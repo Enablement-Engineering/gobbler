@@ -451,3 +451,19 @@ class JobManager:
         if isinstance(value, datetime):
             return value
         return datetime.fromisoformat(value)
+
+    def close(self) -> None:
+        """Close the database connection."""
+        self.database.close()
+
+    def __enter__(self) -> "JobManager":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """Exit context manager and close database."""
+        self.close()
+
+    def __del__(self) -> None:
+        """Destructor to close database when object is garbage collected."""
+        self.close()
