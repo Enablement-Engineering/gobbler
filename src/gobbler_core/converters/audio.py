@@ -34,7 +34,7 @@ from gobbler_core.utils.file_handler import get_file_extension, validate_input_p
 from gobbler_core.utils.frontmatter import count_words, create_audio_frontmatter
 
 if TYPE_CHECKING:
-    from gobbler_core.providers.transcription import TranscriptionProvider
+    from gobbler_core.providers.transcription import TranscriptionProvider, TranscriptionResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,24 @@ MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
 # Global model instance (lazy loaded) - kept for backwards compatibility
 _whisper_model = None
 _current_model_size = None
+
+
+def format_timestamp(seconds: float) -> str:
+    """Format seconds into MM:SS or HH:MM:SS timestamp.
+
+    Args:
+        seconds: Time in seconds
+
+    Returns:
+        Formatted timestamp string
+    """
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+
+    if hours > 0:
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{minutes:02d}:{secs:02d}"
 
 
 async def _extract_audio(video_path: str) -> str:
@@ -156,10 +174,11 @@ def _get_whisper_model(model_size: str) -> WhisperModel:
     return _whisper_model
 
 
-async def convert_audio_to_markdown(  # noqa: C901, PLR0915
+async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
     file_path: str,
     model: str = "small",
     language: str = "auto",
+    include_timestamps: bool = False,
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
     provider: TranscriptionProvider | None = None,
@@ -175,6 +194,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0915
         model: Whisper model size (tiny, base, small, medium, large)
             Only used if provider is None (default provider)
         language: Language code (ISO 639-1) or 'auto' for detection
+        include_timestamps: Include timestamp markers in output (default: False)
         metrics_callback: Optional callback for metrics tracking,
             called with (converter_type, size_bytes)
         logger_instance: Optional custom logger instance
@@ -196,6 +216,9 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0915
         from gobbler_core.providers.transcription import WhisperLocalProvider
         provider = WhisperLocalProvider(model="large")
         markdown, metadata = await convert_audio_to_markdown("audio.mp3", provider=provider)
+
+        # With timestamps
+        markdown, metadata = await convert_audio_to_markdown("audio.mp3", include_timestamps=True)
     """
     # Use provided logger or fall back to module-level logger
     log = logger_instance if logger_instance is not None else logger
@@ -221,9 +244,13 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0915
     )
     start_time = time.time()
 
+    # Store transcription result for timestamp formatting
+    transcription_result: TranscriptionResult | None = None
+
     # Use provider-based transcription if a provider is specified
     if provider is not None:
         result = await provider.transcribe(Path(file_path), language=language)
+        transcription_result = result
         transcript_text = result.text
         detected_language = result.language
         duration = int(result.duration)
@@ -278,15 +305,37 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0915
             )
 
             # Build transcript from segments
+            # Import here to avoid circular imports at module level
+            from gobbler_core.providers.transcription import (  # noqa: PLC0415
+                TranscriptionResult as TResult,
+                TranscriptionSegment,
+            )
+
             transcript_lines = []
+            result_segments: list[TranscriptionSegment] = []
             duration = 0
 
             for segment in segments:
                 transcript_lines.append(segment.text.strip())
                 duration = max(duration, segment.end)
+                result_segments.append(
+                    TranscriptionSegment(
+                        text=segment.text.strip(),
+                        start=segment.start,
+                        end=segment.end,
+                    )
+                )
 
             transcript_text = " ".join(transcript_lines).strip()
             detected_language = info.language
+
+            # Build TranscriptionResult for consistent handling with provider path
+            transcription_result = TResult(
+                text=transcript_text,
+                segments=result_segments,
+                language=detected_language,
+                duration=duration,
+            )
 
             if not transcript_text:
                 msg = (
@@ -327,8 +376,18 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0915
         conversion_time_ms=conversion_time_ms,
     )
 
+    # Build transcript text with optional timestamps
+    if include_timestamps and transcription_result is not None and transcription_result.segments:
+        lines = []
+        for segment in transcription_result.segments:
+            timestamp = format_timestamp(segment.start)
+            lines.append(f"[{timestamp}] {segment.text}")
+        formatted_transcript = "\n\n".join(lines)
+    else:
+        formatted_transcript = transcript_text
+
     # Build markdown content
-    markdown = frontmatter + "# Audio Transcript\n\n" + transcript_text
+    markdown = frontmatter + "# Audio Transcript\n\n" + formatted_transcript
 
     # Track conversion size if callback provided
     if metrics_callback is not None:
