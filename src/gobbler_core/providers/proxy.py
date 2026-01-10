@@ -327,3 +327,44 @@ def get_youtube_proxy_config() -> Any:
 
     logger.debug("No YouTube proxy configured")
     return None
+
+
+def get_crawl4ai_proxy_url() -> str | None:
+    """Get proxy URL for Crawl4AI provider.
+
+    This function provides proxy configuration for Crawl4AI web scraping.
+    It checks:
+    1. Config file for proxy_services referenced by webpage.crawl4ai provider
+    2. Environment variable (CRAWL4AI_PROXY)
+
+    Returns:
+        Proxy URL string (e.g., "http://user:pass@host:port") or None
+
+    Example:
+        >>> proxy_url = get_crawl4ai_proxy_url()
+        >>> if proxy_url:
+        ...     provider = Crawl4AIProvider(proxy_url=proxy_url)
+    """
+    # Try to get from config file first
+    try:
+        from gobbler_mcp.config import get_config
+
+        config = get_config()
+        proxy = get_proxy_for_provider(config, "webpage", "crawl4ai")
+
+        if proxy and proxy.url:
+            logger.info("Using proxy from config for Crawl4AI")
+            return proxy.url
+    except Exception:
+        logger.debug("Could not load proxy from config file, falling back to env vars")
+
+    # Fall back to environment variable
+    proxy_url = os.environ.get("CRAWL4AI_PROXY")
+
+    if proxy_url:
+        safe_url = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
+        logger.info("Using proxy from CRAWL4AI_PROXY env var: %s", safe_url)
+        return proxy_url
+
+    logger.debug("No Crawl4AI proxy configured")
+    return None

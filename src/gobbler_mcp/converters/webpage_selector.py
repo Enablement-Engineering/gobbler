@@ -65,11 +65,37 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
         config.data.get("services", {}).get("crawl4ai", {}).get("api_token", "gobbler-local-token")
     )
 
+    # Get proxy configuration
+    from gobbler_core.providers.proxy import get_crawl4ai_proxy_url
+
+    proxy_url = get_crawl4ai_proxy_url()
+
     logger.info("Converting web page with selector: %s", url)
     start_time = time.time()
 
     # Prepare browser config with optional stealth mode
-    browser_params = {"headless": True}
+    browser_params: dict[str, object] = {"headless": True}
+
+    # Prepare crawler config - proxy goes here per Crawl4AI REST API
+    crawler_params: dict[str, object] = {
+        "stream": False,
+        "cache_mode": "bypass" if bypass_cache else "enabled",
+    }
+    if proxy_url:
+        # Parse proxy URL into Crawl4AI proxy_config format
+        parsed = urlparse(proxy_url)
+        proxy_config_params: dict[str, str] = {
+            "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 80}"
+        }
+        if parsed.username:
+            proxy_config_params["username"] = parsed.username
+        if parsed.password:
+            proxy_config_params["password"] = parsed.password
+        crawler_params["proxy_config"] = {
+            "type": "ProxyConfig",
+            "params": proxy_config_params,
+        }
+        logger.info("Using proxy for Crawl4AI")
 
     if use_stealth:
         # Enable stealth mode for anti-detection
@@ -96,7 +122,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
         "browser_config": {"type": "BrowserConfig", "params": browser_params},
         "crawler_config": {
             "type": "CrawlerRunConfig",
-            "params": {"stream": False, "cache_mode": "bypass" if bypass_cache else "enabled"},
+            "params": crawler_params,
         },
     }
 
@@ -150,44 +176,53 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
             response.raise_for_status()
             task_data = response.json()
 
-            # Get task ID
-            task_id = task_data.get("task_id")
-            if not task_id:
-                msg = "No task_id returned from Crawl4AI"
-                raise RuntimeError(msg)
+            # Handle both API formats:
+            # - v0.7.x: Returns {"success": true, "results": [...]} directly
+            # - v0.3.x: Returns {"task_id": "..."} for polling
+            if "results" in task_data and task_data.get("success"):
+                # New API (v0.7.x) - results returned directly
+                results = task_data.get("results", [])
+                if not results:
+                    msg = "Crawl4AI returned no results"
+                    raise RuntimeError(msg)
+                result = results[0]
+            elif task_data.get("task_id"):
+                # Old API (v0.3.x) - poll for completion
+                task_id = task_data["task_id"]
+                max_wait = timeout
+                wait_interval = 1  # seconds
+                elapsed = 0
 
-            # Poll for task completion
-            max_wait = timeout
-            wait_interval = 1  # seconds
-            elapsed = 0
+                while elapsed < max_wait:
+                    await asyncio.sleep(wait_interval)
+                    elapsed += wait_interval
 
-            while elapsed < max_wait:
-                await asyncio.sleep(wait_interval)
-                elapsed += wait_interval
+                    # Check task status
+                    status_response = await client.get(f"{service_url}/task/{task_id}", headers=headers)
+                    status_response.raise_for_status()
+                    task_status = status_response.json()
 
-                # Check task status
-                status_response = await client.get(f"{service_url}/task/{task_id}", headers=headers)
-                status_response.raise_for_status()
-                task_status = status_response.json()
+                    if task_status.get("status") == "completed":
+                        # Task finished
+                        results = task_status.get("results")
+                        if not results or len(results) == 0:
+                            msg = "Crawl4AI returned no results"
+                            raise RuntimeError(msg)
 
-                if task_status.get("status") == "completed":
-                    # Task finished
-                    results = task_status.get("results")
-                    if not results or len(results) == 0:
-                        msg = "Crawl4AI returned no results"
+                        result = results[0]
+                        break
+                    if task_status.get("status") == "failed":
+                        error = task_status.get("error", "Unknown error")
+                        msg = f"Crawl4AI task failed: {error}"
                         raise RuntimeError(msg)
 
-                    result = results[0]
-                    break
-                if task_status.get("status") == "failed":
-                    error = task_status.get("error", "Unknown error")
-                    msg = f"Crawl4AI task failed: {error}"
-                    raise RuntimeError(msg)
-
+                else:
+                    # Timeout waiting for task
+                    msg = f"Crawl task did not complete within {timeout} seconds"
+                    raise httpx.TimeoutException(msg)
             else:
-                # Timeout waiting for task
-                msg = f"Crawl task did not complete within {timeout} seconds"
-                raise httpx.TimeoutException(msg)
+                msg = "Unexpected Crawl4AI response format"
+                raise RuntimeError(msg)
 
             # Get markdown content - try different possible field structures
             markdown_content = None

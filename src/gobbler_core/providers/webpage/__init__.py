@@ -22,6 +22,8 @@ Example:
     result = await provider.fetch("https://example.com", timeout=60)
 """
 
+from typing import Any
+
 from gobbler_core.providers.webpage.base import (
     WebPageProvider,
     WebPageResult,
@@ -36,16 +38,46 @@ __all__ = [
 ]
 
 
-def get_default_provider(**kwargs) -> WebPageProvider:
+def get_default_provider(**kwargs: Any) -> WebPageProvider:
     """Get the default webpage provider based on configuration.
 
+    Reads service URL, API token, and proxy from config file.
+    Falls back to defaults if config unavailable.
+
     Args:
-        **kwargs: Override configuration options
+        **kwargs: Override configuration options (service_url, api_token, proxy_url)
 
     Returns:
         Configured WebPageProvider instance
     """
-    from gobbler_core.providers.registry import ProviderRegistry
+    from gobbler_core.providers.proxy import get_crawl4ai_proxy_url
 
-    provider_name = kwargs.pop("provider", "crawl4ai")
-    return ProviderRegistry.create("webpage", provider_name, **kwargs)
+    # Get config-based defaults
+    service_url = kwargs.pop("service_url", None)
+    api_token = kwargs.pop("api_token", None)
+    proxy_url = kwargs.pop("proxy_url", None)
+
+    if service_url is None or api_token is None:
+        try:
+            from gobbler_mcp.config import get_config
+
+            config = get_config()
+            if service_url is None:
+                service_url = config.get_service_url("crawl4ai")
+            if api_token is None:
+                api_token = config.data.get("services", {}).get("crawl4ai", {}).get(
+                    "api_token", "gobbler-local-token"
+                )
+        except Exception:
+            service_url = service_url or "http://localhost:11235"
+            api_token = api_token or "gobbler-local-token"
+
+    # Get proxy from config if not overridden
+    if proxy_url is None:
+        proxy_url = get_crawl4ai_proxy_url()
+
+    return Crawl4AIProvider(
+        service_url=service_url,
+        api_token=api_token,
+        proxy_url=proxy_url,
+    )

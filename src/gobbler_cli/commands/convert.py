@@ -330,6 +330,10 @@ def webpage(
         str | None,
         typer.Option("--provider", "-p", help="Webpage conversion provider (default: crawl4ai)"),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Enable verbose/debug logging"),
+    ] = False,
 ) -> None:
     """Convert a web page to markdown.
 
@@ -339,7 +343,13 @@ def webpage(
         gobbler webpage https://example.com --selector "article"
         gobbler webpage https://example.com --no-images
         gobbler webpage https://example.com --provider crawl4ai
+        gobbler webpage https://example.com -v  # verbose output
     """
+    if verbose:
+        import logging
+
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s: %(message)s")
+
     asyncio.run(
         _convert_webpage(
             url=url,
@@ -367,9 +377,10 @@ async def _convert_webpage(
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.webpage import convert_webpage_to_markdown
         from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
+        from gobbler_core.providers.webpage import get_default_provider
 
-        # Create provider if specified
-        webpage_provider: WebPageProvider | None = None
+        # Create provider - use default if not specified (includes proxy config)
+        webpage_provider: WebPageProvider
         if provider_name:
             try:
                 # Registry returns ContentProvider, cast to specific type
@@ -380,6 +391,9 @@ async def _convert_webpage(
             except ProviderNotFoundError as e:
                 print_error(str(e))
                 raise typer.Exit(1) from None
+        else:
+            # Use default provider which reads config (including proxy)
+            webpage_provider = get_default_provider()
 
         with ProgressTracker("Converting web page"):
             # Note: css_selector is not currently supported by the underlying converter

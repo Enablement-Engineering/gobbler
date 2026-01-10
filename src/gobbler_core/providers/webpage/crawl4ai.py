@@ -91,6 +91,32 @@ class Crawl4AIProvider(WebPageProvider):
             return urlunparse(parsed._replace(netloc=netloc))
         return url
 
+    def _parse_proxy_url(self, proxy_url: str) -> dict[str, str]:
+        """Parse proxy URL into Crawl4AI proxy_config format.
+
+        Crawl4AI requires authenticated proxies to use a proxy_config dict
+        with separate server, username, and password fields.
+
+        Args:
+            proxy_url: Proxy URL (e.g., "http://user:pass@host:port")
+
+        Returns:
+            Dict with server, username, and password keys
+
+        Example:
+            >>> self._parse_proxy_url("http://user:pass@proxy.example.com:8080")
+            {'server': 'http://proxy.example.com:8080', 'username': 'user', 'password': 'pass'}
+        """
+        parsed = urlparse(proxy_url)
+        config: dict[str, str] = {
+            "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 80}"
+        }
+        if parsed.username:
+            config["username"] = parsed.username
+        if parsed.password:
+            config["password"] = parsed.password
+        return config
+
     async def fetch(
         self,
         url: str,
@@ -126,10 +152,16 @@ class Crawl4AIProvider(WebPageProvider):
         if wait_for:
             crawler_params["wait_for"] = wait_for
 
-        # Build browser config with optional proxy
+        # Build browser config
         browser_params: dict[str, Any] = {"headless": headless}
+
+        # Add proxy to crawler config (not browser config) per Crawl4AI REST API
         if self.proxy_url:
-            browser_params["proxy"] = self.proxy_url
+            proxy_config = self._parse_proxy_url(self.proxy_url)
+            crawler_params["proxy_config"] = {
+                "type": "ProxyConfig",
+                "params": proxy_config,
+            }
             logger.debug("Using proxy for Crawl4AI: %s", self._safe_proxy_url(self.proxy_url))
 
         crawl_request = {
@@ -156,13 +188,23 @@ class Crawl4AIProvider(WebPageProvider):
                 response.raise_for_status()
                 task_data = response.json()
 
-                task_id = task_data.get("task_id")
-                if not task_id:
-                    msg = "No task_id returned from Crawl4AI"
+                # Handle both API formats:
+                # - v0.7.x: Returns {"success": true, "results": [...]} directly
+                # - v0.3.x: Returns {"task_id": "..."} for polling
+                if "results" in task_data and task_data.get("success"):
+                    # New API (v0.7.x) - results returned directly
+                    results = task_data.get("results", [])
+                    if not results:
+                        msg = "Crawl4AI returned no results"
+                        raise RuntimeError(msg)
+                    result = results[0]
+                elif task_data.get("task_id"):
+                    # Old API (v0.3.x) - poll for completion
+                    task_id = task_data["task_id"]
+                    result = await self._poll_for_completion(client, task_id, headers, timeout)
+                else:
+                    msg = "Unexpected Crawl4AI response format"
                     raise RuntimeError(msg)
-
-                # Poll for completion
-                result = await self._poll_for_completion(client, task_id, headers, timeout)
 
                 # Extract markdown
                 markdown_content = self._extract_markdown(result)

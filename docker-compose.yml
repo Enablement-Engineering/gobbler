@@ -1,7 +1,8 @@
 services:
   # Crawl4AI - Advanced web scraping with JavaScript rendering
+  # Run `docker compose pull crawl4ai` to update to latest version
   crawl4ai:
-    image: unclecode/crawl4ai:basic
+    image: unclecode/crawl4ai:latest
     container_name: gobbler-crawl4ai
     ports:
       - "11235:11235"
