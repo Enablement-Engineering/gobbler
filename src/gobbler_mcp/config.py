@@ -72,7 +72,7 @@ class Config:
             "crawl4ai": {
                 "host": "localhost",
                 "port": 11235,
-                "api_token": "gobbler-local-token",
+                "api_token": "gobbler-local-token",  # nosec B105
             },
             "docling": {
                 "host": "localhost",
