@@ -85,10 +85,56 @@ def format_json_success(
     return response
 
 
+# Error code suggestions for common issues
+ERROR_SUGGESTIONS: dict[str, dict[str, str]] = {
+    "YOUTUBE_CONVERSION_ERROR": {
+        "ip blocked": "Configure a proxy in ~/.config/gobbler/config.yml or use TranscriptAPI",
+        "no transcript": "This video may not have captions available",
+        "rate limit": "Wait a few minutes or configure a proxy service",
+    },
+    "AUDIO_CONVERSION_ERROR": {
+        "ffmpeg": "Install ffmpeg: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)",
+        "model": "Try a smaller model with --model tiny or --model base",
+        "memory": "Use a smaller Whisper model or close other applications",
+    },
+    "DOCUMENT_CONVERSION_ERROR": {
+        "connection refused": "Start Docling: docker compose up -d docling",
+        "timeout": "Document may be too large; try --no-ocr for digital PDFs",
+        "ocr": "Try --no-ocr if the PDF has embedded text",
+    },
+    "WEBPAGE_CONVERSION_ERROR": {
+        "connection refused": "Start Crawl4AI: docker compose up -d crawl4ai",
+        "timeout": "Increase timeout with --timeout 60 or try again",
+        "blocked": "The site may be blocking automated access",
+    },
+}
+
+
+def _get_suggestion(error_code: str, error_message: str) -> str | None:
+    """Get a suggestion based on error code and message.
+    
+    Args:
+        error_code: The error code
+        error_message: The error message to match against
+        
+    Returns:
+        A suggestion string, or None if no match found
+    """
+    suggestions = ERROR_SUGGESTIONS.get(error_code, {})
+    error_lower = error_message.lower()
+    
+    for keyword, suggestion in suggestions.items():
+        if keyword in error_lower:
+            return suggestion
+    
+    return None
+
+
 def format_json_error(
     error: str,
     error_code: str = "CONVERSION_ERROR",
     source: str | None = None,
+    suggestion: str | None = None,
 ) -> dict[str, Any]:
     """Format an error result as JSON.
 
@@ -96,6 +142,7 @@ def format_json_error(
         error: Error message
         error_code: Error code identifier
         source: Optional source identifier
+        suggestion: Optional suggestion for fixing the error (auto-detected if not provided)
 
     Returns:
         Standardized JSON error response dict
@@ -107,6 +154,14 @@ def format_json_error(
     }
     if source:
         response["source"] = source
+    
+    # Auto-detect suggestion if not provided
+    if suggestion is None:
+        suggestion = _get_suggestion(error_code, error)
+    
+    if suggestion:
+        response["suggestion"] = suggestion
+        
     return response
 
 
