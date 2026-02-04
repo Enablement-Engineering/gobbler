@@ -55,6 +55,66 @@ gobbler providers info transcription whisper-local --format json
 | `gobbler providers list -c <category>` | List providers for a category |
 | `gobbler providers info <category> <name>` | Show provider details |
 
+## Service Health & Diagnostics
+
+### Check Service Status
+
+Before running conversions, check that all services are healthy:
+
+```bash
+# Check all services
+gobbler status
+
+# JSON output for scripting/AI agents
+gobbler status --json
+
+# Verbose output with error details
+gobbler status -v
+```
+
+Example output:
+```
+Gobbler Status
+══════════════════════════════════════════════════
+● Overall: ready
+
+  ✓ Youtube      ready (youtube-transcript-api)
+  ✓ Audio        ready (whisper-local, model: small)
+  ✓ Document     ready (docling, @ http://localhost:5001)
+  ✓ Webpage      ready (crawl4ai, @ http://localhost:11235)
+
+Config: ~/.config/gobbler/config.yml
+Proxy:  webshare (rotating)
+```
+
+### Diagnose Errors
+
+Get solutions for common errors:
+
+```bash
+# Diagnose an error message
+gobbler explain "connection refused port 5001"
+
+# List all known error patterns
+gobbler explain --list
+
+# JSON output
+gobbler explain --json "youtube rate limit"
+```
+
+Example output:
+```
+#1 Docling service not running
+
+Issue: The Docling Docker container is not running.
+
+Fix:
+  docker compose up -d docling
+
+Verify:
+  curl http://localhost:5001/health
+```
+
 ## Basic Commands
 
 ### YouTube Transcription
@@ -71,6 +131,12 @@ gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md
 
 # Specific language
 gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" --language es
+
+# Skip if output already exists (idempotent)
+gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md --skip-if-exists
+
+# Read URL from stdin (for piping)
+echo "https://youtube.com/watch?v=VIDEO_ID" | gobbler youtube
 ```
 
 ### Audio/Video Transcription
@@ -93,6 +159,9 @@ gobbler audio meeting.mp3 --provider openai-whisper
 
 # Use local Whisper explicitly
 gobbler audio meeting.mp3 --provider whisper-local --model medium
+
+# Skip if output already exists
+gobbler audio meeting.mp3 -o meeting.md --skip-if-exists
 ```
 
 | Option | Description | Default |
@@ -100,6 +169,7 @@ gobbler audio meeting.mp3 --provider whisper-local --model medium
 | `--model`, `-m` | Whisper model size | `small` |
 | `--language`, `-l` | Audio language (ISO 639-1) | auto-detect |
 | `--provider`, `-p` | Transcription provider | `whisper-local` |
+| `--skip-if-exists` | Skip if output file exists | false |
 | `-o, --output` | Output file path | stdout |
 
 **Provider Notes:**
@@ -127,12 +197,16 @@ gobbler document data.xlsx -o data.md
 
 # Explicitly specify provider
 gobbler document report.pdf --provider docling -o report.md
+
+# Skip if output already exists
+gobbler document report.pdf -o report.md --skip-if-exists
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--ocr/--no-ocr` | Enable/disable OCR | enabled |
 | `--provider`, `-p` | Document provider | `docling` |
+| `--skip-if-exists` | Skip if output file exists | false |
 | `-o, --output` | Output file path | stdout |
 
 **Provider Notes:**
@@ -153,6 +227,12 @@ gobbler webpage "https://slow-site.com" --timeout 60
 
 # Explicitly specify provider
 gobbler webpage "https://example.com" --provider crawl4ai -o page.md
+
+# Skip if output already exists
+gobbler webpage "https://example.com" -o page.md --skip-if-exists
+
+# Read URL from stdin (for piping)
+echo "https://example.com" | gobbler webpage -o page.md
 ```
 
 | Option | Description | Default |
@@ -160,6 +240,7 @@ gobbler webpage "https://example.com" --provider crawl4ai -o page.md
 | `--selector`, `-s` | CSS selector for content extraction | full page |
 | `--timeout`, `-t` | Request timeout in seconds | 30 |
 | `--provider`, `-p` | Webpage provider | `crawl4ai` |
+| `--skip-if-exists` | Skip if output file exists | false |
 | `-o, --output` | Output file path | stdout |
 
 **Provider Notes:**
@@ -167,6 +248,8 @@ gobbler webpage "https://example.com" --provider crawl4ai -o page.md
 - `crawl4ai`: Requires the Crawl4AI Docker service running locally
 
 ## Batch Processing
+
+All batch commands support `--dry-run` to preview what would be processed without executing.
 
 ### YouTube Playlists
 
@@ -177,6 +260,22 @@ gobbler batch youtube-playlist "https://youtube.com/playlist?list=PLxxx" \
 
 # With custom output directory
 gobbler batch youtube-playlist "URL" -o ./transcripts
+
+# Preview what would be processed (dry run)
+gobbler batch youtube-playlist "URL" -o ./transcripts --dry-run
+```
+
+Example dry run output:
+```
+Dry Run Preview
+══════════════════════════════════════════════════
+Playlist:       https://youtube.com/playlist?list=PLxxx
+Output:         ./transcripts (will create)
+Total videos:   47
+Would process:  45
+Would skip:     2 (already exist)
+Concurrency:    3
+Estimated time: ~2m 15s
 ```
 
 ### Directory Processing
@@ -188,8 +287,11 @@ gobbler batch directory ./recordings --pattern "*.mp3" -o ./transcripts
 # Convert all documents
 gobbler batch directory ./documents --pattern "*.pdf" -o ./markdown
 
-# Recursive search
-gobbler batch directory ./files --recursive -o ./output
+# Preview without processing
+gobbler batch directory ./documents --pattern "*.pdf" -o ./markdown --dry-run
+
+# JSON output for scripting
+gobbler batch directory ./docs -o ./md --dry-run --json
 ```
 
 ### Multiple URLs
@@ -197,6 +299,9 @@ gobbler batch directory ./files --recursive -o ./output
 ```bash
 # Process URLs from file
 gobbler batch webpages urls.txt -o ./pages
+
+# Preview what would be fetched
+gobbler batch webpages urls.txt -o ./pages --dry-run
 ```
 
 ## Browser Automation
@@ -273,6 +378,8 @@ The following command groups are also available:
 
 | Command | Description |
 |---------|-------------|
+| `gobbler status` | Check service health and readiness |
+| `gobbler explain` | Diagnose errors and get solutions |
 | `gobbler relay` | Browser relay server management |
 | `gobbler daemon` | Daemon management |
 | `gobbler jobs` | Background job queue management |
