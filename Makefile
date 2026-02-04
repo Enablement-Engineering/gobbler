@@ -176,10 +176,11 @@ claude-install:
 	@echo ""
 	@echo "Run this command to add Gobbler to Claude Code:"
 	@echo ""
-	@echo "claude mcp add gobbler-mcp -- uv --directory $(PWD) run gobbler-mcp"
+	@echo "claude mcp add --scope user gobbler -- uv --directory $(PWD) run gobbler-mcp"
 	@echo ""
-	@echo "Or manually add to your .mcp.json:"
-	@make claude-config
+	@echo "Then restart Claude Code for the changes to take effect."
+	@echo ""
+	@echo "Verify installation with: claude mcp list"
 
 # Remove Gobbler MCP from Claude Code
 # Shows the command to uninstall Gobbler from Claude Code
@@ -190,26 +191,23 @@ claude-uninstall:
 	@echo ""
 	@echo "claude mcp remove gobbler-mcp"
 
-# Show the manual configuration snippet for Claude Code
-# Use this if you prefer to manually edit your .mcp.json file
+# Show the resulting configuration for reference
+# Note: Do NOT manually create .mcp.json - use 'claude mcp add' instead
 claude-config:
 	@echo ""
-	@echo "📝 Add this to your .mcp.json file:"
+	@echo "📝 Reference: This is what Claude Code stores in ~/.claude.json"
+	@echo "   (Do NOT manually edit - use 'claude mcp add' command instead)"
 	@echo ""
-	@echo '{'
-	@echo '  "mcpServers": {'
-	@echo '    "gobbler-mcp": {'
-	@echo '      "type": "stdio",'
-	@echo '      "command": "uv",'
-	@echo '      "args": ['
-	@echo '        "--directory",'
-	@echo '        "$(PWD)",'
-	@echo '        "run",'
-	@echo '        "gobbler-mcp"'
-	@echo '      ]'
-	@echo '    }'
+	@echo '  "gobbler": {'
+	@echo '    "type": "stdio",'
+	@echo '    "command": "uv",'
+	@echo '    "args": ['
+	@echo '      "--directory",'
+	@echo '      "$(PWD)",'
+	@echo '      "run",'
+	@echo '      "gobbler-mcp"'
+	@echo '    ]'
 	@echo '  }'
-	@echo '}'
 	@echo ""
 
 # ============================================================================
