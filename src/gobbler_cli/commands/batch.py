@@ -10,6 +10,12 @@ from typing import Annotated, Any
 
 import typer
 
+from gobbler_cli.knowledge import (
+    SECONDS_PER_AUDIO_FILE,
+    SECONDS_PER_DOCUMENT,
+    SECONDS_PER_WEBPAGE,
+    SECONDS_PER_YOUTUBE_VIDEO,
+)
 from gobbler_cli.output import print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
 
@@ -157,8 +163,8 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 else:
                     would_process.append({"video": video, "path": str(output_path)})
 
-            # Estimate time (~7 seconds per video is typical)
-            estimated_seconds = (len(would_process) * 7) // max(concurrency, 1)
+            # Estimate time based on concurrency
+            estimated_seconds = (len(would_process) * SECONDS_PER_YOUTUBE_VIDEO) // max(concurrency, 1)
             estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
 
             if use_json:
@@ -454,10 +460,10 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 else:
                     would_skip.append({"file": str(file_path), "output": str(output_path), "type": detected_type, "reason": "unknown_type"})
 
-            # Estimate time: ~5s for audio, ~3s for documents
+            # Estimate time based on file types and concurrency
             audio_count = sum(1 for f in would_process if f["type"] == "audio")
             doc_count = sum(1 for f in would_process if f["type"] == "document")
-            estimated_seconds = (audio_count * 5) + (doc_count * 3)
+            estimated_seconds = ((audio_count * SECONDS_PER_AUDIO_FILE) + (doc_count * SECONDS_PER_DOCUMENT)) // max(concurrency, 1)
             estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
 
             if json_output:
@@ -508,63 +514,83 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
         else:
             print_info(f"Found {len(files)} files to process")
 
+        # Track results
         successful = 0
         failed = 0
         skipped = 0
 
-        if json_output:
-            # JSON output mode - no progress bar
-            for file_path in files:
+        # Create semaphore for concurrency control
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def process_file(
+            file_path: Path,
+        ) -> tuple[Path, bool, str, dict[str, Any] | None]:
+            """Process a single file. Returns (file_path, success, status, metadata)."""
+            async with semaphore:
+                # Determine file type
+                detected_type = file_type or _detect_file_type(file_path)
+
+                # Generate output filename
+                output_path = output_dir / f"{file_path.stem}.md"
+
+                # Skip unknown types
+                if detected_type not in ("audio", "document"):
+                    return (file_path, True, "skipped_unknown", None)
+
                 try:
-                    # Determine file type
-                    detected_type = file_type or _detect_file_type(file_path)
-
-                    # Generate output filename
-                    output_path = output_dir / f"{file_path.stem}.md"
-
                     # Convert based on type
                     if detected_type == "audio":
                         from gobbler_core.converters.audio import (
                             convert_audio_to_markdown,
                         )
-
                         result, metadata = await convert_audio_to_markdown(str(file_path))
-                    elif detected_type == "document":
+                    else:  # document
                         from gobbler_core.converters.document import (
                             convert_document_to_markdown,
                         )
-
                         result, metadata = await convert_document_to_markdown(str(file_path))
-                    else:
-                        skipped += 1
-                        _write_json_line(
-                            {
-                                "type": "item_skipped",
-                                "file": str(file_path),
-                                "reason": "unknown_type",
-                            }
-                        )
-                        continue
 
                     # Write output
                     output_path.write_text(result, encoding="utf-8")
+                    return (file_path, True, "success", {"output": str(output_path), **metadata})
+
+                except Exception as e:
+                    return (file_path, False, str(e), None)
+
+        # Create tasks for all files
+        tasks = [process_file(f) for f in files]
+
+        if json_output:
+            # JSON output mode - stream results as they complete
+            for coro in asyncio.as_completed(tasks):
+                file_path, success, status, metadata = await coro
+
+                if status == "skipped_unknown":
+                    skipped += 1
+                    _write_json_line(
+                        {
+                            "type": "item_skipped",
+                            "file": str(file_path),
+                            "reason": "unknown_type",
+                        }
+                    )
+                elif success:
                     successful += 1
                     _write_json_line(
                         {
                             "type": "item_success",
                             "file": str(file_path),
-                            "output": str(output_path),
+                            "output": metadata.get("output") if metadata else None,
                             "metadata": metadata,
                         }
                     )
-
-                except Exception as e:
+                else:
                     failed += 1
                     _write_json_line(
                         {
                             "type": "item_error",
                             "file": str(file_path),
-                            "error": str(e),
+                            "error": status,
                         }
                     )
 
@@ -587,46 +613,24 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
             with progress:
                 task = progress.add_task("Processing files", total=len(files))
 
-                for file_path in files:
-                    try:
-                        # Determine file type
-                        detected_type = file_type or _detect_file_type(file_path)
-
-                        # Generate output filename
-                        output_path = output_dir / f"{file_path.stem}.md"
-
-                        # Convert based on type
-                        if detected_type == "audio":
-                            from gobbler_core.converters.audio import (
-                                convert_audio_to_markdown,
-                            )
-
-                            result, metadata = await convert_audio_to_markdown(str(file_path))
-                        elif detected_type == "document":
-                            from gobbler_core.converters.document import (
-                                convert_document_to_markdown,
-                            )
-
-                            result, metadata = await convert_document_to_markdown(str(file_path))
-                        else:
-                            print_info(f"Skipping unknown file type: {file_path}")
-                            progress.update(task, advance=1)
-                            continue
-
-                        # Write output
-                        output_path.write_text(result, encoding="utf-8")
+                for coro in asyncio.as_completed(tasks):
+                    file_path, success, status, metadata = await coro
+                    
+                    if status == "skipped_unknown":
+                        skipped += 1
+                    elif success:
                         successful += 1
-
-                    except Exception as e:
-                        print_error(f"Failed to process {file_path.name}: {e}")
+                    else:
                         failed += 1
-
+                    
                     progress.update(task, advance=1)
 
             # Print summary
-            print_success(f"Processed {successful} files successfully")
+            print_success(f"Processed {successful} files successfully (concurrency: {concurrency})")
             if failed > 0:
                 print_error(f"{failed} files failed to process")
+            if skipped > 0:
+                print_info(f"{skipped} files skipped (unknown type)")
 
     except Exception as e:
         if json_output:
@@ -917,8 +921,8 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 else:
                     would_process.append({"url": url, "output": str(output_path)})
 
-            # Estimate time: ~8s per page with concurrency
-            estimated_seconds = (len(would_process) * 8) // max(concurrency, 1)
+            # Estimate time based on concurrency
+            estimated_seconds = (len(would_process) * SECONDS_PER_WEBPAGE) // max(concurrency, 1)
             estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
 
             if json_output:
