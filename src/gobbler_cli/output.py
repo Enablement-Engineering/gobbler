@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,7 @@ console = Console()
 error_console = Console(stderr=True)
 
 
-class OutputFormat(str, Enum):
+class OutputFormat(StrEnum):
     """Supported output formats."""
 
     MARKDOWN = "markdown"

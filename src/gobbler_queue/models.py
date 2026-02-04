@@ -8,11 +8,11 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Status of a job in the queue."""
 
     PENDING = "pending"
@@ -22,7 +22,7 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class JobType(str, Enum):
+class JobType(StrEnum):
     """Type of conversion job."""
 
     YOUTUBE = "youtube"

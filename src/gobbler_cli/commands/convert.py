@@ -465,7 +465,7 @@ def webpage(
     )
 
 
-async def _convert_webpage(
+async def _convert_webpage(  # noqa: PLR0912
     url: str,
     output: Path | None,
     css_selector: str | None,
