@@ -28,6 +28,43 @@ def _write_json_line(data: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def _scan_existing_video_ids(directory: Path) -> set[str]:
+    """Scan directory for existing video IDs from markdown frontmatter.
+
+    Args:
+        directory: Directory to scan for .md files
+
+    Returns:
+        Set of video IDs found in frontmatter
+    """
+    import re
+
+    video_ids: set[str] = set()
+    if not directory.exists():
+        return video_ids
+
+    # Pattern to match video_id in YAML frontmatter
+    video_id_pattern = re.compile(r"^video_id:\s*['\"]?([a-zA-Z0-9_-]+)['\"]?\s*$", re.MULTILINE)
+
+    for md_file in directory.glob("*.md"):
+        try:
+            # Read just the first 2KB to get frontmatter (efficient)
+            content = md_file.read_text(encoding="utf-8")[:2048]
+            # Check if it has frontmatter
+            if content.startswith("---"):
+                # Find end of frontmatter
+                end_idx = content.find("---", 3)
+                if end_idx > 0:
+                    frontmatter = content[3:end_idx]
+                    match = video_id_pattern.search(frontmatter)
+                    if match:
+                        video_ids.add(match.group(1))
+        except Exception:  # noqa: S112 - intentionally skip unreadable files
+            continue
+
+    return video_ids
+
+
 app = typer.Typer(help="Batch processing operations")
 
 
@@ -149,21 +186,19 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 print_error(error_msg)
             raise typer.Exit(1)
 
+        # Scan existing video IDs from frontmatter (reliable skip detection)
+        existing_video_ids = _scan_existing_video_ids(output_dir)
+
         # Handle dry run - show preview without processing
         if dry_run:
-            # Check which files would be created vs skipped
+            # Check which videos would be processed vs skipped (by video ID)
             would_process = []
             would_skip = []
             for video in videos:
-                safe_title = "".join(
-                    c for c in video["title"] if c.isalnum() or c in (" ", "-", "_")
-                ).strip()
-                safe_title = safe_title.replace(" ", "_") or f"video_{video['video_id']}"
-                output_path = output_dir / f"{safe_title}.md"
-                if output_path.exists():
-                    would_skip.append({"video": video, "path": str(output_path)})
+                if video["video_id"] in existing_video_ids:
+                    would_skip.append({"video": video, "reason": "video_id_exists"})
                 else:
-                    would_process.append({"video": video, "path": str(output_path)})
+                    would_process.append({"video": video})
 
             # Estimate time based on concurrency
             estimated_seconds = (len(would_process) * SECONDS_PER_YOUTUBE_VIDEO) // max(
@@ -238,16 +273,16 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
         ) -> tuple[dict[str, Any], bool, str, dict[str, Any] | None]:
             """Process a single video."""
             async with semaphore:
+                # Skip if video ID already exists in directory (checked via frontmatter)
+                if video["video_id"] in existing_video_ids:
+                    return (video, True, "skipped", None)
+
                 # Sanitize filename
                 safe_title = "".join(
                     c for c in video["title"] if c.isalnum() or c in (" ", "-", "_")
                 ).strip()
                 safe_title = safe_title.replace(" ", "_") or f"video_{video['video_id']}"
                 output_path = output_dir / f"{safe_title}.md"
-
-                # Skip if exists
-                if output_path.exists():
-                    return (video, True, "skipped", None)
 
                 try:
                     markdown, metadata = await convert_youtube_to_markdown(
