@@ -41,7 +41,7 @@ async def lifespan(_app: FastMCP):  # type: ignore[misc]  # noqa: PLR0915
     # Setup structured logging based on config
     log_format = config.get("monitoring.log_format", "text")
     log_level = config.get("monitoring.log_level", "INFO")
-    setup_logging(level=log_level, format=log_format)
+    setup_logging(level=log_level, log_format=log_format)
     logger.info("Logging configured: format=%s, level=%s", log_format, log_level)
 
     # Start metrics server if enabled
