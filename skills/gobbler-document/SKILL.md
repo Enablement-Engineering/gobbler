@@ -1,6 +1,26 @@
 ---
 name: gobbler-document
 description: Converts PDF, DOCX, PPTX, XLSX documents to markdown with OCR support. Triggers on .pdf, .docx, .pptx, .xlsx files, or requests to extract text from documents, Word files, PowerPoint, or Excel spreadsheets.
+metadata:
+  openclaw:
+    emoji: 📄
+    requires:
+      bins: [gobbler, docker]
+    install:
+      - id: docker
+        kind: script
+        label: Install Docker Desktop
+        script: |
+          echo "Install Docker Desktop from https://docker.com/products/docker-desktop"
+          open "https://docker.com/products/docker-desktop"
+      - id: gobbler
+        kind: script
+        label: Install Gobbler (git clone + uv)
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
+          cd ~/Projects/gobbler && uv sync && uv tool install .
+          cd ~/Projects/gobbler && docker compose up -d docling
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler Document

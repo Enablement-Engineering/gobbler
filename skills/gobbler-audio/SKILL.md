@@ -1,6 +1,29 @@
 ---
 name: gobbler-audio
 description: Transcribes audio and video files to markdown using Whisper. Triggers on .mp3, .wav, .m4a, .mp4, .mov files, or requests to transcribe podcasts, recordings, voice memos, interviews, or spoken content.
+metadata:
+  openclaw:
+    emoji: 🎙️
+    requires:
+      bins: [gobbler, ffmpeg]
+    install:
+      - id: ffmpeg-brew
+        kind: brew
+        formula: ffmpeg
+        bins: [ffmpeg]
+        label: Install ffmpeg (brew)
+      - id: ffmpeg-apt
+        kind: apt
+        package: ffmpeg
+        bins: [ffmpeg]
+        label: Install ffmpeg (apt)
+      - id: gobbler
+        kind: script
+        label: Install Gobbler (git clone + uv)
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
+          cd ~/Projects/gobbler && uv sync && uv tool install .
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler Audio

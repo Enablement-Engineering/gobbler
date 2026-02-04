@@ -1,6 +1,20 @@
 ---
 name: gobbler-browser
 description: Controls browser via Gobbler extension for navigation, JavaScript execution, and content extraction. Includes NotebookLM, Claude.ai, ChatGPT, Gemini integrations. Triggers on browser extract, grab from tab, control browser, or AI chat service queries.
+metadata:
+  openclaw:
+    emoji: 🔌
+    requires:
+      bins: [gobbler]
+    install:
+      - id: gobbler
+        kind: script
+        label: Install Gobbler (git clone + uv)
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
+          cd ~/Projects/gobbler && uv sync && uv tool install .
+          echo "Load browser extension from ~/Projects/gobbler/browser-extension in Chrome"
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler Browser

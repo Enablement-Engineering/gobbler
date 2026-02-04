@@ -81,22 +81,59 @@ gobbler batch youtube-playlist URL  # Batch processing
 
 ### 2. Skills (For AI Agents)
 
-Skills are markdown instruction files (`SKILL.md`) that teach Claude how to use the `gobbler` CLI. Each skill contains YAML frontmatter for discovery and CLI commands for completing tasks:
+Skills are markdown instruction files (`SKILL.md`) that teach AI agents how to use the `gobbler` CLI. Compatible with:
+
+- **[OpenClaw](https://openclaw.ai)** - Personal AI assistant platform
+- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** - Anthropic's coding agent
+- **[Cursor](https://cursor.sh)** / **[Windsurf](https://codeium.com/windsurf)** - AI-powered IDEs
+- **Any agent** that supports skill/tool discovery via markdown
 
 ```
 skills/
-├── gobbler-youtube/     # YouTube transcription
-├── gobbler-audio/       # Audio/video transcription
-├── gobbler-document/    # Document conversion
-├── gobbler-webpage/     # Web scraping
-├── gobbler-browser/     # Browser automation + AI chat integrations
-├── gobbler-setup/       # Installation and troubleshooting
-└── gobbler-utils/       # Utility commands
+├── gobbler-youtube/     # 📺 YouTube transcription
+├── gobbler-audio/       # 🎙️ Audio/video transcription  
+├── gobbler-document/    # 📄 Document conversion (PDF, DOCX, PPTX, XLSX)
+├── gobbler-webpage/     # 🌐 Web scraping with JS rendering
+├── gobbler-browser/     # 🔌 Browser automation + AI chat integrations
+├── gobbler-setup/       # 🔧 Installation and troubleshooting
+└── gobbler-utils/       # 📦 Batch processing utilities
+```
+
+Each skill includes **OpenClaw-compatible metadata** for automatic dependency checking:
+
+```yaml
+metadata:
+  openclaw:
+    emoji: 📺
+    requires:
+      bins: [gobbler]  # CLI tools that must be installed
+    install:
+      - id: gobbler
+        kind: script
+        label: Install Gobbler
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git
+          cd gobbler && uv sync && uv tool install .
+```
+
+**Usage with OpenClaw:**
+```bash
+# Copy skills to your OpenClaw workspace
+cp -r skills/* ~/.openclaw/skills/
+
+# Or symlink for development
+ln -s $(pwd)/skills/* ~/.openclaw/skills/
+```
+
+**Usage with Claude Code:**
+```bash
+# Add skills directory to CLAUDE.md or workspace instructions
+echo "Skills available in ./skills/" >> CLAUDE.md
 ```
 
 The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini (DOM automation - may break with site updates).
 
-Skills use **progressive disclosure**—Claude only loads skill metadata at startup, then reads full CLI instructions when triggered.
+Skills use **progressive disclosure**—agents only load skill metadata at startup, then read full CLI instructions when triggered.
 
 ### 3. MCP Protocol (For AI Coding Assistants)
 

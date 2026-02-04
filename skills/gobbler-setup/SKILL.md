@@ -1,6 +1,13 @@
 ---
 name: gobbler-setup
 description: Installs, configures, and troubleshoots Gobbler. Triggers on install gobbler, setup, not working, connection refused, docker not running, or diagnostic/troubleshooting requests.
+metadata:
+  openclaw:
+    emoji: 🔧
+    requires:
+      bins: []
+    install: []
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler Setup & Troubleshooting
@@ -52,6 +59,20 @@ brew install uv ffmpeg
 # Install Docker Desktop from https://docker.com/products/docker-desktop
 ```
 
+### Install Prerequisites (Linux/Ubuntu)
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install ffmpeg
+sudo apt update && sudo apt install -y ffmpeg
+
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+```
+
 ### Install Gobbler
 
 ```bash
@@ -62,8 +83,11 @@ cd gobbler
 # Install Python packages
 uv sync
 
+# Install CLI globally
+uv tool install .
+
 # Verify installation
-uv run gobbler --version
+gobbler --version
 ```
 
 ### Start Docker Services
@@ -93,26 +117,45 @@ gobbler webpage "https://example.com"
 ### Config File Location
 
 ```
-~/.config/gobbler/config.yaml
+~/.config/gobbler/config.yml
 ```
 
 ### Default Configuration
 
 ```yaml
+# Proxy services (optional - for bypassing rate limits)
+proxy_services:
+  webshare:
+    type: rotating
+    username: ${WEBSHARE_USER}
+    password: ${WEBSHARE_PASS}
+
+# Provider configuration
+providers:
+  youtube:
+    default: youtube-transcript-api
+    youtube-transcript-api:
+      proxy: webshare  # Optional: use proxy
+
+  webpage:
+    default: crawl4ai
+    crawl4ai:
+      timeout: 30
+      proxy: webshare  # Optional: use proxy
+
 # Service URLs
 services:
-  docling: "http://localhost:5001"
-  crawl4ai: "http://localhost:11235"
+  docling:
+    host: localhost
+    port: 5001
+  crawl4ai:
+    host: localhost
+    port: 11235
 
-# Storage
-storage:
-  type: "sqlite"
-  path: "~/.config/gobbler/jobs.db"
-
-# Logging
-logging:
-  level: "INFO"
-  file: "~/.config/gobbler/gobbler.log"
+# Output settings
+output:
+  default_format: frontmatter
+  default_directory: null  # Set to auto-save, e.g., ~/Documents/Gobbler
 ```
 
 ### Environment Variables
@@ -121,6 +164,8 @@ logging:
 |----------|-------------|---------|
 | `GOBBLER_LOG_LEVEL` | Logging level | INFO |
 | `TRANSCRIPTAPI_KEY` | TranscriptAPI.com key | - |
+| `WEBSHARE_USER` | Webshare proxy username | - |
+| `WEBSHARE_PASS` | Webshare proxy password | - |
 
 ---
 
@@ -169,8 +214,11 @@ docker logs gobbler-crawl4ai --tail 50
 **Solution**:
 
 ```bash
-# Start Docker Desktop
+# Start Docker Desktop (macOS)
 open -a Docker
+
+# Start Docker (Linux)
+sudo systemctl start docker
 
 # Wait 30-60 seconds, then verify
 docker info
@@ -183,15 +231,16 @@ docker info
 **Solution**:
 
 ```bash
-# Option 1: Run via uv
+# Option 1: Install globally with uv
+cd /path/to/gobbler
+uv tool install .
+
+# Option 2: Run via uv
 cd /path/to/gobbler
 uv run gobbler --version
 
-# Option 2: Install globally
-uv tool install .
-
 # Option 3: Add to PATH
-export PATH="$PATH:/path/to/gobbler/.venv/bin"
+export PATH="$PATH:$HOME/.local/bin"
 ```
 
 ### Issue: YouTube "IP blocked" or "No transcript available"
@@ -206,9 +255,8 @@ export PATH="$PATH:/path/to/gobbler/.venv/bin"
 # Try different language
 gobbler youtube "URL" --language en
 
-# Use TranscriptAPI.com (paid, reliable)
-export TRANSCRIPTAPI_KEY=your_key
-gobbler youtube "URL"
+# Configure proxy in ~/.config/gobbler/config.yml
+# See Configuration section above
 ```
 
 ### Issue: Audio transcription slow or failing

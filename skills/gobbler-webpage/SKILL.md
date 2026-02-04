@@ -1,6 +1,26 @@
 ---
 name: gobbler-webpage
 description: Converts web pages to markdown with CSS selector extraction. Triggers on http/https URLs, fetch this page, grab webpage, scrape site, or requests to extract web content.
+metadata:
+  openclaw:
+    emoji: 🌐
+    requires:
+      bins: [gobbler, docker]
+    install:
+      - id: docker
+        kind: script
+        label: Install Docker Desktop
+        script: |
+          echo "Install Docker Desktop from https://docker.com/products/docker-desktop"
+          open "https://docker.com/products/docker-desktop"
+      - id: gobbler
+        kind: script
+        label: Install Gobbler (git clone + uv)
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
+          cd ~/Projects/gobbler && uv sync && uv tool install .
+          cd ~/Projects/gobbler && docker compose up -d crawl4ai
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler Webpage

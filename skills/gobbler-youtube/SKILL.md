@@ -1,6 +1,19 @@
 ---
 name: gobbler-youtube
 description: Transcribes YouTube videos to markdown. Triggers on youtube, video transcript, youtu.be links, youtube.com links, or requests for captions/subtitles from videos.
+metadata:
+  openclaw:
+    emoji: 📺
+    requires:
+      bins: [gobbler]
+    install:
+      - id: gobbler
+        kind: script
+        label: Install Gobbler (git clone + uv)
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
+          cd ~/Projects/gobbler && uv sync && uv tool install .
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler YouTube

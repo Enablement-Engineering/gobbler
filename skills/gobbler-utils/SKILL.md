@@ -1,6 +1,19 @@
 ---
-name: batch-processing
+name: gobbler-utils
 description: Batch converts directories of files, YouTube playlists, or URL lists to markdown. Triggers on batch convert, process all files, convert playlist, bulk processing, or multiple file/URL requests.
+metadata:
+  openclaw:
+    emoji: 📦
+    requires:
+      bins: [gobbler]
+    install:
+      - id: gobbler
+        kind: script
+        label: Install Gobbler (git clone + uv)
+        script: |
+          git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
+          cd ~/Projects/gobbler && uv sync && uv tool install .
+    homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
 # Gobbler Utilities
