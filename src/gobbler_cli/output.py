@@ -109,15 +109,16 @@ def format_json_error(
     }
     if source:
         response["source"] = source
-    
+
     # Auto-detect suggestion from consolidated knowledge base
     if suggestion is None:
         from gobbler_cli.knowledge import get_suggestion_for_error
+
         suggestion = get_suggestion_for_error(error_code, error)
-    
+
     if suggestion:
         response["suggestion"] = suggestion
-        
+
     return response
 
 

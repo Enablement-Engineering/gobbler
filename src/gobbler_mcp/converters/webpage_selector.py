@@ -198,7 +198,9 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
                     elapsed += wait_interval
 
                     # Check task status
-                    status_response = await client.get(f"{service_url}/task/{task_id}", headers=headers)
+                    status_response = await client.get(
+                        f"{service_url}/task/{task_id}", headers=headers
+                    )
                     status_response.raise_for_status()
                     task_status = status_response.json()
 

@@ -164,29 +164,40 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     would_process.append({"video": video, "path": str(output_path)})
 
             # Estimate time based on concurrency
-            estimated_seconds = (len(would_process) * SECONDS_PER_YOUTUBE_VIDEO) // max(concurrency, 1)
-            estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
+            estimated_seconds = (len(would_process) * SECONDS_PER_YOUTUBE_VIDEO) // max(
+                concurrency, 1
+            )
+            estimated_time = (
+                f"{estimated_seconds // 60}m {estimated_seconds % 60}s"
+                if estimated_seconds >= 60
+                else f"{estimated_seconds}s"
+            )
 
             if use_json:
-                _write_json_line({
-                    "type": "dry_run",
-                    "total_videos": len(videos),
-                    "would_process": len(would_process),
-                    "would_skip": len(would_skip),
-                    "output_dir": str(output_dir),
-                    "output_dir_exists": output_dir.exists(),
-                    "estimated_time": estimated_time,
-                    "concurrency": concurrency,
-                    "videos": [v["video"] for v in would_process],
-                    "skipped": [v["video"] for v in would_skip],
-                })
+                _write_json_line(
+                    {
+                        "type": "dry_run",
+                        "total_videos": len(videos),
+                        "would_process": len(would_process),
+                        "would_skip": len(would_skip),
+                        "output_dir": str(output_dir),
+                        "output_dir_exists": output_dir.exists(),
+                        "estimated_time": estimated_time,
+                        "concurrency": concurrency,
+                        "videos": [v["video"] for v in would_process],
+                        "skipped": [v["video"] for v in would_skip],
+                    }
+                )
             else:
                 from gobbler_cli.output import console
+
                 console.print()
                 console.print("[bold]Dry Run Preview[/bold]")
                 console.print("═" * 50)
                 console.print(f"Playlist:       {url}")
-                console.print(f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}")
+                console.print(
+                    f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}"
+                )
                 console.print(f"Total videos:   {len(videos)}")
                 console.print(f"Would process:  [green]{len(would_process)}[/green]")
                 console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
@@ -454,39 +465,61 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 detected_type = file_type or _detect_file_type(file_path)
                 output_path = output_dir / f"{file_path.stem}.md"
                 if output_path.exists():
-                    would_skip.append({"file": str(file_path), "output": str(output_path), "type": detected_type})
+                    would_skip.append(
+                        {"file": str(file_path), "output": str(output_path), "type": detected_type}
+                    )
                 elif detected_type in ("audio", "document"):
-                    would_process.append({"file": str(file_path), "output": str(output_path), "type": detected_type})
+                    would_process.append(
+                        {"file": str(file_path), "output": str(output_path), "type": detected_type}
+                    )
                 else:
-                    would_skip.append({"file": str(file_path), "output": str(output_path), "type": detected_type, "reason": "unknown_type"})
+                    would_skip.append(
+                        {
+                            "file": str(file_path),
+                            "output": str(output_path),
+                            "type": detected_type,
+                            "reason": "unknown_type",
+                        }
+                    )
 
             # Estimate time based on file types and concurrency
             audio_count = sum(1 for f in would_process if f["type"] == "audio")
             doc_count = sum(1 for f in would_process if f["type"] == "document")
-            estimated_seconds = ((audio_count * SECONDS_PER_AUDIO_FILE) + (doc_count * SECONDS_PER_DOCUMENT)) // max(concurrency, 1)
-            estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
+            estimated_seconds = (
+                (audio_count * SECONDS_PER_AUDIO_FILE) + (doc_count * SECONDS_PER_DOCUMENT)
+            ) // max(concurrency, 1)
+            estimated_time = (
+                f"{estimated_seconds // 60}m {estimated_seconds % 60}s"
+                if estimated_seconds >= 60
+                else f"{estimated_seconds}s"
+            )
 
             if json_output:
-                _write_json_line({
-                    "type": "dry_run",
-                    "total_files": len(files),
-                    "would_process": len(would_process),
-                    "would_skip": len(would_skip),
-                    "input_dir": str(input_dir),
-                    "output_dir": str(output_dir),
-                    "pattern": pattern,
-                    "estimated_time": estimated_time,
-                    "files": would_process,
-                    "skipped": would_skip,
-                })
+                _write_json_line(
+                    {
+                        "type": "dry_run",
+                        "total_files": len(files),
+                        "would_process": len(would_process),
+                        "would_skip": len(would_skip),
+                        "input_dir": str(input_dir),
+                        "output_dir": str(output_dir),
+                        "pattern": pattern,
+                        "estimated_time": estimated_time,
+                        "files": would_process,
+                        "skipped": would_skip,
+                    }
+                )
             else:
                 from gobbler_cli.output import console
+
                 console.print()
                 console.print("[bold]Dry Run Preview[/bold]")
                 console.print("═" * 50)
                 console.print(f"Input:          {input_dir}")
                 console.print(f"Pattern:        {pattern}")
-                console.print(f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}")
+                console.print(
+                    f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}"
+                )
                 console.print(f"Total files:    {len(files)}")
                 console.print(f"Would process:  [green]{len(would_process)}[/green]")
                 console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow]")
@@ -543,11 +576,13 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                         from gobbler_core.converters.audio import (
                             convert_audio_to_markdown,
                         )
+
                         result, metadata = await convert_audio_to_markdown(str(file_path))
                     else:  # document
                         from gobbler_core.converters.document import (
                             convert_document_to_markdown,
                         )
+
                         result, metadata = await convert_document_to_markdown(str(file_path))
 
                     # Write output
@@ -615,14 +650,14 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
 
                 for coro in asyncio.as_completed(tasks):
                     file_path, success, status, metadata = await coro
-                    
+
                     if status == "skipped_unknown":
                         skipped += 1
                     elif success:
                         successful += 1
                     else:
                         failed += 1
-                    
+
                     progress.update(task, advance=1)
 
             # Print summary
@@ -923,28 +958,37 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
 
             # Estimate time based on concurrency
             estimated_seconds = (len(would_process) * SECONDS_PER_WEBPAGE) // max(concurrency, 1)
-            estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
+            estimated_time = (
+                f"{estimated_seconds // 60}m {estimated_seconds % 60}s"
+                if estimated_seconds >= 60
+                else f"{estimated_seconds}s"
+            )
 
             if json_output:
-                _write_json_line({
-                    "type": "dry_run",
-                    "total_urls": len(urls),
-                    "would_process": len(would_process),
-                    "would_skip": len(would_skip),
-                    "output_dir": str(output_dir),
-                    "output_dir_exists": output_dir.exists(),
-                    "concurrency": concurrency,
-                    "estimated_time": estimated_time,
-                    "urls": would_process,
-                    "skipped": would_skip,
-                })
+                _write_json_line(
+                    {
+                        "type": "dry_run",
+                        "total_urls": len(urls),
+                        "would_process": len(would_process),
+                        "would_skip": len(would_skip),
+                        "output_dir": str(output_dir),
+                        "output_dir_exists": output_dir.exists(),
+                        "concurrency": concurrency,
+                        "estimated_time": estimated_time,
+                        "urls": would_process,
+                        "skipped": would_skip,
+                    }
+                )
             else:
                 from gobbler_cli.output import console
+
                 console.print()
                 console.print("[bold]Dry Run Preview[/bold]")
                 console.print("═" * 50)
                 console.print(f"Input:          {input_file or 'stdin'}")
-                console.print(f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}")
+                console.print(
+                    f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}"
+                )
                 console.print(f"Total URLs:     {len(urls)}")
                 console.print(f"Would process:  [green]{len(would_process)}[/green]")
                 console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")

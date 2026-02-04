@@ -11,15 +11,15 @@ from dataclasses import dataclass, field
 
 # Time estimation constants (seconds per item)
 SECONDS_PER_YOUTUBE_VIDEO = 7  # Average including transcript fetch
-SECONDS_PER_AUDIO_FILE = 5     # Whisper transcription (small model)
-SECONDS_PER_DOCUMENT = 3       # Docling PDF conversion
-SECONDS_PER_WEBPAGE = 8        # Crawl4AI with JS rendering
+SECONDS_PER_AUDIO_FILE = 5  # Whisper transcription (small model)
+SECONDS_PER_DOCUMENT = 3  # Docling PDF conversion
+SECONDS_PER_WEBPAGE = 8  # Crawl4AI with JS rendering
 
 
 @dataclass
 class ErrorSolution:
     """A documented error pattern with solution.
-    
+
     Attributes:
         keywords: Words/phrases to match against error messages
         title: Human-readable error name
@@ -29,7 +29,7 @@ class ErrorSolution:
         docs: Optional link to documentation
         error_codes: Error codes this solution applies to (for JSON output)
     """
-    
+
     keywords: list[str]
     title: str
     description: str
@@ -76,9 +76,8 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         fix="Try --no-ocr for faster processing, or process a smaller document",
         error_codes=["DOCUMENT_CONVERSION_ERROR"],
     ),
-    
     # ===================
-    # Crawl4AI / Webpage errors  
+    # Crawl4AI / Webpage errors
     # ===================
     ErrorSolution(
         keywords=["connection refused", "11235", "crawl4ai", "webpage"],
@@ -105,7 +104,6 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         docs="https://github.com/Enablement-Engineering/gobbler#browser-extension",
         error_codes=["WEBPAGE_CONVERSION_ERROR"],
     ),
-    
     # ===================
     # YouTube errors
     # ===================
@@ -132,7 +130,6 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         fix="Check if the video is accessible in your browser",
         error_codes=["YOUTUBE_CONVERSION_ERROR"],
     ),
-    
     # ===================
     # Audio / Whisper errors
     # ===================
@@ -167,7 +164,6 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         fix="Use a smaller model with --model tiny or --model base",
         error_codes=["AUDIO_CONVERSION_ERROR"],
     ),
-    
     # ===================
     # Docker errors
     # ===================
@@ -185,7 +181,6 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         fix="sudo usermod -aG docker $USER && newgrp docker",
         verify="docker ps",
     ),
-    
     # ===================
     # General errors
     # ===================
@@ -214,41 +209,41 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
 
 def find_solutions(error_text: str, error_code: str | None = None) -> list[ErrorSolution]:
     """Find matching solutions for an error message.
-    
+
     Args:
         error_text: The error message or description to diagnose
         error_code: Optional error code to prioritize matches
-        
+
     Returns:
         List of matching ErrorSolution objects, sorted by relevance
     """
     error_lower = error_text.lower()
     matches: list[tuple[int, ErrorSolution]] = []
-    
+
     for solution in ERROR_KNOWLEDGE_BASE:
         # Count keyword matches
         match_count = sum(1 for kw in solution.keywords if kw in error_lower)
-        
+
         # Bonus for matching error code
         if error_code and error_code in solution.error_codes:
             match_count += 2
-        
+
         if match_count > 0:
             matches.append((match_count, solution))
-    
+
     # Sort by match count (descending)
     matches.sort(key=lambda x: x[0], reverse=True)
-    
+
     return [sol for _, sol in matches]
 
 
 def get_suggestion_for_error(error_code: str, error_message: str) -> str | None:
     """Get a suggestion for a specific error (used by JSON error responses).
-    
+
     Args:
         error_code: The error code (e.g., DOCUMENT_CONVERSION_ERROR)
         error_message: The error message text
-        
+
     Returns:
         A suggestion string, or None if no match found
     """

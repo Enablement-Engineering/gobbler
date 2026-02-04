@@ -30,9 +30,9 @@ def explain(
     ] = False,
 ) -> None:
     """Diagnose Gobbler errors and get solutions.
-    
+
     Provide an error message or description, and get actionable solutions.
-    
+
     Examples:
         gobbler explain "connection refused port 5001"
         gobbler explain "youtube rate limit"
@@ -41,7 +41,7 @@ def explain(
     """
     if ctx.invoked_subcommand is not None:
         return
-    
+
     if list_all:
         # List all known error patterns
         if json_output:
@@ -61,21 +61,32 @@ def explain(
             for sol in ERROR_KNOWLEDGE_BASE:
                 console.print(f"\n[bold]{sol.title}[/bold]")
                 console.print(f"  Keywords: {', '.join(sol.keywords[:4])}")
-                console.print(f"  Fix: [dim]{sol.fix[:60]}...[/dim]" if len(sol.fix) > 60 else f"  Fix: [dim]{sol.fix}[/dim]")
+                console.print(
+                    f"  Fix: [dim]{sol.fix[:60]}...[/dim]"
+                    if len(sol.fix) > 60
+                    else f"  Fix: [dim]{sol.fix}[/dim]"
+                )
             console.print()
         return
-    
+
     if not error_text:
         console.print("[yellow]Provide an error message to diagnose.[/yellow]")
-        console.print("Example: gobbler explain \"connection refused port 5001\"")
+        console.print('Example: gobbler explain "connection refused port 5001"')
         console.print("Or use: gobbler explain --list")
         raise typer.Exit(1)
-    
+
     solutions = find_solutions(error_text)
-    
+
     if not solutions:
         if json_output:
-            typer.echo(json.dumps({"matches": [], "suggestion": "Try 'gobbler explain --list' to see known errors"}))
+            typer.echo(
+                json.dumps(
+                    {
+                        "matches": [],
+                        "suggestion": "Try 'gobbler explain --list' to see known errors",
+                    }
+                )
+            )
         else:
             console.print(f"[yellow]No matching solutions found for:[/yellow] {error_text}")
             console.print()
@@ -84,7 +95,7 @@ def explain(
             console.print("  • Run [bold]gobbler explain --list[/bold] to see known errors")
             console.print("  • Check logs: [dim]docker logs gobbler-docling --tail 50[/dim]")
         raise typer.Exit(1)
-    
+
     if json_output:
         result = {
             "query": error_text,
@@ -104,12 +115,12 @@ def explain(
         console.print()
         console.print(f"[bold]Diagnosing:[/bold] {error_text}")
         console.print("═" * 50)
-        
+
         for i, sol in enumerate(solutions[:3], 1):
             if i > 1:
                 console.print()
                 console.print("[dim]─" * 40 + "[/dim]")
-            
+
             console.print()
             console.print(f"[bold red]#{i} {sol.title}[/bold red]")
             console.print()
@@ -117,18 +128,18 @@ def explain(
             console.print()
             console.print(f"[bold green]Fix:[/bold green]")
             console.print(f"  {sol.fix}")
-            
+
             if sol.verify:
                 console.print()
                 console.print(f"[bold blue]Verify:[/bold blue]")
                 console.print(f"  {sol.verify}")
-            
+
             if sol.docs:
                 console.print()
                 console.print(f"[dim]Docs: {sol.docs}[/dim]")
-        
+
         if len(solutions) > 3:
             console.print()
             console.print(f"[dim]... and {len(solutions) - 3} more possible matches[/dim]")
-        
+
         console.print()

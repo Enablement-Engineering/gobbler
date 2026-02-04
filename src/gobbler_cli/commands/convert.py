@@ -30,22 +30,24 @@ app = typer.Typer(help="Convert individual content items to markdown")
 
 def _read_stdin_url() -> str | None:
     """Read a URL from stdin if available.
-    
+
     Returns:
         URL string or None if stdin is empty/not available
     """
     import sys
-    
+
     if sys.stdin.isatty():
         return None
-    
+
     line = sys.stdin.readline().strip()
     return line if line else None
 
 
 @app.command()
 def youtube(
-    url: Annotated[str | None, typer.Argument(help="YouTube video URL (use - or omit for stdin)")] = None,
+    url: Annotated[
+        str | None, typer.Argument(help="YouTube video URL (use - or omit for stdin)")
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
@@ -83,7 +85,7 @@ def youtube(
         if not actual_url:
             print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
             raise typer.Exit(1)
-    
+
     asyncio.run(
         _convert_youtube(
             url=actual_url,
@@ -393,7 +395,9 @@ async def _convert_document(
 
 @app.command()
 def webpage(
-    url: Annotated[str | None, typer.Argument(help="Web page URL (use - or omit for stdin)")] = None,
+    url: Annotated[
+        str | None, typer.Argument(help="Web page URL (use - or omit for stdin)")
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
