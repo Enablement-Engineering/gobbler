@@ -37,9 +37,10 @@ class TestJobStatus:
         assert JobStatus.CANCELLED.value == "cancelled"
 
     def test_status_is_string_enum(self):
-        """Test that JobStatus is a string enum."""
+        """Test that JobStatus is a StrEnum (str() returns value)."""
         assert isinstance(JobStatus.PENDING.value, str)
-        assert str(JobStatus.PENDING) == "JobStatus.PENDING"
+        # StrEnum: str() returns the value directly
+        assert str(JobStatus.PENDING) == "pending"
 
 
 class TestJobType:
