@@ -50,6 +50,10 @@ def youtube_playlist(
         bool,
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be processed without converting"),
+    ] = False,
 ) -> None:
     """Convert all videos in a YouTube playlist to markdown.
 
@@ -57,6 +61,7 @@ def youtube_playlist(
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./transcripts
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out -c 5
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out --json
+        gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out --dry-run
     """
     asyncio.run(
         _batch_youtube_playlist(
@@ -67,6 +72,7 @@ def youtube_playlist(
             concurrency=concurrency,
             output_format=output_format,
             json_output=json_output,
+            dry_run=dry_run,
         )
     )
 
@@ -79,6 +85,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
     concurrency: int,
     output_format: str,
     json_output: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Async implementation of YouTube playlist batch processing."""
     import time
@@ -92,8 +99,9 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
     start_time = time.time()
 
     try:
-        # Create output directory
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Create output directory (unless dry run)
+        if not dry_run:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract playlist videos using yt-dlp
         ydl_opts = {
@@ -132,6 +140,61 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
             else:
                 print_error(error_msg)
             raise typer.Exit(1)
+
+        # Handle dry run - show preview without processing
+        if dry_run:
+            # Check which files would be created vs skipped
+            would_process = []
+            would_skip = []
+            for video in videos:
+                safe_title = "".join(
+                    c for c in video["title"] if c.isalnum() or c in (" ", "-", "_")
+                ).strip()
+                safe_title = safe_title.replace(" ", "_") or f"video_{video['video_id']}"
+                output_path = output_dir / f"{safe_title}.md"
+                if output_path.exists():
+                    would_skip.append({"video": video, "path": str(output_path)})
+                else:
+                    would_process.append({"video": video, "path": str(output_path)})
+
+            # Estimate time (~7 seconds per video is typical)
+            estimated_seconds = (len(would_process) * 7) // max(concurrency, 1)
+            estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
+
+            if use_json:
+                _write_json_line({
+                    "type": "dry_run",
+                    "total_videos": len(videos),
+                    "would_process": len(would_process),
+                    "would_skip": len(would_skip),
+                    "output_dir": str(output_dir),
+                    "output_dir_exists": output_dir.exists(),
+                    "estimated_time": estimated_time,
+                    "concurrency": concurrency,
+                    "videos": [v["video"] for v in would_process],
+                    "skipped": [v["video"] for v in would_skip],
+                })
+            else:
+                from gobbler_cli.output import console
+                console.print()
+                console.print("[bold]Dry Run Preview[/bold]")
+                console.print("═" * 50)
+                console.print(f"Playlist:       {url}")
+                console.print(f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}")
+                console.print(f"Total videos:   {len(videos)}")
+                console.print(f"Would process:  [green]{len(would_process)}[/green]")
+                console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
+                console.print(f"Concurrency:    {concurrency}")
+                console.print(f"Estimated time: ~{estimated_time}")
+                console.print()
+                if would_process:
+                    console.print("[bold]Videos to process:[/bold]")
+                    for i, item in enumerate(would_process[:10], 1):
+                        console.print(f"  {i}. {item['video']['title']}")
+                    if len(would_process) > 10:
+                        console.print(f"  ... and {len(would_process) - 10} more")
+                console.print()
+            return
 
         if use_json:
             _write_json_line(
@@ -307,6 +370,10 @@ def directory(
         bool,
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be processed without converting"),
+    ] = False,
 ) -> None:
     """Batch convert files from a directory.
 
@@ -314,6 +381,7 @@ def directory(
         gobbler batch directory ./recordings -o ./transcripts --pattern "*.mp3"
         gobbler batch directory ./docs -o ./markdown --pattern "*.pdf" --type document
         gobbler batch directory ./docs -o ./markdown --json
+        gobbler batch directory ./docs -o ./markdown --dry-run
     """
     asyncio.run(
         _batch_directory(
@@ -323,6 +391,7 @@ def directory(
             concurrency=concurrency,
             file_type=file_type,
             json_output=json_output,
+            dry_run=dry_run,
         )
     )
 
@@ -334,6 +403,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
     concurrency: int,  # noqa: ARG001 - Reserved for future parallel processing
     file_type: str | None,
     json_output: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Async implementation of directory batch processing."""
     try:
@@ -350,8 +420,9 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 )
             raise ValueError(error_msg)
 
-        # Create output directory
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Create output directory (unless dry run)
+        if not dry_run:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
         # Find matching files
         files = list(input_dir.glob(pattern))
@@ -367,6 +438,61 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 )
             else:
                 print_info(f"No files matching pattern '{pattern}' found in {input_dir}")
+            return
+
+        # Handle dry run
+        if dry_run:
+            would_process = []
+            would_skip = []
+            for file_path in files:
+                detected_type = file_type or _detect_file_type(file_path)
+                output_path = output_dir / f"{file_path.stem}.md"
+                if output_path.exists():
+                    would_skip.append({"file": str(file_path), "output": str(output_path), "type": detected_type})
+                elif detected_type in ("audio", "document"):
+                    would_process.append({"file": str(file_path), "output": str(output_path), "type": detected_type})
+                else:
+                    would_skip.append({"file": str(file_path), "output": str(output_path), "type": detected_type, "reason": "unknown_type"})
+
+            # Estimate time: ~5s for audio, ~3s for documents
+            audio_count = sum(1 for f in would_process if f["type"] == "audio")
+            doc_count = sum(1 for f in would_process if f["type"] == "document")
+            estimated_seconds = (audio_count * 5) + (doc_count * 3)
+            estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
+
+            if json_output:
+                _write_json_line({
+                    "type": "dry_run",
+                    "total_files": len(files),
+                    "would_process": len(would_process),
+                    "would_skip": len(would_skip),
+                    "input_dir": str(input_dir),
+                    "output_dir": str(output_dir),
+                    "pattern": pattern,
+                    "estimated_time": estimated_time,
+                    "files": would_process,
+                    "skipped": would_skip,
+                })
+            else:
+                from gobbler_cli.output import console
+                console.print()
+                console.print("[bold]Dry Run Preview[/bold]")
+                console.print("═" * 50)
+                console.print(f"Input:          {input_dir}")
+                console.print(f"Pattern:        {pattern}")
+                console.print(f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}")
+                console.print(f"Total files:    {len(files)}")
+                console.print(f"Would process:  [green]{len(would_process)}[/green]")
+                console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow]")
+                console.print(f"Estimated time: ~{estimated_time}")
+                console.print()
+                if would_process:
+                    console.print("[bold]Files to process:[/bold]")
+                    for i, item in enumerate(would_process[:10], 1):
+                        console.print(f"  {i}. {item['file']} → {item['output']}")
+                    if len(would_process) > 10:
+                        console.print(f"  ... and {len(would_process) - 10} more")
+                console.print()
             return
 
         if json_output:
@@ -579,6 +705,10 @@ def webpages(
         bool,
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be processed without converting"),
+    ] = False,
 ) -> None:
     """Batch convert web pages to markdown.
 
@@ -591,6 +721,7 @@ def webpages(
         gobbler batch webpages urls.txt -o ./out --concurrency 5 --timeout 60
         gobbler batch webpages urls.txt -o ./out --queue
         gobbler batch webpages urls.txt -o ./out --json
+        gobbler batch webpages urls.txt -o ./out --dry-run
     """
     if queue:
         _queue_batch_webpages(
@@ -611,6 +742,7 @@ def webpages(
                 selector=selector,
                 skip_existing=skip_existing,
                 json_output=json_output,
+                dry_run=dry_run,
             )
         )
 
@@ -752,6 +884,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
     selector: str | None,  # noqa: ARG001 - Reserved for future CSS selector support
     skip_existing: bool,
     json_output: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Async implementation of batch webpage processing."""
     from gobbler_core.converters.webpage import convert_webpage_to_markdown
@@ -771,6 +904,57 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
             else:
                 print_error("No valid URLs found in input")
             raise typer.Exit(1)
+
+        # Handle dry run
+        if dry_run:
+            would_process = []
+            would_skip = []
+            for url in urls:
+                filename = _sanitize_url_to_filename(url) + ".md"
+                output_path = output_dir / filename
+                if skip_existing and output_path.exists():
+                    would_skip.append({"url": url, "output": str(output_path), "reason": "exists"})
+                else:
+                    would_process.append({"url": url, "output": str(output_path)})
+
+            # Estimate time: ~8s per page with concurrency
+            estimated_seconds = (len(would_process) * 8) // max(concurrency, 1)
+            estimated_time = f"{estimated_seconds // 60}m {estimated_seconds % 60}s" if estimated_seconds >= 60 else f"{estimated_seconds}s"
+
+            if json_output:
+                _write_json_line({
+                    "type": "dry_run",
+                    "total_urls": len(urls),
+                    "would_process": len(would_process),
+                    "would_skip": len(would_skip),
+                    "output_dir": str(output_dir),
+                    "output_dir_exists": output_dir.exists(),
+                    "concurrency": concurrency,
+                    "estimated_time": estimated_time,
+                    "urls": would_process,
+                    "skipped": would_skip,
+                })
+            else:
+                from gobbler_cli.output import console
+                console.print()
+                console.print("[bold]Dry Run Preview[/bold]")
+                console.print("═" * 50)
+                console.print(f"Input:          {input_file or 'stdin'}")
+                console.print(f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}")
+                console.print(f"Total URLs:     {len(urls)}")
+                console.print(f"Would process:  [green]{len(would_process)}[/green]")
+                console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
+                console.print(f"Concurrency:    {concurrency}")
+                console.print(f"Estimated time: ~{estimated_time}")
+                console.print()
+                if would_process:
+                    console.print("[bold]URLs to process:[/bold]")
+                    for i, item in enumerate(would_process[:10], 1):
+                        console.print(f"  {i}. {item['url']}")
+                    if len(would_process) > 10:
+                        console.print(f"  ... and {len(would_process) - 10} more")
+                console.print()
+            return
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
