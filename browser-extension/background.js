@@ -242,7 +242,8 @@ async function getActiveGobblerTab() {
   return tab;
 }
 
-// Add current tab to Gobbler group (with permission request)
+// Add current tab to Gobbler group
+// Note: Permission should already be granted by popup.js before calling this
 async function addCurrentTabToGroup() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -258,18 +259,18 @@ async function addCurrentTabToGroup() {
     };
   }
 
-  // Get the origin pattern for permission request
+  // Get the origin pattern for permission check
   const originPattern = getOriginPattern(tab.url);
   if (!originPattern) {
     return { success: false, error: 'Could not determine site origin' };
   }
 
-  // Request permission for this origin
-  const permResult = await requestPermissionForOrigin(originPattern);
-  if (!permResult.granted) {
+  // Verify permission exists (should already be granted by popup.js)
+  const hasPermission = await hasPermissionForOrigin(originPattern);
+  if (!hasPermission) {
     return {
       success: false,
-      error: permResult.error || 'Permission denied for this site',
+      error: 'Permission not granted for this site',
       permissionDenied: true
     };
   }

@@ -372,6 +372,16 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Helper to get origin pattern from URL (same logic as background.js)
+function getOriginPattern(url) {
+  try {
+    const urlObj = new URL(url);
+    return `${urlObj.protocol}//${urlObj.host}/*`;
+  } catch {
+    return null;
+  }
+}
+
 // Handle group button click
 groupBtn.addEventListener('click', async () => {
   groupBtn.disabled = true;
@@ -385,17 +395,54 @@ groupBtn.addEventListener('click', async () => {
       groupBtn.disabled = false;
     });
   } else {
-    // Add to group (will request permission if needed)
+    // First, get the current tab to determine if we need permission
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.url) {
+      showStatus('No active tab found', 'error', '✗');
+      groupBtn.disabled = false;
+      return;
+    }
+
+    const originPattern = getOriginPattern(tab.url);
+    if (!originPattern) {
+      showStatus('Could not determine site origin', 'error', '✗');
+      groupBtn.disabled = false;
+      return;
+    }
+
+    // Check if we already have permission
+    let hasPermission = false;
+    try {
+      hasPermission = await chrome.permissions.contains({ origins: [originPattern] });
+    } catch {
+      hasPermission = false;
+    }
+
+    // Request permission in popup context (where user interaction is happening)
+    // This is required for Chrome to show the permission prompt
+    if (!hasPermission) {
+      try {
+        const granted = await chrome.permissions.request({ origins: [originPattern] });
+        if (!granted) {
+          showStatus('Permission denied. Please allow access to this site.', 'error', '✗');
+          groupBtn.disabled = false;
+          return;
+        }
+      } catch (err) {
+        showStatus(`Permission error: ${err.message}`, 'error', '✗');
+        groupBtn.disabled = false;
+        return;
+      }
+    }
+
+    // Now add to group (permission already granted)
     chrome.runtime.sendMessage({ action: 'addToGroup' }, (response) => {
       if (response && response.success) {
         showStatus('Added to Gobbler group', 'success', '✓');
         updateGroupStatus();
       } else if (response && response.error) {
-        if (response.permissionDenied) {
-          showStatus('Permission denied. Click "Allow" when prompted.', 'error', '✗');
-        } else {
-          showStatus(`Error: ${response.error}`, 'error', '✗');
-        }
+        showStatus(`Error: ${response.error}`, 'error', '✗');
       }
       groupBtn.disabled = false;
     });
