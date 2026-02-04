@@ -28,9 +28,24 @@ from gobbler_cli.progress import ProgressTracker
 app = typer.Typer(help="Convert individual content items to markdown")
 
 
+def _read_stdin_url() -> str | None:
+    """Read a URL from stdin if available.
+    
+    Returns:
+        URL string or None if stdin is empty/not available
+    """
+    import sys
+    
+    if sys.stdin.isatty():
+        return None
+    
+    line = sys.stdin.readline().strip()
+    return line if line else None
+
+
 @app.command()
 def youtube(
-    url: Annotated[str, typer.Argument(help="YouTube video URL")],
+    url: Annotated[str | None, typer.Argument(help="YouTube video URL (use - or omit for stdin)")] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
@@ -59,10 +74,19 @@ def youtube(
         gobbler youtube https://youtube.com/watch?v=ABC123 -o transcript.md
         gobbler youtube https://youtube.com/watch?v=ABC123 --language es --timestamps
         gobbler youtube https://youtube.com/watch?v=ABC123 -o out.md --skip-if-exists
+        echo "https://youtube.com/watch?v=ABC123" | gobbler youtube
     """
+    # Handle stdin input
+    actual_url = url
+    if url is None or url == "-":
+        actual_url = _read_stdin_url()
+        if not actual_url:
+            print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
+            raise typer.Exit(1)
+    
     asyncio.run(
         _convert_youtube(
-            url=url,
+            url=actual_url,
             output=output,
             language=language,
             timestamps=timestamps,
@@ -369,7 +393,7 @@ async def _convert_document(
 
 @app.command()
 def webpage(
-    url: Annotated[str, typer.Argument(help="Web page URL")],
+    url: Annotated[str | None, typer.Argument(help="Web page URL (use - or omit for stdin)")] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
@@ -409,8 +433,15 @@ def webpage(
         gobbler webpage https://example.com
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
-        gobbler webpage https://example.com -o out.md --skip-if-exists
+        echo "https://example.com" | gobbler webpage
     """
+    # Handle stdin input
+    actual_url = url
+    if url is None or url == "-":
+        actual_url = _read_stdin_url()
+        if not actual_url:
+            print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
+            raise typer.Exit(1)
     if verbose:
         import logging
 
@@ -418,7 +449,7 @@ def webpage(
 
     asyncio.run(
         _convert_webpage(
-            url=url,
+            url=actual_url,
             output=output,
             css_selector=css_selector,
             timeout=timeout,
