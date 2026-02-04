@@ -7,14 +7,19 @@ from typing import Annotated
 
 import typer
 
-from gobbler_cli.knowledge import ERROR_KNOWLEDGE_BASE, find_solutions
+from gobbler_cli.knowledge import (
+    ERROR_KNOWLEDGE_BASE,
+    FIX_TEXT_TRUNCATE_LEN,
+    MAX_SOLUTIONS_SHOWN,
+    find_solutions,
+)
 from gobbler_cli.output import console
 
 app = typer.Typer(help="Diagnose errors and get solutions")
 
 
 @app.callback(invoke_without_command=True)
-def explain(
+def explain(  # noqa: C901, PLR0912, PLR0915
     ctx: typer.Context,
     error_text: Annotated[
         str | None,
@@ -62,8 +67,8 @@ def explain(
                 console.print(f"\n[bold]{sol.title}[/bold]")
                 console.print(f"  Keywords: {', '.join(sol.keywords[:4])}")
                 console.print(
-                    f"  Fix: [dim]{sol.fix[:60]}...[/dim]"
-                    if len(sol.fix) > 60
+                    f"  Fix: [dim]{sol.fix[:FIX_TEXT_TRUNCATE_LEN]}...[/dim]"
+                    if len(sol.fix) > FIX_TEXT_TRUNCATE_LEN
                     else f"  Fix: [dim]{sol.fix}[/dim]"
                 )
             console.print()
@@ -126,20 +131,21 @@ def explain(
             console.print()
             console.print(f"[bold]Issue:[/bold] {sol.description}")
             console.print()
-            console.print(f"[bold green]Fix:[/bold green]")
+            console.print("[bold green]Fix:[/bold green]")
             console.print(f"  {sol.fix}")
 
             if sol.verify:
                 console.print()
-                console.print(f"[bold blue]Verify:[/bold blue]")
+                console.print("[bold blue]Verify:[/bold blue]")
                 console.print(f"  {sol.verify}")
 
             if sol.docs:
                 console.print()
                 console.print(f"[dim]Docs: {sol.docs}[/dim]")
 
-        if len(solutions) > 3:
+        if len(solutions) > MAX_SOLUTIONS_SHOWN:
             console.print()
-            console.print(f"[dim]... and {len(solutions) - 3} more possible matches[/dim]")
+            remaining = len(solutions) - MAX_SOLUTIONS_SHOWN
+            console.print(f"[dim]... and {remaining} more possible matches[/dim]")
 
         console.print()

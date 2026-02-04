@@ -11,10 +11,12 @@ from typing import Annotated, Any
 import typer
 
 from gobbler_cli.knowledge import (
+    PREVIEW_ITEM_LIMIT,
     SECONDS_PER_AUDIO_FILE,
     SECONDS_PER_DOCUMENT,
     SECONDS_PER_WEBPAGE,
     SECONDS_PER_YOUTUBE_VIDEO,
+    format_duration,
 )
 from gobbler_cli.output import print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
@@ -167,11 +169,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
             estimated_seconds = (len(would_process) * SECONDS_PER_YOUTUBE_VIDEO) // max(
                 concurrency, 1
             )
-            estimated_time = (
-                f"{estimated_seconds // 60}m {estimated_seconds % 60}s"
-                if estimated_seconds >= 60
-                else f"{estimated_seconds}s"
-            )
+            estimated_time = format_duration(estimated_seconds)
 
             if use_json:
                 _write_json_line(
@@ -195,9 +193,10 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 console.print("[bold]Dry Run Preview[/bold]")
                 console.print("═" * 50)
                 console.print(f"Playlist:       {url}")
-                console.print(
-                    f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}"
+                exists_note = (
+                    "[dim](exists)[/dim]" if output_dir.exists() else "[dim](will create)[/dim]"
                 )
+                console.print(f"Output:         {output_dir} {exists_note}")
                 console.print(f"Total videos:   {len(videos)}")
                 console.print(f"Would process:  [green]{len(would_process)}[/green]")
                 console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
@@ -206,10 +205,10 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 console.print()
                 if would_process:
                     console.print("[bold]Videos to process:[/bold]")
-                    for i, item in enumerate(would_process[:10], 1):
+                    for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
                         console.print(f"  {i}. {item['video']['title']}")
-                    if len(would_process) > 10:
-                        console.print(f"  ... and {len(would_process) - 10} more")
+                    if len(would_process) > PREVIEW_ITEM_LIMIT:
+                        console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
                 console.print()
             return
 
@@ -417,7 +416,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
     input_dir: Path,
     output_dir: Path,
     pattern: str,
-    concurrency: int,  # noqa: ARG001 - Reserved for future parallel processing
+    concurrency: int,
     file_type: str | None,
     json_output: bool = False,
     dry_run: bool = False,
@@ -488,11 +487,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
             estimated_seconds = (
                 (audio_count * SECONDS_PER_AUDIO_FILE) + (doc_count * SECONDS_PER_DOCUMENT)
             ) // max(concurrency, 1)
-            estimated_time = (
-                f"{estimated_seconds // 60}m {estimated_seconds % 60}s"
-                if estimated_seconds >= 60
-                else f"{estimated_seconds}s"
-            )
+            estimated_time = format_duration(estimated_seconds)
 
             if json_output:
                 _write_json_line(
@@ -517,9 +512,10 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 console.print("═" * 50)
                 console.print(f"Input:          {input_dir}")
                 console.print(f"Pattern:        {pattern}")
-                console.print(
-                    f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}"
+                exists_note = (
+                    "[dim](exists)[/dim]" if output_dir.exists() else "[dim](will create)[/dim]"
                 )
+                console.print(f"Output:         {output_dir} {exists_note}")
                 console.print(f"Total files:    {len(files)}")
                 console.print(f"Would process:  [green]{len(would_process)}[/green]")
                 console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow]")
@@ -527,10 +523,10 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 console.print()
                 if would_process:
                     console.print("[bold]Files to process:[/bold]")
-                    for i, item in enumerate(would_process[:10], 1):
+                    for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
                         console.print(f"  {i}. {item['file']} → {item['output']}")
-                    if len(would_process) > 10:
-                        console.print(f"  ... and {len(would_process) - 10} more")
+                    if len(would_process) > PREVIEW_ITEM_LIMIT:
+                        console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
                 console.print()
             return
 
@@ -958,11 +954,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
 
             # Estimate time based on concurrency
             estimated_seconds = (len(would_process) * SECONDS_PER_WEBPAGE) // max(concurrency, 1)
-            estimated_time = (
-                f"{estimated_seconds // 60}m {estimated_seconds % 60}s"
-                if estimated_seconds >= 60
-                else f"{estimated_seconds}s"
-            )
+            estimated_time = format_duration(estimated_seconds)
 
             if json_output:
                 _write_json_line(
@@ -986,9 +978,10 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 console.print("[bold]Dry Run Preview[/bold]")
                 console.print("═" * 50)
                 console.print(f"Input:          {input_file or 'stdin'}")
-                console.print(
-                    f"Output:         {output_dir} {'[dim](exists)[/dim]' if output_dir.exists() else '[dim](will create)[/dim]'}"
+                exists_note = (
+                    "[dim](exists)[/dim]" if output_dir.exists() else "[dim](will create)[/dim]"
                 )
+                console.print(f"Output:         {output_dir} {exists_note}")
                 console.print(f"Total URLs:     {len(urls)}")
                 console.print(f"Would process:  [green]{len(would_process)}[/green]")
                 console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
@@ -997,10 +990,10 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 console.print()
                 if would_process:
                     console.print("[bold]URLs to process:[/bold]")
-                    for i, item in enumerate(would_process[:10], 1):
+                    for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
                         console.print(f"  {i}. {item['url']}")
-                    if len(would_process) > 10:
-                        console.print(f"  ... and {len(would_process) - 10} more")
+                    if len(would_process) > PREVIEW_ITEM_LIMIT:
+                        console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
                 console.print()
             return
 

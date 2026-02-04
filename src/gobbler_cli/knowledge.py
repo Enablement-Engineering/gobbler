@@ -8,12 +8,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
 # Time estimation constants (seconds per item)
 SECONDS_PER_YOUTUBE_VIDEO = 7  # Average including transcript fetch
 SECONDS_PER_AUDIO_FILE = 5  # Whisper transcription (small model)
 SECONDS_PER_DOCUMENT = 3  # Docling PDF conversion
 SECONDS_PER_WEBPAGE = 8  # Crawl4AI with JS rendering
+
+# Display constants
+SECONDS_PER_MINUTE = 60
+PREVIEW_ITEM_LIMIT = 10  # Max items to show in dry-run previews
+FIX_TEXT_TRUNCATE_LEN = 60  # Truncate fix text in list views
+MAX_SOLUTIONS_SHOWN = 3  # Max solutions to show before "more" message
+HTTP_OK = 200  # HTTP success status code
+
+
+def format_duration(seconds: int) -> str:
+    """Format seconds into a human-readable duration string."""
+    if seconds >= SECONDS_PER_MINUTE:
+        mins = seconds // SECONDS_PER_MINUTE
+        secs = seconds % SECONDS_PER_MINUTE
+        return f"{mins}m {secs}s"
+    return f"{seconds}s"
 
 
 @dataclass
@@ -64,7 +79,9 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
     ErrorSolution(
         keywords=["ocr", "failed", "scanned"],
         title="OCR processing failed",
-        description="OCR failed on a scanned document. This may be due to memory limits or corrupt files.",
+        description=(
+            "OCR failed on a scanned document. This may be due to memory limits or corrupt files."
+        ),
         fix="gobbler document FILE --no-ocr (if digital PDF) or increase Docker memory",
         verify="docker logs gobbler-docling --tail 20",
         error_codes=["DOCUMENT_CONVERSION_ERROR"],
@@ -100,7 +117,7 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         keywords=["blocked", "forbidden", "403", "captcha"],
         title="Website blocking automated access",
         description="The website detected and blocked the automated request.",
-        fix="Try using a proxy service in ~/.config/gobbler/config.yml or use the browser extension",
+        fix="Configure proxy in ~/.config/gobbler/config.yml or use the browser extension",
         docs="https://github.com/Enablement-Engineering/gobbler#browser-extension",
         error_codes=["WEBPAGE_CONVERSION_ERROR"],
     ),
@@ -201,7 +218,7 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         keywords=["unsupported format", "invalid format"],
         title="Unsupported file format",
         description="The file format is not supported by Gobbler.",
-        fix="Check supported formats: PDF, DOCX, PPTX, XLSX for documents; MP3, WAV, M4A, MP4 for audio",
+        fix="Supported: PDF/DOCX/PPTX/XLSX (documents), MP3/WAV/M4A/MP4 (audio)",
         docs="https://github.com/Enablement-Engineering/gobbler#features",
     ),
 ]

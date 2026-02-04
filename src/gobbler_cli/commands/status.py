@@ -7,7 +7,8 @@ from typing import Annotated, Any
 
 import typer
 
-from gobbler_cli.output import console, error_console
+from gobbler_cli.knowledge import HTTP_OK
+from gobbler_cli.output import console
 
 app = typer.Typer(help="Check Gobbler status and service health")
 
@@ -28,7 +29,7 @@ def check_service_health(url: str, timeout: float = 5.0) -> tuple[bool, str | No
     try:
         with httpx.Client(timeout=timeout) as client:
             response = client.get(health_url)
-            if response.status_code == 200:
+            if response.status_code == HTTP_OK:
                 return True, None
             return False, f"HTTP {response.status_code}"
     except httpx.ConnectError:
@@ -142,7 +143,7 @@ def get_service_status() -> dict[str, Any]:
 
 
 @app.callback(invoke_without_command=True)
-def status(
+def status(  # noqa: C901, PLR0912
     ctx: typer.Context,
     json_output: Annotated[
         bool,
