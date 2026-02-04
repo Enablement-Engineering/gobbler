@@ -65,8 +65,10 @@ def get_default_provider(**kwargs: Any) -> WebPageProvider:
             if service_url is None:
                 service_url = config.get_service_url("crawl4ai")
             if api_token is None:
-                api_token = config.data.get("services", {}).get("crawl4ai", {}).get(
-                    "api_token", "gobbler-local-token"
+                api_token = (
+                    config.data.get("services", {})
+                    .get("crawl4ai", {})
+                    .get("api_token", "gobbler-local-token")
                 )
         except Exception:
             service_url = service_url or "http://localhost:11235"

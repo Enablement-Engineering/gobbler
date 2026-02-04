@@ -10,6 +10,14 @@ from typing import Annotated, Any
 
 import typer
 
+from gobbler_cli.knowledge import (
+    PREVIEW_ITEM_LIMIT,
+    SECONDS_PER_AUDIO_FILE,
+    SECONDS_PER_DOCUMENT,
+    SECONDS_PER_WEBPAGE,
+    SECONDS_PER_YOUTUBE_VIDEO,
+    format_duration,
+)
 from gobbler_cli.output import print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
 
@@ -50,6 +58,10 @@ def youtube_playlist(
         bool,
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be processed without converting"),
+    ] = False,
 ) -> None:
     """Convert all videos in a YouTube playlist to markdown.
 
@@ -57,6 +69,7 @@ def youtube_playlist(
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./transcripts
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out -c 5
         gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out --json
+        gobbler batch youtube-playlist https://youtube.com/playlist?list=... -o ./out --dry-run
     """
     asyncio.run(
         _batch_youtube_playlist(
@@ -67,6 +80,7 @@ def youtube_playlist(
             concurrency=concurrency,
             output_format=output_format,
             json_output=json_output,
+            dry_run=dry_run,
         )
     )
 
@@ -79,6 +93,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
     concurrency: int,
     output_format: str,
     json_output: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Async implementation of YouTube playlist batch processing."""
     import time
@@ -92,8 +107,9 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
     start_time = time.time()
 
     try:
-        # Create output directory
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Create output directory (unless dry run)
+        if not dry_run:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract playlist videos using yt-dlp
         ydl_opts = {
@@ -132,6 +148,69 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
             else:
                 print_error(error_msg)
             raise typer.Exit(1)
+
+        # Handle dry run - show preview without processing
+        if dry_run:
+            # Check which files would be created vs skipped
+            would_process = []
+            would_skip = []
+            for video in videos:
+                safe_title = "".join(
+                    c for c in video["title"] if c.isalnum() or c in (" ", "-", "_")
+                ).strip()
+                safe_title = safe_title.replace(" ", "_") or f"video_{video['video_id']}"
+                output_path = output_dir / f"{safe_title}.md"
+                if output_path.exists():
+                    would_skip.append({"video": video, "path": str(output_path)})
+                else:
+                    would_process.append({"video": video, "path": str(output_path)})
+
+            # Estimate time based on concurrency
+            estimated_seconds = (len(would_process) * SECONDS_PER_YOUTUBE_VIDEO) // max(
+                concurrency, 1
+            )
+            estimated_time = format_duration(estimated_seconds)
+
+            if use_json:
+                _write_json_line(
+                    {
+                        "type": "dry_run",
+                        "total_videos": len(videos),
+                        "would_process": len(would_process),
+                        "would_skip": len(would_skip),
+                        "output_dir": str(output_dir),
+                        "output_dir_exists": output_dir.exists(),
+                        "estimated_time": estimated_time,
+                        "concurrency": concurrency,
+                        "videos": [v["video"] for v in would_process],
+                        "skipped": [v["video"] for v in would_skip],
+                    }
+                )
+            else:
+                from gobbler_cli.output import console
+
+                console.print()
+                console.print("[bold]Dry Run Preview[/bold]")
+                console.print("═" * 50)
+                console.print(f"Playlist:       {url}")
+                exists_note = (
+                    "[dim](exists)[/dim]" if output_dir.exists() else "[dim](will create)[/dim]"
+                )
+                console.print(f"Output:         {output_dir} {exists_note}")
+                console.print(f"Total videos:   {len(videos)}")
+                console.print(f"Would process:  [green]{len(would_process)}[/green]")
+                console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
+                console.print(f"Concurrency:    {concurrency}")
+                console.print(f"Estimated time: ~{estimated_time}")
+                console.print()
+                if would_process:
+                    console.print("[bold]Videos to process:[/bold]")
+                    for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
+                        console.print(f"  {i}. {item['video']['title']}")
+                    if len(would_process) > PREVIEW_ITEM_LIMIT:
+                        console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
+                console.print()
+            return
 
         if use_json:
             _write_json_line(
@@ -307,6 +386,10 @@ def directory(
         bool,
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be processed without converting"),
+    ] = False,
 ) -> None:
     """Batch convert files from a directory.
 
@@ -314,6 +397,7 @@ def directory(
         gobbler batch directory ./recordings -o ./transcripts --pattern "*.mp3"
         gobbler batch directory ./docs -o ./markdown --pattern "*.pdf" --type document
         gobbler batch directory ./docs -o ./markdown --json
+        gobbler batch directory ./docs -o ./markdown --dry-run
     """
     asyncio.run(
         _batch_directory(
@@ -323,6 +407,7 @@ def directory(
             concurrency=concurrency,
             file_type=file_type,
             json_output=json_output,
+            dry_run=dry_run,
         )
     )
 
@@ -331,9 +416,10 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
     input_dir: Path,
     output_dir: Path,
     pattern: str,
-    concurrency: int,  # noqa: ARG001 - Reserved for future parallel processing
+    concurrency: int,
     file_type: str | None,
     json_output: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Async implementation of directory batch processing."""
     try:
@@ -350,8 +436,9 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 )
             raise ValueError(error_msg)
 
-        # Create output directory
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Create output directory (unless dry run)
+        if not dry_run:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
         # Find matching files
         files = list(input_dir.glob(pattern))
@@ -369,6 +456,80 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 print_info(f"No files matching pattern '{pattern}' found in {input_dir}")
             return
 
+        # Handle dry run
+        if dry_run:
+            would_process = []
+            would_skip = []
+            for file_path in files:
+                detected_type = file_type or _detect_file_type(file_path)
+                output_path = output_dir / f"{file_path.stem}.md"
+                if output_path.exists():
+                    would_skip.append(
+                        {"file": str(file_path), "output": str(output_path), "type": detected_type}
+                    )
+                elif detected_type in ("audio", "document"):
+                    would_process.append(
+                        {"file": str(file_path), "output": str(output_path), "type": detected_type}
+                    )
+                else:
+                    would_skip.append(
+                        {
+                            "file": str(file_path),
+                            "output": str(output_path),
+                            "type": detected_type,
+                            "reason": "unknown_type",
+                        }
+                    )
+
+            # Estimate time based on file types and concurrency
+            audio_count = sum(1 for f in would_process if f["type"] == "audio")
+            doc_count = sum(1 for f in would_process if f["type"] == "document")
+            estimated_seconds = (
+                (audio_count * SECONDS_PER_AUDIO_FILE) + (doc_count * SECONDS_PER_DOCUMENT)
+            ) // max(concurrency, 1)
+            estimated_time = format_duration(estimated_seconds)
+
+            if json_output:
+                _write_json_line(
+                    {
+                        "type": "dry_run",
+                        "total_files": len(files),
+                        "would_process": len(would_process),
+                        "would_skip": len(would_skip),
+                        "input_dir": str(input_dir),
+                        "output_dir": str(output_dir),
+                        "pattern": pattern,
+                        "estimated_time": estimated_time,
+                        "files": would_process,
+                        "skipped": would_skip,
+                    }
+                )
+            else:
+                from gobbler_cli.output import console
+
+                console.print()
+                console.print("[bold]Dry Run Preview[/bold]")
+                console.print("═" * 50)
+                console.print(f"Input:          {input_dir}")
+                console.print(f"Pattern:        {pattern}")
+                exists_note = (
+                    "[dim](exists)[/dim]" if output_dir.exists() else "[dim](will create)[/dim]"
+                )
+                console.print(f"Output:         {output_dir} {exists_note}")
+                console.print(f"Total files:    {len(files)}")
+                console.print(f"Would process:  [green]{len(would_process)}[/green]")
+                console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow]")
+                console.print(f"Estimated time: ~{estimated_time}")
+                console.print()
+                if would_process:
+                    console.print("[bold]Files to process:[/bold]")
+                    for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
+                        console.print(f"  {i}. {item['file']} → {item['output']}")
+                    if len(would_process) > PREVIEW_ITEM_LIMIT:
+                        console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
+                console.print()
+            return
+
         if json_output:
             _write_json_line(
                 {
@@ -382,20 +543,30 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
         else:
             print_info(f"Found {len(files)} files to process")
 
+        # Track results
         successful = 0
         failed = 0
         skipped = 0
 
-        if json_output:
-            # JSON output mode - no progress bar
-            for file_path in files:
+        # Create semaphore for concurrency control
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def process_file(
+            file_path: Path,
+        ) -> tuple[Path, bool, str, dict[str, Any] | None]:
+            """Process a single file. Returns (file_path, success, status, metadata)."""
+            async with semaphore:
+                # Determine file type
+                detected_type = file_type or _detect_file_type(file_path)
+
+                # Generate output filename
+                output_path = output_dir / f"{file_path.stem}.md"
+
+                # Skip unknown types
+                if detected_type not in ("audio", "document"):
+                    return (file_path, True, "skipped_unknown", None)
+
                 try:
-                    # Determine file type
-                    detected_type = file_type or _detect_file_type(file_path)
-
-                    # Generate output filename
-                    output_path = output_dir / f"{file_path.stem}.md"
-
                     # Convert based on type
                     if detected_type == "audio":
                         from gobbler_core.converters.audio import (
@@ -403,42 +574,54 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                         )
 
                         result, metadata = await convert_audio_to_markdown(str(file_path))
-                    elif detected_type == "document":
+                    else:  # document
                         from gobbler_core.converters.document import (
                             convert_document_to_markdown,
                         )
 
                         result, metadata = await convert_document_to_markdown(str(file_path))
-                    else:
-                        skipped += 1
-                        _write_json_line(
-                            {
-                                "type": "item_skipped",
-                                "file": str(file_path),
-                                "reason": "unknown_type",
-                            }
-                        )
-                        continue
 
                     # Write output
                     output_path.write_text(result, encoding="utf-8")
+                    return (file_path, True, "success", {"output": str(output_path), **metadata})
+
+                except Exception as e:
+                    return (file_path, False, str(e), None)
+
+        # Create tasks for all files
+        tasks = [process_file(f) for f in files]
+
+        if json_output:
+            # JSON output mode - stream results as they complete
+            for coro in asyncio.as_completed(tasks):
+                file_path, success, status, metadata = await coro
+
+                if status == "skipped_unknown":
+                    skipped += 1
+                    _write_json_line(
+                        {
+                            "type": "item_skipped",
+                            "file": str(file_path),
+                            "reason": "unknown_type",
+                        }
+                    )
+                elif success:
                     successful += 1
                     _write_json_line(
                         {
                             "type": "item_success",
                             "file": str(file_path),
-                            "output": str(output_path),
+                            "output": metadata.get("output") if metadata else None,
                             "metadata": metadata,
                         }
                     )
-
-                except Exception as e:
+                else:
                     failed += 1
                     _write_json_line(
                         {
                             "type": "item_error",
                             "file": str(file_path),
-                            "error": str(e),
+                            "error": status,
                         }
                     )
 
@@ -461,46 +644,24 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
             with progress:
                 task = progress.add_task("Processing files", total=len(files))
 
-                for file_path in files:
-                    try:
-                        # Determine file type
-                        detected_type = file_type or _detect_file_type(file_path)
+                for coro in asyncio.as_completed(tasks):
+                    file_path, success, status, metadata = await coro
 
-                        # Generate output filename
-                        output_path = output_dir / f"{file_path.stem}.md"
-
-                        # Convert based on type
-                        if detected_type == "audio":
-                            from gobbler_core.converters.audio import (
-                                convert_audio_to_markdown,
-                            )
-
-                            result, metadata = await convert_audio_to_markdown(str(file_path))
-                        elif detected_type == "document":
-                            from gobbler_core.converters.document import (
-                                convert_document_to_markdown,
-                            )
-
-                            result, metadata = await convert_document_to_markdown(str(file_path))
-                        else:
-                            print_info(f"Skipping unknown file type: {file_path}")
-                            progress.update(task, advance=1)
-                            continue
-
-                        # Write output
-                        output_path.write_text(result, encoding="utf-8")
+                    if status == "skipped_unknown":
+                        skipped += 1
+                    elif success:
                         successful += 1
-
-                    except Exception as e:
-                        print_error(f"Failed to process {file_path.name}: {e}")
+                    else:
                         failed += 1
 
                     progress.update(task, advance=1)
 
             # Print summary
-            print_success(f"Processed {successful} files successfully")
+            print_success(f"Processed {successful} files successfully (concurrency: {concurrency})")
             if failed > 0:
                 print_error(f"{failed} files failed to process")
+            if skipped > 0:
+                print_info(f"{skipped} files skipped (unknown type)")
 
     except Exception as e:
         if json_output:
@@ -579,6 +740,10 @@ def webpages(
         bool,
         typer.Option("--json", "-j", help="Output progress and results as JSON lines"),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Preview what would be processed without converting"),
+    ] = False,
 ) -> None:
     """Batch convert web pages to markdown.
 
@@ -591,6 +756,7 @@ def webpages(
         gobbler batch webpages urls.txt -o ./out --concurrency 5 --timeout 60
         gobbler batch webpages urls.txt -o ./out --queue
         gobbler batch webpages urls.txt -o ./out --json
+        gobbler batch webpages urls.txt -o ./out --dry-run
     """
     if queue:
         _queue_batch_webpages(
@@ -611,6 +777,7 @@ def webpages(
                 selector=selector,
                 skip_existing=skip_existing,
                 json_output=json_output,
+                dry_run=dry_run,
             )
         )
 
@@ -752,6 +919,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
     selector: str | None,  # noqa: ARG001 - Reserved for future CSS selector support
     skip_existing: bool,
     json_output: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Async implementation of batch webpage processing."""
     from gobbler_core.converters.webpage import convert_webpage_to_markdown
@@ -771,6 +939,63 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
             else:
                 print_error("No valid URLs found in input")
             raise typer.Exit(1)
+
+        # Handle dry run
+        if dry_run:
+            would_process = []
+            would_skip = []
+            for url in urls:
+                filename = _sanitize_url_to_filename(url) + ".md"
+                output_path = output_dir / filename
+                if skip_existing and output_path.exists():
+                    would_skip.append({"url": url, "output": str(output_path), "reason": "exists"})
+                else:
+                    would_process.append({"url": url, "output": str(output_path)})
+
+            # Estimate time based on concurrency
+            estimated_seconds = (len(would_process) * SECONDS_PER_WEBPAGE) // max(concurrency, 1)
+            estimated_time = format_duration(estimated_seconds)
+
+            if json_output:
+                _write_json_line(
+                    {
+                        "type": "dry_run",
+                        "total_urls": len(urls),
+                        "would_process": len(would_process),
+                        "would_skip": len(would_skip),
+                        "output_dir": str(output_dir),
+                        "output_dir_exists": output_dir.exists(),
+                        "concurrency": concurrency,
+                        "estimated_time": estimated_time,
+                        "urls": would_process,
+                        "skipped": would_skip,
+                    }
+                )
+            else:
+                from gobbler_cli.output import console
+
+                console.print()
+                console.print("[bold]Dry Run Preview[/bold]")
+                console.print("═" * 50)
+                console.print(f"Input:          {input_file or 'stdin'}")
+                exists_note = (
+                    "[dim](exists)[/dim]" if output_dir.exists() else "[dim](will create)[/dim]"
+                )
+                console.print(f"Output:         {output_dir} {exists_note}")
+                console.print(f"Total URLs:     {len(urls)}")
+                console.print(f"Would process:  [green]{len(would_process)}[/green]")
+                console.print(f"Would skip:     [yellow]{len(would_skip)}[/yellow] (already exist)")
+                console.print(f"Concurrency:    {concurrency}")
+                console.print(f"Estimated time: ~{estimated_time}")
+                console.print()
+                if would_process:
+                    console.print("[bold]URLs to process:[/bold]")
+                    for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
+                        console.print(f"  {i}. {item['url']}")
+                    if len(would_process) > PREVIEW_ITEM_LIMIT:
+                        console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
+                console.print()
+            return
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)

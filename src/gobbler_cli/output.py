@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,7 @@ console = Console()
 error_console = Console(stderr=True)
 
 
-class OutputFormat(str, Enum):
+class OutputFormat(StrEnum):
     """Supported output formats."""
 
     MARKDOWN = "markdown"
@@ -89,6 +89,7 @@ def format_json_error(
     error: str,
     error_code: str = "CONVERSION_ERROR",
     source: str | None = None,
+    suggestion: str | None = None,
 ) -> dict[str, Any]:
     """Format an error result as JSON.
 
@@ -96,6 +97,7 @@ def format_json_error(
         error: Error message
         error_code: Error code identifier
         source: Optional source identifier
+        suggestion: Optional suggestion for fixing the error (auto-detected if not provided)
 
     Returns:
         Standardized JSON error response dict
@@ -107,6 +109,16 @@ def format_json_error(
     }
     if source:
         response["source"] = source
+
+    # Auto-detect suggestion from consolidated knowledge base
+    if suggestion is None:
+        from gobbler_cli.knowledge import get_suggestion_for_error
+
+        suggestion = get_suggestion_for_error(error_code, error)
+
+    if suggestion:
+        response["suggestion"] = suggestion
+
     return response
 
 

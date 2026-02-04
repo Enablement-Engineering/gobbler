@@ -56,12 +56,12 @@ def get_config(
         typer.echo(json.dumps(value, indent=2, default=str))
     elif output_format == "yaml":
         typer.echo(yaml.dump(value, default_flow_style=False))
+    elif isinstance(value, dict):
+        # Text format - structured for dicts
+        typer.echo(yaml.dump(value, default_flow_style=False))
     else:
-        # Text format - simple for single values, structured for dicts
-        if isinstance(value, dict):
-            typer.echo(yaml.dump(value, default_flow_style=False))
-        else:
-            typer.echo(value)
+        # Text format - simple for single values
+        typer.echo(value)
 
 
 @app.command("path")

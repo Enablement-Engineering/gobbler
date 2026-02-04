@@ -104,14 +104,18 @@ def cli() -> None:
         config,
         convert,
         daemon,
+        explain,
         gemini,
         jobs,
         notebooklm,
         providers,
         relay,
+        status,
     )
 
     # Add command groups
+    app.add_typer(status.app, name="status", help="Check service status and health")
+    app.add_typer(explain.app, name="explain", help="Diagnose errors and get solutions")
     app.add_typer(convert.app, name="convert", help="Convert individual content items")
     app.add_typer(batch.app, name="batch", help="Batch processing operations")
     app.add_typer(config.app, name="config", help="View and manage configuration")

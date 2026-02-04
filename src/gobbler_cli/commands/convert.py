@@ -28,9 +28,26 @@ from gobbler_cli.progress import ProgressTracker
 app = typer.Typer(help="Convert individual content items to markdown")
 
 
+def _read_stdin_url() -> str | None:
+    """Read a URL from stdin if available.
+
+    Returns:
+        URL string or None if stdin is empty/not available
+    """
+    import sys
+
+    if sys.stdin.isatty():
+        return None
+
+    line = sys.stdin.readline().strip()
+    return line if line else None
+
+
 @app.command()
 def youtube(
-    url: Annotated[str, typer.Argument(help="YouTube video URL")],
+    url: Annotated[
+        str | None, typer.Argument(help="YouTube video URL (use - or omit for stdin)")
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
@@ -47,6 +64,10 @@ def youtube(
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
+    skip_if_exists: Annotated[
+        bool,
+        typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
+    ] = False,
 ) -> None:
     """Convert a YouTube video to markdown.
 
@@ -54,14 +75,25 @@ def youtube(
         gobbler youtube https://youtube.com/watch?v=ABC123
         gobbler youtube https://youtube.com/watch?v=ABC123 -o transcript.md
         gobbler youtube https://youtube.com/watch?v=ABC123 --language es --timestamps
+        gobbler youtube https://youtube.com/watch?v=ABC123 -o out.md --skip-if-exists
+        echo "https://youtube.com/watch?v=ABC123" | gobbler youtube
     """
+    # Handle stdin input
+    actual_url = url
+    if url is None or url == "-":
+        actual_url = _read_stdin_url()
+        if not actual_url:
+            print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
+            raise typer.Exit(1)
+
     asyncio.run(
         _convert_youtube(
-            url=url,
+            url=actual_url,
             output=output,
             language=language,
             timestamps=timestamps,
             output_format=output_format,
+            skip_if_exists=skip_if_exists,
         )
     )
 
@@ -72,9 +104,25 @@ async def _convert_youtube(
     language: str,
     timestamps: bool,
     output_format: OutputFormat,
+    skip_if_exists: bool = False,
 ) -> None:
     """Async implementation of YouTube conversion."""
     try:
+        # Check if output exists and should skip
+        if skip_if_exists and output and output.exists():
+            if output_format == OutputFormat.JSON:
+                json_result = {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "output_exists",
+                    "output": str(output),
+                    "source": url,
+                }
+                write_json_result(json_result)
+            else:
+                print_warning(f"Skipped: {output} already exists")
+            return
+
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.youtube import convert_youtube_to_markdown
 
@@ -128,6 +176,10 @@ def audio(
         str | None,
         typer.Option("--provider", "-p", help="Transcription provider (default: whisper-local)"),
     ] = None,
+    skip_if_exists: Annotated[
+        bool,
+        typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
+    ] = False,
 ) -> None:
     """Transcribe an audio file to markdown.
 
@@ -135,7 +187,7 @@ def audio(
         gobbler audio recording.mp3
         gobbler audio recording.mp3 -o transcript.md
         gobbler audio recording.mp3 --model medium --language es
-        gobbler audio recording.mp3 --provider whisper-local
+        gobbler audio recording.mp3 -o out.md --skip-if-exists
     """
     asyncio.run(
         _convert_audio(
@@ -146,6 +198,7 @@ def audio(
             timestamps=timestamps,
             output_format=output_format,
             provider_name=provider,
+            skip_if_exists=skip_if_exists,
         )
     )
 
@@ -158,10 +211,26 @@ async def _convert_audio(
     timestamps: bool,
     output_format: OutputFormat,
     provider_name: str | None = None,
+    skip_if_exists: bool = False,
 ) -> None:
     """Async implementation of audio conversion."""
     source = str(file_path)
     try:
+        # Check if output exists and should skip
+        if skip_if_exists and output and output.exists():
+            if output_format == OutputFormat.JSON:
+                json_result = {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "output_exists",
+                    "output": str(output),
+                    "source": source,
+                }
+                write_json_result(json_result)
+            else:
+                print_warning(f"Skipped: {output} already exists")
+            return
+
         # Validate file exists
         if not file_path.exists():
             msg = f"File not found: {file_path}"
@@ -228,6 +297,10 @@ def document(
         str | None,
         typer.Option("--provider", "-p", help="Document conversion provider (default: docling)"),
     ] = None,
+    skip_if_exists: Annotated[
+        bool,
+        typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
+    ] = False,
 ) -> None:
     """Convert a document (PDF, DOCX, etc.) to markdown.
 
@@ -235,7 +308,7 @@ def document(
         gobbler document report.pdf
         gobbler document report.pdf -o output.md
         gobbler document scanned.pdf --ocr
-        gobbler document report.pdf --provider docling
+        gobbler document report.pdf -o out.md --skip-if-exists
     """
     asyncio.run(
         _convert_document(
@@ -244,6 +317,7 @@ def document(
             ocr=ocr,
             output_format=output_format,
             provider_name=provider,
+            skip_if_exists=skip_if_exists,
         )
     )
 
@@ -254,10 +328,26 @@ async def _convert_document(
     ocr: bool,
     output_format: OutputFormat,
     provider_name: str | None = None,
+    skip_if_exists: bool = False,
 ) -> None:
     """Async implementation of document conversion."""
     source = str(file_path)
     try:
+        # Check if output exists and should skip
+        if skip_if_exists and output and output.exists():
+            if output_format == OutputFormat.JSON:
+                json_result = {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "output_exists",
+                    "output": str(output),
+                    "source": source,
+                }
+                write_json_result(json_result)
+            else:
+                print_warning(f"Skipped: {output} already exists")
+            return
+
         # Validate file exists
         if not file_path.exists():
             msg = f"File not found: {file_path}"
@@ -305,7 +395,9 @@ async def _convert_document(
 
 @app.command()
 def webpage(
-    url: Annotated[str, typer.Argument(help="Web page URL")],
+    url: Annotated[
+        str | None, typer.Argument(help="Web page URL (use - or omit for stdin)")
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path (stdout if not specified)"),
@@ -334,6 +426,10 @@ def webpage(
         bool,
         typer.Option("--verbose", "-v", help="Enable verbose/debug logging"),
     ] = False,
+    skip_if_exists: Annotated[
+        bool,
+        typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
+    ] = False,
 ) -> None:
     """Convert a web page to markdown.
 
@@ -341,10 +437,15 @@ def webpage(
         gobbler webpage https://example.com
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
-        gobbler webpage https://example.com --no-images
-        gobbler webpage https://example.com --provider crawl4ai
-        gobbler webpage https://example.com -v  # verbose output
+        echo "https://example.com" | gobbler webpage
     """
+    # Handle stdin input
+    actual_url = url
+    if url is None or url == "-":
+        actual_url = _read_stdin_url()
+        if not actual_url:
+            print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
+            raise typer.Exit(1)
     if verbose:
         import logging
 
@@ -352,18 +453,19 @@ def webpage(
 
     asyncio.run(
         _convert_webpage(
-            url=url,
+            url=actual_url,
             output=output,
             css_selector=css_selector,
             timeout=timeout,
             include_images=include_images,
             output_format=output_format,
             provider_name=provider,
+            skip_if_exists=skip_if_exists,
         )
     )
 
 
-async def _convert_webpage(
+async def _convert_webpage(  # noqa: PLR0912
     url: str,
     output: Path | None,
     css_selector: str | None,
@@ -371,9 +473,24 @@ async def _convert_webpage(
     include_images: bool,
     output_format: OutputFormat,
     provider_name: str | None = None,
+    skip_if_exists: bool = False,
 ) -> None:
     """Async implementation of webpage conversion."""
     try:
+        # Check if output exists and should skip
+        if skip_if_exists and output and output.exists():
+            if output_format == OutputFormat.JSON:
+                json_result = {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "output_exists",
+                    "output": str(output),
+                    "source": url,
+                }
+                write_json_result(json_result)
+            else:
+                print_warning(f"Skipped: {output} already exists")
+            return
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.webpage import convert_webpage_to_markdown
         from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
