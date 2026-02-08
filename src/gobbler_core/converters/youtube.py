@@ -77,7 +77,7 @@ def get_video_metadata(video_url: str) -> dict[str, str | None]:
         "extract_flat": True,
         "logger": logging.getLogger("yt_dlp_quiet"),  # Suppress yt-dlp's own logging
     }
-    
+
     # Suppress stderr output from yt-dlp (it prints errors even with quiet=True)
     old_stderr = sys.stderr
     sys.stderr = io.StringIO()
@@ -161,7 +161,7 @@ async def convert_youtube_to_markdown(
     except Exception as e:
         # Simplify noisy error messages from youtube-transcript-api
         error_msg = str(e)
-        
+
         # Extract the key reason, strip the GitHub issue template noise
         if "Could not retrieve a transcript" in error_msg:
             # Find the actual reason (line after "caused by:")

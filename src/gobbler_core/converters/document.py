@@ -57,17 +57,17 @@ def _fix_checkboxes(content: str) -> str:
     import re
 
     # Pattern: [ ] followed by /Off, /No, etc. = unchecked
-    content = re.sub(r'\[ ?\] ?/Off\b', '☐', content)
-    content = re.sub(r'\[ ?\] ?/No\b', '☐', content)
+    content = re.sub(r"\[ ?\] ?/Off\b", "☐", content)
+    content = re.sub(r"\[ ?\] ?/No\b", "☐", content)
 
     # Pattern: [ ] followed by /Yes, /On, etc. = checked
-    content = re.sub(r'\[ ?\] ?/Yes\b', '☑', content)
-    content = re.sub(r'\[ ?\] ?/On\b', '☑', content)
+    content = re.sub(r"\[ ?\] ?/Yes\b", "☑", content)
+    content = re.sub(r"\[ ?\] ?/On\b", "☑", content)
 
     # Also handle standalone /Off and /Yes that might appear
-    content = re.sub(r'\b/Off\b', '☐', content)
-    content = re.sub(r'\b/Yes\b', '☑', content)
-    content = re.sub(r'\b/On\b', '☑', content)
+    content = re.sub(r"\b/Off\b", "☐", content)
+    content = re.sub(r"\b/Yes\b", "☑", content)
+    content = re.sub(r"\b/On\b", "☑", content)
 
     return content
 

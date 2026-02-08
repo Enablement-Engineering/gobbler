@@ -227,7 +227,10 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
                     extracted_md = _extract_selector_content(html_content, css_selector, xpath)
                     if extracted_md:
                         markdown_content = extracted_md
-                        logger.info("Extracted content using %s", "CSS selector" if css_selector else "XPath")
+                        logger.info(
+                            "Extracted content using %s",
+                            "CSS selector" if css_selector else "XPath",
+                        )
                     else:
                         logger.warning("Selector matched no content, using full page markdown")
 
@@ -319,7 +322,9 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
         raise
 
 
-def _extract_selector_content(html_content: str, css_selector: str | None, xpath: str | None) -> str | None:
+def _extract_selector_content(
+    html_content: str, css_selector: str | None, xpath: str | None
+) -> str | None:
     """Extract content using CSS selector or XPath and convert to markdown.
 
     Args:
@@ -352,7 +357,9 @@ def _extract_selector_content(html_content: str, css_selector: str | None, xpath
                     # Text node
                     elements.append(el)
         except ImportError:
-            logger.warning("lxml not installed, XPath support unavailable. Install with: pip install lxml")
+            logger.warning(
+                "lxml not installed, XPath support unavailable. Install with: pip install lxml"
+            )
             return None
 
     if not elements:

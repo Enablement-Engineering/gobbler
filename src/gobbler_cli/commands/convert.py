@@ -62,7 +62,9 @@ def youtube(
     ] = False,
     clean: Annotated[
         bool,
-        typer.Option("--clean/--no-clean", "-c", help="Merge choppy captions into flowing paragraphs"),
+        typer.Option(
+            "--clean/--no-clean", "-c", help="Merge choppy captions into flowing paragraphs"
+        ),
     ] = False,
     output_format: Annotated[
         OutputFormat,
@@ -197,6 +199,7 @@ async def _convert_youtube(
             result = _clean_transcript(result)
             # Recalculate word count after cleaning
             from gobbler_core.utils.frontmatter import count_words
+
             metadata["word_count"] = count_words(result)
 
         if output_format == OutputFormat.JSON:
@@ -574,7 +577,9 @@ async def _convert_webpage(  # noqa: PLR0912
             if clean and not css_selector:
                 effective_selector = "main, article, [role='main'], .content, #content"
 
-            with ProgressTracker("Converting web page" + (" with selector" if css_selector else " (clean mode)")):
+            with ProgressTracker(
+                "Converting web page" + (" with selector" if css_selector else " (clean mode)")
+            ):
                 result, metadata = await convert_webpage_with_selector(
                     url=url,
                     css_selector=effective_selector,
