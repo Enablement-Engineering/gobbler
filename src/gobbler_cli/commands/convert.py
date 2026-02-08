@@ -60,6 +60,10 @@ def youtube(
         bool,
         typer.Option("--timestamps/--no-timestamps", help="Include timestamps in output"),
     ] = False,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean/--no-clean", "-c", help="Merge choppy captions into flowing paragraphs"),
+    ] = False,
     output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
@@ -74,6 +78,7 @@ def youtube(
     Examples:
         gobbler youtube https://youtube.com/watch?v=ABC123
         gobbler youtube https://youtube.com/watch?v=ABC123 -o transcript.md
+        gobbler youtube https://youtube.com/watch?v=ABC123 --clean  # Flowing paragraphs
         gobbler youtube https://youtube.com/watch?v=ABC123 --language es --timestamps
         gobbler youtube https://youtube.com/watch?v=ABC123 -o out.md --skip-if-exists
         echo "https://youtube.com/watch?v=ABC123" | gobbler youtube
@@ -92,10 +97,63 @@ def youtube(
             output=output,
             language=language,
             timestamps=timestamps,
+            clean=clean,
             output_format=output_format,
             skip_if_exists=skip_if_exists,
         )
     )
+
+
+def _clean_transcript(text: str) -> str:
+    """Merge choppy caption lines into flowing paragraphs.
+
+    YouTube captions are often broken into short 2-5 second segments.
+    This function merges them into natural paragraphs.
+
+    Args:
+        text: Raw transcript with many short lines
+
+    Returns:
+        Cleaned transcript with flowing paragraphs
+    """
+    import re
+
+    # Split into frontmatter and content
+    parts = text.split("# Video Transcript\n\n", 1)
+    if len(parts) != 2:
+        return text
+
+    frontmatter_and_header = parts[0] + "# Video Transcript\n\n"
+    content = parts[1]
+
+    # Split into lines and merge
+    lines = content.split("\n\n")
+
+    # Merge lines into sentences/paragraphs
+    merged = []
+    current_paragraph = []
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        current_paragraph.append(line)
+
+        # Start new paragraph after sentence-ending punctuation
+        # But only if we have a reasonable amount of content
+        if len(" ".join(current_paragraph)) > 200 and re.search(r"[.!?]$", line):
+            merged.append(" ".join(current_paragraph))
+            current_paragraph = []
+
+    # Don't forget the last paragraph
+    if current_paragraph:
+        merged.append(" ".join(current_paragraph))
+
+    # Join paragraphs with double newlines
+    cleaned_content = "\n\n".join(merged)
+
+    return frontmatter_and_header + cleaned_content
 
 
 async def _convert_youtube(
@@ -103,6 +161,7 @@ async def _convert_youtube(
     output: Path | None,
     language: str,
     timestamps: bool,
+    clean: bool,
     output_format: OutputFormat,
     skip_if_exists: bool = False,
 ) -> None:
@@ -132,6 +191,13 @@ async def _convert_youtube(
                 language=language,
                 include_timestamps=timestamps,
             )
+
+        # Apply clean mode if requested (incompatible with timestamps)
+        if clean and not timestamps:
+            result = _clean_transcript(result)
+            # Recalculate word count after cleaning
+            from gobbler_core.utils.frontmatter import count_words
+            metadata["word_count"] = count_words(result)
 
         if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)
