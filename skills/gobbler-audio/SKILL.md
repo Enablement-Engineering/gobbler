@@ -111,6 +111,7 @@ gobbler audio /path/to/recording.m4a -o "Recording Transcript.md"
 
 ## Tips
 
+- **⚡ Speed boost**: Use `-l en` (or your audio's language) for 7x faster transcription! Auto-detection adds significant overhead. Example: 14s → 2s for a short clip.
 - For long recordings, `small` model offers best speed/accuracy tradeoff
 - Pre-extract audio from large videos to speed up processing
-- Language auto-detection works well for most content
+- Language auto-detection works well but is slower — specify language when known
