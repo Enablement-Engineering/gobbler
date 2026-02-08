@@ -122,7 +122,8 @@ def _clean_transcript(text: str) -> str:
 
     # Split into frontmatter and content
     parts = text.split("# Video Transcript\n\n", 1)
-    if len(parts) != 2:
+    expected_parts = 2
+    if len(parts) != expected_parts:
         return text
 
     frontmatter_and_header = parts[0] + "# Video Transcript\n\n"
@@ -133,19 +134,21 @@ def _clean_transcript(text: str) -> str:
 
     # Merge lines into sentences/paragraphs
     merged = []
-    current_paragraph = []
+    current_paragraph: list[str] = []
+    min_paragraph_length = 200
 
-    for line in lines:
-        line = line.strip()
-        if not line:
+    for raw_line in lines:
+        cleaned_line = raw_line.strip()
+        if not cleaned_line:
             continue
 
-        current_paragraph.append(line)
+        current_paragraph.append(cleaned_line)
 
         # Start new paragraph after sentence-ending punctuation
         # But only if we have a reasonable amount of content
-        if len(" ".join(current_paragraph)) > 200 and re.search(r"[.!?]$", line):
-            merged.append(" ".join(current_paragraph))
+        paragraph_text = " ".join(current_paragraph)
+        if len(paragraph_text) > min_paragraph_length and re.search(r"[.!?]$", cleaned_line):
+            merged.append(paragraph_text)
             current_paragraph = []
 
     # Don't forget the last paragraph

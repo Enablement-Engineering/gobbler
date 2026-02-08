@@ -379,7 +379,7 @@ def _extract_selector_content(
     return "\n\n".join(markdown_parts) if markdown_parts else None
 
 
-def _html_to_simple_markdown(element) -> str:
+def _html_to_simple_markdown(element) -> str:  # noqa: C901, PLR0912
     """Convert BeautifulSoup element to simple markdown.
 
     This is a basic conversion that handles common elements.
@@ -425,7 +425,7 @@ def _html_to_simple_markdown(element) -> str:
             if text:
                 quoted = "\n".join(f"> {line}" for line in text.split("\n"))
                 lines.append(f"\n{quoted}\n")
-        elif child.name == "pre" or child.name == "code":
+        elif child.name in {"pre", "code"}:
             text = child.get_text()
             if text.strip():
                 lines.append(f"\n```\n{text}\n```\n")
@@ -434,10 +434,8 @@ def _html_to_simple_markdown(element) -> str:
     if not lines:
         return element.get_text(separator="\n", strip=True)
 
-    result = "\n".join(lines)
     # Clean up excessive newlines
-    result = regex.sub(r"\n{3,}", "\n\n", result)
-    return result
+    return regex.sub(r"\n{3,}", "\n\n", "\n".join(lines))
 
 
 def _extract_links(html_content: str, base_url: str) -> dict:

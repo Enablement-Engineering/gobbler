@@ -67,9 +67,7 @@ def _fix_checkboxes(content: str) -> str:
     # Also handle standalone /Off and /Yes that might appear
     content = re.sub(r"\b/Off\b", "☐", content)
     content = re.sub(r"\b/Yes\b", "☑", content)
-    content = re.sub(r"\b/On\b", "☑", content)
-
-    return content
+    return re.sub(r"\b/On\b", "☑", content)
 
 
 async def convert_document_to_markdown(

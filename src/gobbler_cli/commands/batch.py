@@ -59,7 +59,7 @@ def _scan_existing_video_ids(directory: Path) -> set[str]:
                     match = video_id_pattern.search(frontmatter)
                     if match:
                         video_ids.add(match.group(1))
-        except Exception:  # nosec B112 - intentionally skip unreadable files
+        except Exception:  # noqa: S112 # nosec B112 - intentionally skip unreadable files
             continue
 
     return video_ids
