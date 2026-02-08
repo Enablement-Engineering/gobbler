@@ -19,7 +19,7 @@
 - [ ] **Quieter errors** — GitHub issue template dump is noisy; simplify for common cases
 
 ### Audio
-- [ ] **Document `-l en` speedup** — 7x faster when language specified (14s → 2s). Make prominent in SKILL.md
+- [x] **Document `-l en` speedup** — ✅ Added to SKILL.md Tips section with example
 
 ### All Converters
 - [x] **Add `duration_human`** — ✅ Human-readable duration ("13:54") now in YouTube and audio frontmatter
