@@ -27,8 +27,8 @@
 
 ## 🟢 Polish Items
 
-- [ ] Document `--skip-if-exists` as batch-friendly feature
-- [ ] Checkbox rendering in documents (`[ ] /Off` → `☐`)
+- [x] **Document `--skip-if-exists`** — ✅ Added to youtube, audio, webpage SKILL.md files with batch tips
+- [x] **Checkbox rendering** — ✅ Added `_fix_checkboxes()` to convert `/Off` → `☐`, `/Yes` → `☑`
 - [ ] Auto-detect OCR need for PDFs
 - [ ] Add `--verbose` flag for debugging
 
