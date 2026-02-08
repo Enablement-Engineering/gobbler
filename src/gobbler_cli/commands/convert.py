@@ -406,6 +406,10 @@ def webpage(
         str | None,
         typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
     ] = None,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean/--no-clean", "-c", help="Auto-strip nav/footer/sidebar boilerplate"),
+    ] = False,
     timeout: Annotated[
         int,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
@@ -437,6 +441,7 @@ def webpage(
         gobbler webpage https://example.com
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
+        gobbler webpage https://example.com --clean  # Auto-strip boilerplate
         echo "https://example.com" | gobbler webpage
     """
     # Handle stdin input
@@ -456,6 +461,7 @@ def webpage(
             url=actual_url,
             output=output,
             css_selector=css_selector,
+            clean=clean,
             timeout=timeout,
             include_images=include_images,
             output_format=output_format,
@@ -469,6 +475,7 @@ async def _convert_webpage(  # noqa: PLR0912
     url: str,
     output: Path | None,
     css_selector: str | None,
+    clean: bool,
     timeout: int,
     include_images: bool,
     output_format: OutputFormat,
@@ -492,14 +499,19 @@ async def _convert_webpage(  # noqa: PLR0912
                 print_warning(f"Skipped: {output} already exists")
             return
 
-        # Use selector-based conversion if selector is provided
-        if css_selector:
+        # Use selector-based conversion if selector is provided or clean mode
+        if css_selector or clean:
             from gobbler_mcp.converters.webpage_selector import convert_webpage_with_selector
 
-            with ProgressTracker("Converting web page with selector"):
+            # If clean mode without selector, try common main content selectors
+            effective_selector = css_selector
+            if clean and not css_selector:
+                effective_selector = "main, article, [role='main'], .content, #content"
+
+            with ProgressTracker("Converting web page" + (" with selector" if css_selector else " (clean mode)")):
                 result, metadata = await convert_webpage_with_selector(
                     url=url,
-                    css_selector=css_selector,
+                    css_selector=effective_selector,
                     timeout=timeout,
                     include_images=include_images,
                 )

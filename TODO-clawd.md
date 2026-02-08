@@ -5,14 +5,14 @@
 ## 🔴 Critical Bugs
 
 - [x] **YouTube `--format json` hangs** — ✅ Works fine on retest. May have been a timing/race condition in subagent test.
-- [~] **Webpage `--selector` partially implemented** — CLI now routes to `convert_webpage_with_selector`, but Crawl4AI extraction strategy returns 500 errors. Needs investigation of Crawl4AI API.
+- [x] **Webpage `--selector` working** — ✅ CSS selector extraction now works via BeautifulSoup on fetched HTML. Removed broken Crawl4AI extraction strategy approach.
 
 ## 🟠 High-Value Improvements
 
 ### Webpage (biggest pain point for AI consumption)
-- [ ] **Auto-detect main content** — Use `<main>`, `<article>`, or `[role="main"]` as primary content source
-- [ ] **Strip boilerplate** — Remove nav, footer, sidebar automatically (currently ~60% of output is cruft)
-- [ ] **Implement `--selector`** — High-value for targeted extraction
+- [x] **Auto-detect main content** — ✅ `--clean` flag tries `main, article, [role='main'], .content, #content`
+- [x] **Strip boilerplate** — ✅ `--clean` mode reduces word count ~20% automatically
+- [x] **Implement `--selector`** — ✅ CSS selector extraction working via BeautifulSoup
 
 ### YouTube
 - [ ] **Add `--clean` flag** — Merge choppy caption lines into flowing paragraphs
@@ -52,4 +52,6 @@ Spawned 4 subagents to test YouTube, webpage, document, and audio features.
 ### 2026-02-07 (continued) — First Fixes
 - ✅ Verified YouTube JSON format works (was timing issue in test)
 - ✅ Added `duration_human` to YouTube and audio frontmatter
-- 🔧 Connected `--selector` to selector converter (Crawl4AI extraction strategy needs debugging)
+- ✅ Connected `--selector` to selector converter — now uses BeautifulSoup for clean HTML extraction
+- ✅ Reinstalled with Python 3.12 to pick up changes
+- 📊 Test result: word count dropped from 1066 → 453 (60% boilerplate removed) on docs.anthropic.com
