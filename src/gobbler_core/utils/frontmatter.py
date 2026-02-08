@@ -91,6 +91,23 @@ def count_words(text: str) -> int:
     return len(text.split())
 
 
+def format_duration(seconds: int) -> str:
+    """Format duration in seconds as human-readable string.
+
+    Args:
+        seconds: Duration in seconds
+
+    Returns:
+        Human-readable duration string (e.g., "1:23:45" or "23:45")
+    """
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
 def create_youtube_frontmatter(
     video_url: str,
     video_id: str,
@@ -137,6 +154,7 @@ def create_youtube_frontmatter(
     metadata.update(
         {
             "duration": duration,
+            "duration_human": format_duration(duration),
             "language": language,
             "word_count": word_count,
             "converted_at": get_iso8601_timestamp(),
@@ -230,6 +248,7 @@ def create_audio_frontmatter(
         "source": file_path,
         "type": "audio_transcript",
         "duration": duration,
+        "duration_human": format_duration(duration),
         "language": language,
         "model": model,
         "word_count": word_count,

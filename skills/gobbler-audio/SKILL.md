@@ -67,6 +67,7 @@ gobbler audio /path/to/audio.mp3 --provider whisper-local
 | `--timestamps` | - | Include timestamps in output | no-timestamps |
 | `--format` | `-f` | Output format (markdown/json/table) | markdown |
 | `--provider` | `-p` | Transcription provider | whisper-local |
+| `--skip-if-exists` | - | Skip if output file already exists (batch-friendly) | - |
 
 ## Model Sizes
 
@@ -111,6 +112,7 @@ gobbler audio /path/to/recording.m4a -o "Recording Transcript.md"
 
 ## Tips
 
+- **⚡ Speed boost**: Use `-l en` (or your audio's language) for 7x faster transcription! Auto-detection adds significant overhead. Example: 14s → 2s for a short clip.
 - For long recordings, `small` model offers best speed/accuracy tradeoff
 - Pre-extract audio from large videos to speed up processing
-- Language auto-detection works well for most content
+- Language auto-detection works well but is slower — specify language when known

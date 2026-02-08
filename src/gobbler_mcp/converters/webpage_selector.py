@@ -126,25 +126,9 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
         },
     }
 
-    # Add extraction strategy if selector provided
-    if css_selector or xpath:
-        extraction_strategy = {
-            "type": "CssExtractionStrategy" if css_selector else "XPathExtractionStrategy",
-            "params": {
-                "schema": {
-                    "name": "Selected Content",
-                    "baseSelector": css_selector if css_selector else xpath,
-                    "fields": [
-                        {
-                            "name": "content",
-                            "selector": css_selector if css_selector else xpath,
-                            "type": "nested",
-                        }
-                    ],
-                }
-            },
-        }
-        crawl_request["crawler_config"]["params"]["extraction_strategy"] = extraction_strategy
+    # Note: We don't use Crawl4AI's extraction_strategy for simple CSS/XPath selection.
+    # Those strategies are for structured data extraction (schemas with fields).
+    # Instead, we fetch the full page and extract the selector content from HTML ourselves.
 
     # Load session if provided
     session_cookies = None
@@ -236,15 +220,19 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
             elif isinstance(result.get("markdown"), str):
                 markdown_content = result["markdown"]
 
-            # If selector was used, check extracted_content field
-            if (css_selector or xpath) and result.get("extracted_content"):
-                # Use extracted content instead of full markdown
-                extracted = result["extracted_content"]
-                if isinstance(extracted, list) and len(extracted) > 0:
-                    # Convert extracted structured data to markdown
-                    markdown_content = _format_extracted_content(extracted)
-                elif isinstance(extracted, str):
-                    markdown_content = extracted
+            # If selector was used, extract from HTML using BeautifulSoup
+            if css_selector or xpath:
+                html_content = result.get("html", "")
+                if html_content:
+                    extracted_md = _extract_selector_content(html_content, css_selector, xpath)
+                    if extracted_md:
+                        markdown_content = extracted_md
+                        logger.info(
+                            "Extracted content using %s",
+                            "CSS selector" if css_selector else "XPath",
+                        )
+                    else:
+                        logger.warning("Selector matched no content, using full page markdown")
 
             if not markdown_content:
                 msg = "No markdown content in Crawl4AI response"
@@ -334,22 +322,120 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
         raise
 
 
-def _format_extracted_content(extracted: list[dict]) -> str:
-    """Format extracted structured content as markdown."""
+def _extract_selector_content(
+    html_content: str, css_selector: str | None, xpath: str | None
+) -> str | None:
+    """Extract content using CSS selector or XPath and convert to markdown.
+
+    Args:
+        html_content: Raw HTML content
+        css_selector: CSS selector to extract (e.g., "article.main", "main", "#content")
+        xpath: XPath expression to extract (e.g., "//article", "//div[@class='content']")
+
+    Returns:
+        Markdown content from selected elements, or None if no match
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    elements = []
+    if css_selector:
+        elements = soup.select(css_selector)
+    elif xpath:
+        # BeautifulSoup doesn't support XPath directly, use lxml
+        try:
+            from lxml import etree
+
+            tree = etree.HTML(html_content)
+            xpath_results = tree.xpath(xpath)
+            # Convert lxml elements back to soup for consistent processing
+            for el in xpath_results:
+                if hasattr(el, "text"):
+                    # It's an element
+                    html_str = etree.tostring(el, encoding="unicode", method="html")
+                    elements.append(BeautifulSoup(html_str, "html.parser"))
+                elif isinstance(el, str):
+                    # Text node
+                    elements.append(el)
+        except ImportError:
+            logger.warning(
+                "lxml not installed, XPath support unavailable. Install with: pip install lxml"
+            )
+            return None
+
+    if not elements:
+        return None
+
+    # Convert extracted elements to simple markdown
     markdown_parts = []
+    for el in elements:
+        if isinstance(el, str):
+            markdown_parts.append(el.strip())
+        else:
+            # Use get_text for simple extraction, preserving some structure
+            text = _html_to_simple_markdown(el)
+            if text.strip():
+                markdown_parts.append(text.strip())
 
-    for item in extracted:
-        if isinstance(item, dict):
-            content = item.get("content", "")
-            if isinstance(content, str):
-                markdown_parts.append(content)
-            elif isinstance(content, list):
-                # Nested content - recursively format
-                markdown_parts.append(_format_extracted_content(content))
-        elif isinstance(item, str):
-            markdown_parts.append(item)
+    return "\n\n".join(markdown_parts) if markdown_parts else None
 
-    return "\n\n".join(markdown_parts)
+
+def _html_to_simple_markdown(element) -> str:  # noqa: C901, PLR0912
+    """Convert BeautifulSoup element to simple markdown.
+
+    This is a basic conversion that handles common elements.
+    For full-fidelity conversion, we'd use a proper HTML-to-markdown library.
+    """
+    import re as regex
+
+    # Remove script and style elements
+    for tag in element.find_all(["script", "style", "nav", "footer", "aside"]):
+        tag.decompose()
+
+    lines = []
+
+    for child in element.descendants:
+        if child.name == "h1":
+            lines.append(f"\n# {child.get_text(strip=True)}\n")
+        elif child.name == "h2":
+            lines.append(f"\n## {child.get_text(strip=True)}\n")
+        elif child.name == "h3":
+            lines.append(f"\n### {child.get_text(strip=True)}\n")
+        elif child.name == "h4":
+            lines.append(f"\n#### {child.get_text(strip=True)}\n")
+        elif child.name == "h5":
+            lines.append(f"\n##### {child.get_text(strip=True)}\n")
+        elif child.name == "h6":
+            lines.append(f"\n###### {child.get_text(strip=True)}\n")
+        elif child.name == "p":
+            text = child.get_text(strip=True)
+            if text:
+                lines.append(f"\n{text}\n")
+        elif child.name == "li":
+            text = child.get_text(strip=True)
+            if text:
+                lines.append(f"- {text}")
+        elif child.name == "a" and child.get("href"):
+            text = child.get_text(strip=True)
+            href = child.get("href", "")
+            if text and href and not href.startswith("#"):
+                # Only include non-anchor links
+                pass  # Links handled in context
+        elif child.name == "blockquote":
+            text = child.get_text(strip=True)
+            if text:
+                quoted = "\n".join(f"> {line}" for line in text.split("\n"))
+                lines.append(f"\n{quoted}\n")
+        elif child.name in {"pre", "code"}:
+            text = child.get_text()
+            if text.strip():
+                lines.append(f"\n```\n{text}\n```\n")
+
+    # If we didn't extract structured content, fall back to plain text
+    if not lines:
+        return element.get_text(separator="\n", strip=True)
+
+    # Clean up excessive newlines
+    return regex.sub(r"\n{3,}", "\n\n", "\n".join(lines))
 
 
 def _extract_links(html_content: str, base_url: str) -> dict:

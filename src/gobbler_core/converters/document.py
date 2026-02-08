@@ -36,6 +36,40 @@ logger = logging.getLogger(__name__)
 SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".pptx", ".xlsx", ".xls")
 
 
+def _fix_checkboxes(content: str) -> str:
+    """Fix checkbox rendering from PDF form fields.
+
+    PDF form fields often render as awkward syntax like:
+    - [ ] /Off (unchecked)
+    - [ ] /Yes (checked)
+    - [ ] /On (checked)
+
+    This converts them to proper Unicode checkbox symbols:
+    - ☐ (unchecked)
+    - ☑ (checked)
+
+    Args:
+        content: Markdown content with raw checkbox syntax
+
+    Returns:
+        Content with fixed checkbox rendering
+    """
+    import re
+
+    # Pattern: [ ] followed by /Off, /No, etc. = unchecked
+    content = re.sub(r"\[ ?\] ?/Off\b", "☐", content)
+    content = re.sub(r"\[ ?\] ?/No\b", "☐", content)
+
+    # Pattern: [ ] followed by /Yes, /On, etc. = checked
+    content = re.sub(r"\[ ?\] ?/Yes\b", "☑", content)
+    content = re.sub(r"\[ ?\] ?/On\b", "☑", content)
+
+    # Also handle standalone /Off and /Yes that might appear
+    content = re.sub(r"\b/Off\b", "☐", content)
+    content = re.sub(r"\b/Yes\b", "☑", content)
+    return re.sub(r"\b/On\b", "☑", content)
+
+
 async def convert_document_to_markdown(
     file_path: str,
     enable_ocr: bool = True,
@@ -111,6 +145,9 @@ async def convert_document_to_markdown(
         markdown_content, pages, word_count = await _convert_with_docling(
             file_path, enable_ocr, service_url, log
         )
+
+    # Post-process: Fix checkbox rendering from PDF form fields
+    markdown_content = _fix_checkboxes(markdown_content)
 
     conversion_time_ms = int((time.time() - start_time) * 1000)
 

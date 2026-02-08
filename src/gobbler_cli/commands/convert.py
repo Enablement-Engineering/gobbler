@@ -60,6 +60,12 @@ def youtube(
         bool,
         typer.Option("--timestamps/--no-timestamps", help="Include timestamps in output"),
     ] = False,
+    clean: Annotated[
+        bool,
+        typer.Option(
+            "--clean/--no-clean", "-c", help="Merge choppy captions into flowing paragraphs"
+        ),
+    ] = False,
     output_format: Annotated[
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
@@ -74,6 +80,7 @@ def youtube(
     Examples:
         gobbler youtube https://youtube.com/watch?v=ABC123
         gobbler youtube https://youtube.com/watch?v=ABC123 -o transcript.md
+        gobbler youtube https://youtube.com/watch?v=ABC123 --clean  # Flowing paragraphs
         gobbler youtube https://youtube.com/watch?v=ABC123 --language es --timestamps
         gobbler youtube https://youtube.com/watch?v=ABC123 -o out.md --skip-if-exists
         echo "https://youtube.com/watch?v=ABC123" | gobbler youtube
@@ -92,10 +99,66 @@ def youtube(
             output=output,
             language=language,
             timestamps=timestamps,
+            clean=clean,
             output_format=output_format,
             skip_if_exists=skip_if_exists,
         )
     )
+
+
+def _clean_transcript(text: str) -> str:
+    """Merge choppy caption lines into flowing paragraphs.
+
+    YouTube captions are often broken into short 2-5 second segments.
+    This function merges them into natural paragraphs.
+
+    Args:
+        text: Raw transcript with many short lines
+
+    Returns:
+        Cleaned transcript with flowing paragraphs
+    """
+    import re
+
+    # Split into frontmatter and content
+    parts = text.split("# Video Transcript\n\n", 1)
+    expected_parts = 2
+    if len(parts) != expected_parts:
+        return text
+
+    frontmatter_and_header = parts[0] + "# Video Transcript\n\n"
+    content = parts[1]
+
+    # Split into lines and merge
+    lines = content.split("\n\n")
+
+    # Merge lines into sentences/paragraphs
+    merged = []
+    current_paragraph: list[str] = []
+    min_paragraph_length = 200
+
+    for raw_line in lines:
+        cleaned_line = raw_line.strip()
+        if not cleaned_line:
+            continue
+
+        current_paragraph.append(cleaned_line)
+
+        # Start new paragraph after sentence-ending punctuation
+        # But only if we have a reasonable amount of content
+        paragraph_text = " ".join(current_paragraph)
+        if len(paragraph_text) > min_paragraph_length and re.search(r"[.!?]$", cleaned_line):
+            merged.append(paragraph_text)
+            current_paragraph = []
+
+    # Don't forget the last paragraph
+    if current_paragraph:
+        merged.append(" ".join(current_paragraph))
+
+    # Join paragraphs with double newlines
+    cleaned_content = "\n\n".join(merged)
+
+    return frontmatter_and_header + cleaned_content
 
 
 async def _convert_youtube(
@@ -103,6 +166,7 @@ async def _convert_youtube(
     output: Path | None,
     language: str,
     timestamps: bool,
+    clean: bool,
     output_format: OutputFormat,
     skip_if_exists: bool = False,
 ) -> None:
@@ -132,6 +196,14 @@ async def _convert_youtube(
                 language=language,
                 include_timestamps=timestamps,
             )
+
+        # Apply clean mode if requested (incompatible with timestamps)
+        if clean and not timestamps:
+            result = _clean_transcript(result)
+            # Recalculate word count after cleaning
+            from gobbler_core.utils.frontmatter import count_words
+
+            metadata["word_count"] = count_words(result)
 
         if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)
@@ -406,6 +478,10 @@ def webpage(
         str | None,
         typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
     ] = None,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean/--no-clean", "-c", help="Auto-strip nav/footer/sidebar boilerplate"),
+    ] = False,
     timeout: Annotated[
         int,
         typer.Option("--timeout", "-t", help="Request timeout in seconds"),
@@ -437,6 +513,7 @@ def webpage(
         gobbler webpage https://example.com
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
+        gobbler webpage https://example.com --clean  # Auto-strip boilerplate
         echo "https://example.com" | gobbler webpage
     """
     # Handle stdin input
@@ -456,6 +533,7 @@ def webpage(
             url=actual_url,
             output=output,
             css_selector=css_selector,
+            clean=clean,
             timeout=timeout,
             include_images=include_images,
             output_format=output_format,
@@ -469,6 +547,7 @@ async def _convert_webpage(  # noqa: PLR0912
     url: str,
     output: Path | None,
     css_selector: str | None,
+    clean: bool,
     timeout: int,
     include_images: bool,
     output_format: OutputFormat,
@@ -491,39 +570,54 @@ async def _convert_webpage(  # noqa: PLR0912
             else:
                 print_warning(f"Skipped: {output} already exists")
             return
-        # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.webpage import convert_webpage_to_markdown
-        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
-        from gobbler_core.providers.webpage import get_default_provider
 
-        # Create provider - use default if not specified (includes proxy config)
-        webpage_provider: WebPageProvider
-        if provider_name:
-            try:
-                # Registry returns ContentProvider, cast to specific type
-                webpage_provider = cast(
-                    "WebPageProvider",
-                    ProviderRegistry.create("webpage", provider_name),
+        # Use selector-based conversion if selector is provided or clean mode
+        if css_selector or clean:
+            from gobbler_mcp.converters.webpage_selector import convert_webpage_with_selector
+
+            # If clean mode without selector, try common main content selectors
+            effective_selector = css_selector
+            if clean and not css_selector:
+                effective_selector = "main, article, [role='main'], .content, #content"
+
+            with ProgressTracker(
+                "Converting web page" + (" with selector" if css_selector else " (clean mode)")
+            ):
+                result, metadata = await convert_webpage_with_selector(
+                    url=url,
+                    css_selector=effective_selector,
+                    timeout=timeout,
+                    include_images=include_images,
                 )
-            except ProviderNotFoundError as e:
-                print_error(str(e))
-                raise typer.Exit(1) from None
         else:
-            # Use default provider which reads config (including proxy)
-            webpage_provider = get_default_provider()
+            # Import here to avoid circular imports and defer heavy imports
+            from gobbler_core.converters.webpage import convert_webpage_to_markdown
+            from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
+            from gobbler_core.providers.webpage import get_default_provider
 
-        with ProgressTracker("Converting web page"):
-            # Note: css_selector is not currently supported by the underlying converter
-            # It uses the Gobbler service for extraction instead
-            if css_selector and output_format != OutputFormat.JSON:
-                print_warning("CSS selector option is not yet implemented in the webpage converter")
+            # Create provider - use default if not specified (includes proxy config)
+            webpage_provider: WebPageProvider
+            if provider_name:
+                try:
+                    # Registry returns ContentProvider, cast to specific type
+                    webpage_provider = cast(
+                        "WebPageProvider",
+                        ProviderRegistry.create("webpage", provider_name),
+                    )
+                except ProviderNotFoundError as e:
+                    print_error(str(e))
+                    raise typer.Exit(1) from None
+            else:
+                # Use default provider which reads config (including proxy)
+                webpage_provider = get_default_provider()
 
-            result, metadata = await convert_webpage_to_markdown(
-                url=url,
-                timeout=timeout,
-                include_images=include_images,
-                provider=webpage_provider,
-            )
+            with ProgressTracker("Converting web page"):
+                result, metadata = await convert_webpage_to_markdown(
+                    url=url,
+                    timeout=timeout,
+                    include_images=include_images,
+                    provider=webpage_provider,
+                )
 
         if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)

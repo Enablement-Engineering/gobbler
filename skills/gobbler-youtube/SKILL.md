@@ -49,9 +49,16 @@ gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -f table
 | `--output` | `-o` | Output file path (stdout if not specified) | - |
 | `--language` | `-l` | Preferred transcript language | `en` |
 | `--timestamps` | - | Include timestamps in output | `--no-timestamps` |
+| `--clean` | `-c` | Merge choppy captions into flowing paragraphs | `--no-clean` |
 | `--format` | `-f` | Output format: `markdown`, `json`, `table` | `markdown` |
+| `--skip-if-exists` | - | Skip if output file already exists (batch-friendly) | - |
 
 Output includes YAML frontmatter with metadata (title, channel, duration, word count).
+
+## Tips
+
+- **Use `--clean`** for AI consumption — merges choppy caption lines into flowing paragraphs
+- **Use `--skip-if-exists`** for batch processing — won't re-download existing transcripts
 
 ## Saving Output
 

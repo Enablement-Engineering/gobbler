@@ -249,7 +249,7 @@ class TestYouTubeConversion:
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.youtube.get_video_metadata")
     async def test_convert_youtube_no_transcript_raises_error(self, mock_metadata):
-        """Test that missing transcript raises appropriate error."""
+        """Test that missing transcript raises appropriate error with clean message."""
         mock_metadata.return_value = {
             "title": "Test Video",
             "channel": "Test Channel",
@@ -260,7 +260,8 @@ class TestYouTubeConversion:
         mock_provider = MagicMock(spec=TranscriptProvider)
         mock_provider.fetch.side_effect = TranscriptsDisabled("video_id")
 
-        with pytest.raises(TranscriptsDisabled):
+        # Now we wrap noisy errors into clean RuntimeError messages
+        with pytest.raises(RuntimeError, match="Transcript unavailable"):
             await convert_youtube_to_markdown(
                 "https://youtube.com/watch?v=dQw4w9WgXcQ",
                 provider=mock_provider,

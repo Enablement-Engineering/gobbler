@@ -6,7 +6,8 @@ import pytest
 
 from gobbler_mcp.converters.webpage_selector import (
     _extract_links,
-    _format_extracted_content,
+    _extract_selector_content,
+    _html_to_simple_markdown,
     convert_webpage_with_selector,
 )
 
@@ -72,30 +73,37 @@ async def test_convert_webpage_with_both_selectors_raises_error():
 
 
 @pytest.mark.asyncio
-async def test_convert_webpage_with_extracted_content(mock_crawl4ai_response):
-    """Test webpage conversion with extracted content from selector."""
+async def test_convert_webpage_with_selector_extracts_from_html(mock_crawl4ai_response):
+    """Test webpage conversion extracts content from HTML using selector."""
     with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance
 
-        # Mock responses with extracted_content
-        response_with_extracted = mock_crawl4ai_response.copy()
-        response_with_extracted["extracted_content"] = [
-            {"content": "# Extracted Title\n\nExtracted paragraph 1"},
-            {"content": "Extracted paragraph 2"},
-        ]
+        # Mock response with HTML content that has an article
+        response_with_html = mock_crawl4ai_response.copy()
+        response_with_html["html"] = """
+        <html>
+            <body>
+                <nav>Navigation menu</nav>
+                <article>
+                    <h1>Article Title</h1>
+                    <p>This is the article content.</p>
+                </article>
+                <footer>Footer content</footer>
+            </body>
+        </html>
+        """
 
-        setup_mock_client(client_instance, response_with_extracted)
+        setup_mock_client(client_instance, response_with_html)
 
         markdown, _metadata = await convert_webpage_with_selector(
             url="https://example.com", css_selector="article"
         )
 
-        # Should use extracted content
-        assert "Extracted Title" in markdown
-        assert "Extracted paragraph 1" in markdown
-        assert "Extracted paragraph 2" in markdown
+        # Should extract article content
+        assert "Article Title" in markdown
+        assert "article content" in markdown
 
 
 @pytest.mark.asyncio
@@ -209,31 +217,62 @@ def test_extract_links():
     assert "https://external.com/page" in external_urls
 
 
-def test_format_extracted_content():
-    """Test formatting of extracted structured content."""
-    extracted = [
-        {"content": "# Title 1\n\nParagraph 1"},
-        {"content": "# Title 2\n\nParagraph 2"},
-        {"content": ["Nested 1", "Nested 2"]},
-    ]
+def test_extract_selector_content_css():
+    """Test CSS selector extraction from HTML."""
+    html = """
+    <html>
+        <body>
+            <nav>Navigation</nav>
+            <article class="main">
+                <h1>Article Title</h1>
+                <p>Article content here.</p>
+            </article>
+            <footer>Footer</footer>
+        </body>
+    </html>
+    """
 
-    markdown = _format_extracted_content(extracted)
+    markdown = _extract_selector_content(html, css_selector="article.main", xpath=None)
 
-    assert "# Title 1" in markdown
-    assert "Paragraph 1" in markdown
-    assert "# Title 2" in markdown
-    assert "Paragraph 2" in markdown
-    # Note: nested content handling may need adjustment based on actual behavior
+    assert markdown is not None
+    assert "Article Title" in markdown
+    assert "Article content" in markdown
+    # Navigation and footer should not be included
+    assert "Navigation" not in markdown
+    assert "Footer" not in markdown
 
 
-def test_format_extracted_content_with_strings():
-    """Test formatting extracted content that are plain strings."""
-    extracted = ["String content 1", "String content 2"]
+def test_extract_selector_content_no_match():
+    """Test selector extraction when no elements match."""
+    html = "<html><body><p>No article here</p></body></html>"
 
-    markdown = _format_extracted_content(extracted)
+    markdown = _extract_selector_content(html, css_selector="article", xpath=None)
 
-    assert "String content 1" in markdown
-    assert "String content 2" in markdown
+    assert markdown is None
+
+
+def test_html_to_simple_markdown():
+    """Test HTML to markdown conversion."""
+    from bs4 import BeautifulSoup
+
+    html = """
+    <div>
+        <h1>Title</h1>
+        <p>Paragraph text.</p>
+        <ul>
+            <li>Item 1</li>
+            <li>Item 2</li>
+        </ul>
+    </div>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    markdown = _html_to_simple_markdown(soup)
+
+    assert "# Title" in markdown
+    assert "Paragraph text" in markdown
+    assert "- Item 1" in markdown
+    assert "- Item 2" in markdown
 
 
 @pytest.mark.asyncio

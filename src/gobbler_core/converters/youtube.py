@@ -68,11 +68,19 @@ def get_video_metadata(video_url: str) -> dict[str, str | None]:
     Returns:
         Dictionary with title, channel, thumbnail URL, and description
     """
+    import io
+    import sys
+
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
         "extract_flat": True,
+        "logger": logging.getLogger("yt_dlp_quiet"),  # Suppress yt-dlp's own logging
     }
+
+    # Suppress stderr output from yt-dlp (it prints errors even with quiet=True)
+    old_stderr = sys.stderr
+    sys.stderr = io.StringIO()
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -84,8 +92,38 @@ def get_video_metadata(video_url: str) -> dict[str, str | None]:
                 "description": info.get("description"),
             }
     except Exception as e:
-        logger.warning("Failed to extract video metadata: %s", e)
+        # Debug level - don't spam the user with yt-dlp errors
+        logger.debug("Failed to extract video metadata: %s", e)
         return {"title": None, "channel": None, "thumbnail": None, "description": None}
+    finally:
+        sys.stderr = old_stderr
+
+
+def _simplify_transcript_error(error_msg: str, video_id: str) -> str:
+    """Simplify noisy transcript error messages.
+
+    Returns a clean error message suitable for users.
+    """
+    # Extract the key reason, strip the GitHub issue template noise
+    if "Could not retrieve a transcript" in error_msg:
+        # Find the actual reason (line after "caused by:")
+        if "caused by:" in error_msg.lower():
+            lines = error_msg.split("\n")
+            for i, line in enumerate(lines):
+                if "caused by:" in line.lower() and i + 1 < len(lines):
+                    reason = lines[i + 1].strip()
+                    if reason:
+                        return f"Transcript unavailable for {video_id}: {reason}"
+        return f"Transcript unavailable for video {video_id}"
+
+    if "Video unavailable" in error_msg:
+        return f"Video unavailable: {video_id}"
+
+    if "disabled" in error_msg.lower():
+        return f"Transcripts disabled for video {video_id}"
+
+    # Return None to indicate we should re-raise the original error
+    return ""
 
 
 async def convert_youtube_to_markdown(
@@ -145,7 +183,17 @@ async def convert_youtube_to_markdown(
         provider = create_provider(provider_name="auto", proxy_config=proxy_config)
 
     # Fetch transcript using provider
-    result = provider.fetch(video_id, language)
+    try:
+        result = provider.fetch(video_id, language)
+    except Exception as e:
+        # Simplify noisy error messages from youtube-transcript-api
+        error_msg = str(e)
+        clean_msg = _simplify_transcript_error(error_msg, video_id)
+        if clean_msg:
+            raise RuntimeError(clean_msg) from e
+        # For other errors, just pass through but log the full error
+        active_logger.debug("Full error: %s", error_msg)
+        raise
 
     # Merge metadata (prefer yt-dlp, fall back to provider)
     for key in ["title", "channel", "thumbnail"]:
