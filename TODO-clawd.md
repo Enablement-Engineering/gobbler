@@ -16,14 +16,14 @@
 
 ### YouTube
 - [x] **Add `--clean` flag** — ✅ Merges choppy captions into ~200-char paragraphs with sentence breaks
-- [ ] **Quieter errors** — GitHub issue template dump is noisy; simplify for common cases
+- [x] **Quieter errors** — ✅ Strips GitHub issue template, suppresses yt-dlp stderr, shows clean "Transcript unavailable" message
 
 ### Audio
 - [x] **Document `-l en` speedup** — ✅ Added to SKILL.md Tips section with example
 
 ### All Converters
 - [x] **Add `duration_human`** — ✅ Human-readable duration ("13:54") now in YouTube and audio frontmatter
-- [ ] **Better error messages** — Include file paths in "not found" errors
+- [x] **Better error messages** — ✅ File paths already included in document/audio errors; YouTube errors now cleaner
 
 ## 🟢 Polish Items
 
