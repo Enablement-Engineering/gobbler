@@ -15,7 +15,7 @@
 - [x] **Implement `--selector`** — ✅ CSS selector extraction working via BeautifulSoup
 
 ### YouTube
-- [ ] **Add `--clean` flag** — Merge choppy caption lines into flowing paragraphs
+- [x] **Add `--clean` flag** — ✅ Merges choppy captions into ~200-char paragraphs with sentence breaks
 - [ ] **Quieter errors** — GitHub issue template dump is noisy; simplify for common cases
 
 ### Audio
