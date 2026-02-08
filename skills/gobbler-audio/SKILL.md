@@ -67,6 +67,7 @@ gobbler audio /path/to/audio.mp3 --provider whisper-local
 | `--timestamps` | - | Include timestamps in output | no-timestamps |
 | `--format` | `-f` | Output format (markdown/json/table) | markdown |
 | `--provider` | `-p` | Transcription provider | whisper-local |
+| `--skip-if-exists` | - | Skip if output file already exists (batch-friendly) | - |
 
 ## Model Sizes
 

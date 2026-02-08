@@ -35,10 +35,18 @@ Convert web pages to markdown using the Crawl4AI service.
 |--------|-------|-------------|---------|
 | `--output` | `-o` | Output file path (stdout if not specified) | - |
 | `--selector` | `-s` | CSS selector to extract specific content | - |
+| `--clean` | `-c` | Auto-strip nav/footer/sidebar boilerplate | `--no-clean` |
 | `--timeout` | `-t` | Request timeout in seconds | 30 |
 | `--images/--no-images` | - | Include images in output | `--images` |
 | `--format` | `-f` | Output format: `markdown`, `json`, `table` | `markdown` |
 | `--provider` | `-p` | Webpage conversion provider | `crawl4ai` |
+| `--skip-if-exists` | - | Skip if output file already exists (batch-friendly) | - |
+
+## Tips
+
+- **Use `--clean`** for AI consumption — auto-detects main content (article, main, etc.)
+- **Use `--selector`** for precise extraction — e.g., `--selector "article"` or `--selector ".post-content"`
+- **Use `--skip-if-exists`** for batch processing — won't re-fetch existing pages
 
 ## Fetch Single Page
 
