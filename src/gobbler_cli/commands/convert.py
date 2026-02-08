@@ -491,39 +491,47 @@ async def _convert_webpage(  # noqa: PLR0912
             else:
                 print_warning(f"Skipped: {output} already exists")
             return
-        # Import here to avoid circular imports and defer heavy imports
-        from gobbler_core.converters.webpage import convert_webpage_to_markdown
-        from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
-        from gobbler_core.providers.webpage import get_default_provider
 
-        # Create provider - use default if not specified (includes proxy config)
-        webpage_provider: WebPageProvider
-        if provider_name:
-            try:
-                # Registry returns ContentProvider, cast to specific type
-                webpage_provider = cast(
-                    "WebPageProvider",
-                    ProviderRegistry.create("webpage", provider_name),
+        # Use selector-based conversion if selector is provided
+        if css_selector:
+            from gobbler_mcp.converters.webpage_selector import convert_webpage_with_selector
+
+            with ProgressTracker("Converting web page with selector"):
+                result, metadata = await convert_webpage_with_selector(
+                    url=url,
+                    css_selector=css_selector,
+                    timeout=timeout,
+                    include_images=include_images,
                 )
-            except ProviderNotFoundError as e:
-                print_error(str(e))
-                raise typer.Exit(1) from None
         else:
-            # Use default provider which reads config (including proxy)
-            webpage_provider = get_default_provider()
+            # Import here to avoid circular imports and defer heavy imports
+            from gobbler_core.converters.webpage import convert_webpage_to_markdown
+            from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
+            from gobbler_core.providers.webpage import get_default_provider
 
-        with ProgressTracker("Converting web page"):
-            # Note: css_selector is not currently supported by the underlying converter
-            # It uses the Gobbler service for extraction instead
-            if css_selector and output_format != OutputFormat.JSON:
-                print_warning("CSS selector option is not yet implemented in the webpage converter")
+            # Create provider - use default if not specified (includes proxy config)
+            webpage_provider: WebPageProvider
+            if provider_name:
+                try:
+                    # Registry returns ContentProvider, cast to specific type
+                    webpage_provider = cast(
+                        "WebPageProvider",
+                        ProviderRegistry.create("webpage", provider_name),
+                    )
+                except ProviderNotFoundError as e:
+                    print_error(str(e))
+                    raise typer.Exit(1) from None
+            else:
+                # Use default provider which reads config (including proxy)
+                webpage_provider = get_default_provider()
 
-            result, metadata = await convert_webpage_to_markdown(
-                url=url,
-                timeout=timeout,
-                include_images=include_images,
-                provider=webpage_provider,
-            )
+            with ProgressTracker("Converting web page"):
+                result, metadata = await convert_webpage_to_markdown(
+                    url=url,
+                    timeout=timeout,
+                    include_images=include_images,
+                    provider=webpage_provider,
+                )
 
         if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)
