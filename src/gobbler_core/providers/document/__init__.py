@@ -39,13 +39,24 @@ __all__ = [
 def get_default_provider(**kwargs) -> DocumentProvider:
     """Get the default document provider based on configuration.
 
+    Reads service URL from config file. Falls back to defaults if
+    config is unavailable.
+
     Args:
-        **kwargs: Override configuration options
+        **kwargs: Override configuration options (service_url, timeout)
 
     Returns:
         Configured DocumentProvider instance
     """
-    from gobbler_core.providers.registry import ProviderRegistry
+    service_url = kwargs.pop("service_url", None)
 
-    provider_name = kwargs.pop("provider", "docling")
-    return ProviderRegistry.create("document", provider_name, **kwargs)
+    if service_url is None:
+        try:
+            from gobbler_mcp.config import get_config
+
+            config = get_config()
+            service_url = config.get_service_url("docling")
+        except Exception:
+            service_url = "http://localhost:5001"
+
+    return DoclingProvider(service_url=service_url, **kwargs)

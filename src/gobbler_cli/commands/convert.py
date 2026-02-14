@@ -428,9 +428,10 @@ async def _convert_document(
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.document import convert_document_to_markdown
         from gobbler_core.providers import ProviderNotFoundError, ProviderRegistry
+        from gobbler_core.providers.document import get_default_provider
 
-        # Create provider if specified
-        document_provider: DocumentProvider | None = None
+        # Create provider - use default if not specified (reads config for service URL)
+        document_provider: DocumentProvider
         if provider_name:
             try:
                 # Registry returns ContentProvider, cast to specific type
@@ -441,6 +442,9 @@ async def _convert_document(
             except ProviderNotFoundError as e:
                 print_error(str(e))
                 raise typer.Exit(1) from None
+        else:
+            # Use default provider which reads config (including service URL)
+            document_provider = get_default_provider()
 
         with ProgressTracker("Converting document"):
             result, metadata = await convert_document_to_markdown(
