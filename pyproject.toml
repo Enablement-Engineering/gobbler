@@ -32,7 +32,7 @@ classifiers = [
 
 dependencies = [
     # Core conversion
-    "youtube-transcript-api>=0.6.3",
+    "youtube-transcript-api>=1.2.4",
     "yt-dlp>=2025.9.26",
     "faster-whisper>=1.2.0",
     "beautifulsoup4>=4.12.0",
