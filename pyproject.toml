@@ -74,7 +74,7 @@ dev = [
     "pytest-httpx>=0.30.0",
 
     "mypy>=1.10.0",
-    "ruff>=0.4.0",
+    "ruff>=0.15.10",
     "pre-commit>=3.0.0",
     "bandit>=1.7.0",
     "interrogate>=1.7.0",
