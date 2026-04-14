@@ -23,7 +23,7 @@ depend on configuration and metrics infrastructure. Skills can use the
 providers directly or call MCP tools for full conversion.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Convenience imports for common use cases
 from gobbler_core.providers.youtube import (

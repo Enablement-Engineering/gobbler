@@ -201,7 +201,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
                     elif message_type == "register":
                         # Extension registered successfully
-                        await ws.send_json({"type": "registered", "server_version": "0.1.0"})
+                        await ws.send_json({"type": "registered", "server_version": "0.2.0"})
                         logger.info("Extension registered via WebSocket")
 
                 except json.JSONDecodeError:
