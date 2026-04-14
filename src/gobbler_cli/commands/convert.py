@@ -6,6 +6,8 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, cast
 
+YOUTUBE_TIMEOUT_DEFAULT = 120
+
 import typer
 
 if TYPE_CHECKING:
@@ -70,6 +72,10 @@ def youtube(
         OutputFormat,
         typer.Option("--format", "-f", help="Output format"),
     ] = OutputFormat.MARKDOWN,
+    timeout: Annotated[
+        int,
+        typer.Option("--timeout", "-t", help="Timeout in seconds for the full YouTube conversion"),
+    ] = YOUTUBE_TIMEOUT_DEFAULT,
     skip_if_exists: Annotated[
         bool,
         typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
@@ -82,6 +88,7 @@ def youtube(
         gobbler youtube https://youtube.com/watch?v=ABC123 -o transcript.md
         gobbler youtube https://youtube.com/watch?v=ABC123 --clean  # Flowing paragraphs
         gobbler youtube https://youtube.com/watch?v=ABC123 --language es --timestamps
+        gobbler youtube https://youtube.com/watch?v=ABC123 --timeout 90
         gobbler youtube https://youtube.com/watch?v=ABC123 -o out.md --skip-if-exists
         echo "https://youtube.com/watch?v=ABC123" | gobbler youtube
     """
@@ -101,6 +108,7 @@ def youtube(
             timestamps=timestamps,
             clean=clean,
             output_format=output_format,
+            timeout=timeout,
             skip_if_exists=skip_if_exists,
         )
     )
@@ -168,6 +176,7 @@ async def _convert_youtube(
     timestamps: bool,
     clean: bool,
     output_format: OutputFormat,
+    timeout: int,
     skip_if_exists: bool = False,
 ) -> None:
     """Async implementation of YouTube conversion."""
@@ -195,6 +204,7 @@ async def _convert_youtube(
                 video_url=url,
                 language=language,
                 include_timestamps=timestamps,
+                timeout=timeout,
             )
 
         # Apply clean mode if requested (incompatible with timestamps)

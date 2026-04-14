@@ -154,6 +154,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
             "no_warnings": True,
             "extract_flat": True,
             "playlistend": 500,  # Max videos
+            "socket_timeout": 30,  # Prevent hung connections
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -268,6 +269,9 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
 
         semaphore = asyncio.Semaphore(concurrency)
 
+        # Per-video timeout (seconds) - prevents a single hung video from blocking the batch
+        per_video_timeout = 120
+
         async def process_video(
             video: dict[str, Any],
         ) -> tuple[dict[str, Any], bool, str, dict[str, Any] | None]:
@@ -285,16 +289,30 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 output_path = output_dir / f"{safe_title}.md"
 
                 try:
-                    markdown, metadata = await convert_youtube_to_markdown(
-                        video_url=video["url"],
-                        include_timestamps=timestamps,
-                        language=language,
+                    # Run in executor with timeout since the underlying calls
+                    # (yt-dlp metadata + transcript fetch) are synchronous and
+                    # would block the event loop, making asyncio.wait_for ineffective
+                    loop = asyncio.get_event_loop()
+
+                    def _sync_convert():
+                        import asyncio as _asyncio
+                        return _asyncio.run(convert_youtube_to_markdown(
+                            video_url=video["url"],
+                            include_timestamps=timestamps,
+                            language=language,
+                        ))
+
+                    markdown, metadata = await asyncio.wait_for(
+                        loop.run_in_executor(None, _sync_convert),
+                        timeout=per_video_timeout,
                     )
 
                     # Write output
                     output_path.write_text(markdown, encoding="utf-8")
                     return (video, True, "success", {"output_file": str(output_path), **metadata})
 
+                except asyncio.TimeoutError:
+                    return (video, False, f"Timed out after {per_video_timeout}s", None)
                 except Exception as e:
                     return (video, False, str(e), None)
 
