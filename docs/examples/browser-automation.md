@@ -4,7 +4,7 @@ Examples showing how to use Gobbler's browser automation capabilities.
 
 ## Prerequisites
 
-1. Gobbler MCP server or CLI installed
+1. Gobbler CLI installed
 2. Browser extension installed and connected
 3. Target tabs in the "Gobbler" tab group
 
@@ -15,8 +15,6 @@ The simplest use case - extract the current browser page as markdown.
 ```bash
 gobbler browser extract -o page.md
 ```
-
-**MCP Tool**: `browser_extract_current_page()`
 
 ## Example 2: Extract Specific Content
 

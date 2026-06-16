@@ -1,10 +1,10 @@
-.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop claude-install claude-uninstall verify diagnose lint security typecheck docs docs-serve docs-build docs-deploy
+.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop verify diagnose lint security typecheck docs docs-serve docs-build docs-deploy
 
 # Default target - Show available commands and their descriptions
 # Use this to get started or find the right command for your task
 help:
-	@echo "Gobbler MCP Server - Available Commands"
-	@echo "========================================"
+	@echo "Gobbler - Available Commands"
+	@echo "============================"
 	@echo ""
 	@echo "🚀 Quick Start:"
 	@echo "  make start          - Start everything (Docker services + RQ worker)"
@@ -22,20 +22,14 @@ help:
 	@echo "  make worker-stop    - Stop running RQ workers"
 	@echo ""
 	@echo "📦 Installation:"
-	@echo "  make install        - Install Gobbler MCP dependencies"
+	@echo "  make install        - Install Gobbler dependencies"
 	@echo "  make dev            - Install with development dependencies"
-	@echo ""
-	@echo "🤖 Claude Code Integration:"
-	@echo "  make claude-install - Add Gobbler to Claude Code MCP servers"
-	@echo "  make claude-uninstall - Remove Gobbler from Claude Code"
-	@echo "  make claude-config  - Show Claude Code configuration snippet"
 	@echo ""
 	@echo "🧪 Testing & Diagnostics:"
 	@echo "  make test           - Run tests"
 	@echo "  make lint           - Run linter (ruff)"
 	@echo "  make security       - Run security scan (bandit)"
 	@echo "  make typecheck      - Run type checker (mypy)"
-	@echo "  make inspector      - Launch MCP inspector for testing"
 	@echo "  make diagnose       - Run diagnostics and suggest fixes for common issues"
 	@echo ""
 	@echo "📚 Documentation:"
@@ -51,16 +45,16 @@ help:
 # Installation Targets
 # ============================================================================
 
-# Install Gobbler MCP with core dependencies only
+# Install Gobbler with core dependencies only
 # Use this for production or if you don't need testing tools
 install:
-	@echo "📦 Installing Gobbler MCP..."
+	@echo "📦 Installing Gobbler..."
 	uv pip install -e .
 
-# Install Gobbler MCP with development dependencies (pytest, mypy, ruff, etc.)
+# Install Gobbler with development dependencies (pytest, mypy, ruff, etc.)
 # Use this if you're developing or contributing to Gobbler
 dev:
-	@echo "📦 Installing Gobbler MCP with dev dependencies..."
+	@echo "📦 Installing Gobbler with dev dependencies..."
 	uv pip install -e ".[dev]"
 
 # ============================================================================
@@ -164,62 +158,11 @@ worker-stop:
 		pkill -f "gobbler_queue.worker" && echo "✅ Workers stopped" || echo "⚠️  No workers running"; \
 	fi
 
-# ============================================================================
-# Claude Code Integration Targets
-# ============================================================================
-
-# Install Gobbler MCP into Claude Code
-# Shows the command you need to run to add Gobbler to Claude Code
-# After running, restart Claude Code to use Gobbler tools
-claude-install:
-	@echo "🤖 Installing Gobbler MCP to Claude Code..."
-	@echo ""
-	@echo "Run this command to add Gobbler to Claude Code:"
-	@echo ""
-	@echo "claude mcp add --scope user gobbler -- uv --directory $(PWD) run gobbler-mcp"
-	@echo ""
-	@echo "Then restart Claude Code for the changes to take effect."
-	@echo ""
-	@echo "Verify installation with: claude mcp list"
-
-# Remove Gobbler MCP from Claude Code
-# Shows the command to uninstall Gobbler from Claude Code
-claude-uninstall:
-	@echo "🗑️  Removing Gobbler MCP from Claude Code..."
-	@echo ""
-	@echo "Run this command:"
-	@echo ""
-	@echo "claude mcp remove gobbler-mcp"
-
-# Show the resulting configuration for reference
-# Note: Do NOT manually create .mcp.json - use 'claude mcp add' instead
-claude-config:
-	@echo ""
-	@echo "📝 Reference: This is what Claude Code stores in ~/.claude.json"
-	@echo "   (Do NOT manually edit - use 'claude mcp add' command instead)"
-	@echo ""
-	@echo '  "gobbler": {'
-	@echo '    "type": "stdio",'
-	@echo '    "command": "uv",'
-	@echo '    "args": ['
-	@echo '      "--directory",'
-	@echo '      "$(PWD)",'
-	@echo '      "run",'
-	@echo '      "gobbler-mcp"'
-	@echo '    ]'
-	@echo '  }'
-	@echo ""
-
-# ============================================================================
-# Testing & Diagnostics Targets
-# ============================================================================
-
 # Run the test suite
 # Requires dev dependencies: make dev
-# Runs pytest with coverage reporting
 test:
 	@echo "🧪 Running tests..."
-	uv run pytest tests/unit/ tests/integration/test_mcp_tools.py -v
+	uv run pytest tests/unit/ -v
 
 # Run linting with ruff
 # Checks code style, formatting, and common issues
@@ -254,18 +197,6 @@ test-integration:
 test-all:
 	@echo "🧪 Running all tests (unit + integration + E2E)..."
 	uv run pytest tests/ -v --ignore=tests/benchmarks/
-
-# Launch the MCP Inspector for interactive testing
-# Opens a web interface at http://localhost:5173 to test MCP tools
-# Useful for debugging tool behavior without using Claude
-inspector:
-	@echo "🔍 Launching MCP Inspector..."
-	@echo "   Opening http://localhost:5173 in browser..."
-	npx @modelcontextprotocol/inspector uv --directory $(PWD) run gobbler-mcp
-
-# ============================================================================
-# Cleanup Targets
-# ============================================================================
 
 # Remove all build artifacts, caches, and temporary files
 # Safe to run - doesn't affect configuration or data
@@ -345,8 +276,8 @@ verify:
 	@echo "🐍 Python Environment Check"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo -n "✓ Gobbler MCP installed: "
-	@uv pip show gobbler-mcp > /dev/null 2>&1 && echo "✅ Yes" || (echo "❌ No" && echo "   Fix: Run 'make install'" && false)
+	@echo -n "✓ Gobbler installed: "
+	@uv pip show gobbler > /dev/null 2>&1 && echo "✅ Yes" || (echo "❌ No" && echo "   Fix: Run 'make install'" && false)
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "📁 Configuration Check"
@@ -387,7 +318,6 @@ verify:
 	@echo "Next steps:"
 	@echo "  • Start services: make start"
 	@echo "  • Run diagnostics: make diagnose"
-	@echo "  • Install to Claude: make claude-install"
 	@echo ""
 
 # Run comprehensive diagnostics and suggest fixes
@@ -415,8 +345,8 @@ diagnose:
 		echo ""; \
 		ISSUES=$$((ISSUES+1)); \
 	fi; \
-	if ! uv pip show gobbler-mcp > /dev/null 2>&1; then \
-		echo "❌ ISSUE: Gobbler MCP not installed"; \
+	if ! uv pip show gobbler > /dev/null 2>&1; then \
+		echo "❌ ISSUE: Gobbler not installed"; \
 		echo "   Solution: Run 'make install' to install dependencies"; \
 		echo ""; \
 		ISSUES=$$((ISSUES+1)); \
@@ -495,7 +425,6 @@ diagnose:
 		echo ""; \
 		echo "Gobbler is ready to use. Try:"; \
 		echo "  • make start          # Start all services"; \
-		echo "  • make claude-install # Install to Claude Code"; \
 		echo ""; \
 	else \
 		echo "⚠️  Found $$ISSUES issue(s) requiring attention."; \

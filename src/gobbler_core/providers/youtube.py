@@ -53,7 +53,7 @@ from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConf
 from .proxy import get_youtube_proxy_config
 
 if TYPE_CHECKING:
-    from gobbler_mcp.config import Config
+    from gobbler_core.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -396,7 +396,7 @@ def create_provider_from_config(config: Config) -> TranscriptProvider:
         Configured TranscriptProvider instance
 
     Example:
-        >>> from gobbler_mcp.config import get_config
+        >>> from gobbler_core.config import get_config
         >>> config = get_config()
         >>> provider = create_provider_from_config(config)
         >>> result = provider.fetch("dQw4w9WgXcQ")

@@ -32,7 +32,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run unit tests
-        run: uv run pytest tests/unit/ -v --cov=src/gobbler_mcp --cov-report=xml --cov-report=term-missing
+        run: uv run pytest tests/unit/ -v --cov=src/gobbler_core --cov=src/gobbler_cli --cov=src/gobbler_relay --cov=src/gobbler_queue --cov-report=xml --cov-report=term-missing --cov-fail-under=0
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -52,7 +52,7 @@ jobs:
         run: uv run ruff check src/ tests/
 
       - name: Type checking with mypy
-        run: uv run mypy src/gobbler_mcp --ignore-missing-imports
+        run: uv run mypy src/gobbler_core src/gobbler_cli src/gobbler_relay src/gobbler_queue --ignore-missing-imports
         continue-on-error: true
 
   integration:

@@ -275,23 +275,6 @@ whisper:
   model: "small"  # Recommended default
 ```
 
-## Session Management
-
-Sessions store authentication for crawling protected content:
-
-```yaml
-# Sessions stored in: ~/.config/gobbler/sessions/
-# Format: {session_id}.json
-```
-
-Create sessions via MCP:
-```python
-create_crawl_session(
-    session_id="my-site",
-    cookies='[{"name": "auth", "value": "token", "domain": "example.com"}]'
-)
-```
-
 ## Batch Processing Limits
 
 ```yaml

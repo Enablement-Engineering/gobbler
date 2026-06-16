@@ -59,7 +59,7 @@ def get_default_provider(**kwargs: Any) -> WebPageProvider:
 
     if service_url is None or api_token is None:
         try:
-            from gobbler_mcp.config import get_config
+            from gobbler_core.config import get_config
 
             config = get_config()
             if service_url is None:

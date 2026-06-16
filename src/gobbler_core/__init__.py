@@ -1,8 +1,7 @@
-"""Gobbler Core - Shared providers and utilities for content processing.
+"""Gobbler Core - shared providers and utilities for content processing.
 
-This package contains portable, standalone functionality that can be used
-by both gobbler-mcp (MCP server) and skill scripts without dependencies
-on MCP infrastructure.
+This package contains portable, standalone functionality used by the CLI,
+skills, and scripts.
 
 What's included:
 - providers/  - Content source providers (YouTube transcripts, etc.)
@@ -18,12 +17,10 @@ Usage:
     from gobbler_core.utils import create_frontmatter
     output = create_frontmatter(metadata) + content
 
-Note: Converters (webpage, document, audio) remain in gobbler_mcp as they
-depend on configuration and metrics infrastructure. Skills can use the
-providers directly or call MCP tools for full conversion.
+Converters live in this package and are used by the CLI.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Convenience imports for common use cases
 from gobbler_core.providers.youtube import (

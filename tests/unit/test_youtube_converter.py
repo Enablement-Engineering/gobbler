@@ -1,5 +1,6 @@
 """Unit tests for YouTube converter module."""
 
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -298,3 +299,28 @@ class TestYouTubeConversion:
         assert len(metrics_called) == 1
         assert metrics_called[0][0] == "youtube"
         assert metrics_called[0][1] > 0
+
+    @pytest.mark.asyncio
+    async def test_convert_youtube_timeout_raises_clean_error(self):
+        """Test that conversion timeout becomes a clean RuntimeError."""
+
+        mock_provider = MagicMock(spec=TranscriptProvider)
+        mock_provider.fetch.side_effect = lambda *_args, **_kwargs: asyncio.run(asyncio.sleep(0.2))
+
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Test Video",
+                    "channel": "Test Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            pytest.raises(RuntimeError, match=r"timed out after 0\.01s"),
+        ):
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=mock_provider,
+                timeout=0.01,
+            )

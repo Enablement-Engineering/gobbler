@@ -20,7 +20,7 @@ AI assistants work best with markdown. But content exists in countless formats�
 - Lost metadata and inconsistent output
 - No unified way for AI agents to access content
 
-**Gobbler solves this.** One tool, one output format, multiple access patterns.
+**Gobbler solves this.** One CLI, one output format, multiple content types.
 
 ## The Solution
 
@@ -67,9 +67,11 @@ gobbler audio interview.mp3 --model small -o interview.md
 
 📖 **[Full Documentation](https://Enablement-Engineering.github.io/gobbler/)**
 
-## Three Ways to Use Gobbler
+## CLI-First, Skills-Ready
 
-### 1. CLI (For Humans & Scripts)
+Gobbler's primary interface is the `gobbler` CLI. AI agents use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI.
+
+### 1. CLI
 
 ```bash
 gobbler youtube URL              # YouTube transcripts
@@ -135,37 +137,6 @@ The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, Cha
 
 Skills use **progressive disclosure**—agents only load skill metadata at startup, then read full CLI instructions when triggered.
 
-### 3. MCP Protocol (For AI Coding Assistants)
-
-```bash
-# For Claude Code
-claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
-```
-
-```jsonc
-// For OpenCode (opencode.json)
-{
-  "mcp": {
-    "gobbler": {
-      "type": "local",
-      "command": ["uv", "--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
-    }
-  }
-}
-```
-
-```jsonc
-// For Claude Desktop (~/.config/claude/claude_desktop_config.json)
-{
-  "mcpServers": {
-    "gobbler-mcp": {
-      "command": "uv",
-      "args": ["--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
-    }
-  }
-}
-```
-
 ## Features
 
 ### Content Conversion
@@ -212,19 +183,20 @@ gobbler batch webpages urls.txt --output-dir ./pages
 
 ## Architecture
 
-Gobbler provides three interfaces that all use the same CLI and backends:
+Gobbler provides a CLI-first architecture. Skills teach AI agents to call the
+same CLI that humans and scripts use.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Your Automations                        │
-└──────────────┬──────────────┬──────────────┬───────────────┘
-               │              │              │
-      ┌────────▼────┐  ┌──────▼─────┐  ┌─────▼─────┐
-      │   Skills    │  │  gobbler   │  │    MCP    │
-      │(CLI instrs) │  │    CLI     │  │  Server   │
-      └────────┬────┘  └──────┬─────┘  └─────┬─────┘
-               │              │              │
-               └──────────────┼──────────────┘
+└──────────────┬──────────────────────┬──────────────────────┘
+               │                      │
+      ┌────────▼────┐          ┌──────▼─────┐
+      │   Skills    │          │  gobbler   │
+      │(CLI instrs) │          │    CLI     │
+      └────────┬────┘          └──────┬─────┘
+               │                      │
+               └──────────────┬───────┘
                               ▼
                     ┌─────────────────┐
                     │  Provider Layer │
@@ -239,7 +211,7 @@ Gobbler provides three interfaces that all use the same CLI and backends:
     └─────────┘        └───────────┘       └─────────┘
 ```
 
-**Skills** are markdown files that teach Claude which CLI commands to run. **MCP** exposes the same functionality as tools for Claude Desktop/Code.
+**Skills** are markdown files that teach agents which CLI commands to run.
 
 ## Installation
 
@@ -330,7 +302,6 @@ gobbler/
 ├── src/
 │   ├── gobbler_cli/       # CLI interface (typer)
 │   ├── gobbler_core/      # Converters & utilities
-│   ├── gobbler_mcp/       # MCP protocol server
 │   ├── gobbler_relay/     # Browser extension bridge
 │   └── gobbler_queue/     # Background job queue
 ├── skills/                # AI agent instruction files

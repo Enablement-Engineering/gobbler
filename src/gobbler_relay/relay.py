@@ -11,7 +11,7 @@
 """Gobbler Browser Extension Relay Server.
 
 Provides HTTP and WebSocket endpoints for browser extension communication.
-Can be run standalone with `uv run relay.py` or imported by MCP server.
+Can be run standalone with `uv run relay.py` or used by CLI commands.
 
 Endpoints:
     GET  /ws       - WebSocket for browser extension
@@ -201,7 +201,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
                     elif message_type == "register":
                         # Extension registered successfully
-                        await ws.send_json({"type": "registered", "server_version": "0.1.0"})
+                        await ws.send_json({"type": "registered", "server_version": "0.2.0"})
                         logger.info("Extension registered via WebSocket")
 
                 except json.JSONDecodeError:
@@ -557,8 +557,8 @@ async def ensure_relay_running(  # noqa: PLR0911
 ) -> bool:
     """Ensure the relay server is running, starting it if necessary.
 
-    This is the main entry point for MCP servers and skills to ensure
-    the relay is available before sending commands.
+    This is the main entry point for CLI commands and skills to ensure the
+    relay is available before sending commands.
 
     Args:
         host: Relay host

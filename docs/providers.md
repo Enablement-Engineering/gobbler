@@ -410,4 +410,4 @@ Each category returns a standardized result type:
 - `DocumentResult` - markdown, pages, metadata
 - `WebPageResult` - markdown, title, url, links
 
-See [Architecture](ARCHITECTURE.md#provider-layer) for implementation details.
+Provider implementations live under `src/gobbler_core/providers/`.

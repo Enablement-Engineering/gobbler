@@ -1,1 +1,1 @@
-"""Integration tests for Gobbler MCP services."""
+"""Integration tests for Gobbler services."""

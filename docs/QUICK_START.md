@@ -2,7 +2,7 @@
 icon: material/rocket-launch
 ---
 
-# Gobbler MCP - Quick Start Guide
+# Gobbler Quick Start Guide
 
 Get up and running with Gobbler in 5 minutes! This guide covers the essentials to get your first transcription.
 
@@ -28,24 +28,16 @@ cd gobbler
 make install
 ```
 
-### Step 2: Install to Claude Code
+### Step 2: Verify the CLI
 
 ```bash
-# Show the installation command
-make claude-install
-
-# Run the displayed command (example):
-claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
+gobbler --version
 ```
-
-Restart Claude Code after installation.
 
 ### Step 3: Try Your First Transcription
 
-Open Claude Code and try:
-
-```
-"Transcribe this YouTube video: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+```bash
+gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
 That's it! Gobbler will extract the transcript and return it as clean markdown.
@@ -65,7 +57,7 @@ make diagnose
 You should see:
 - ✅ Python 3.11+ detected
 - ✅ uv installed
-- ✅ Gobbler MCP installed
+- ✅ Gobbler installed
 
 ## Need Web Scraping or Document Conversion?
 
@@ -96,7 +88,7 @@ This starts Docker services AND the background worker:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Issue: "Gobbler MCP not installed"
+### Issue: "Gobbler not installed"
 **Solution:** Run the installation:
 ```bash
 make install
@@ -153,10 +145,10 @@ make logs           # View service logs
 Now that you're up and running:
 
 1. **Explore capabilities** - Try different types of content:
-   ```
-   "Fetch this webpage as markdown: https://example.com"
-   "Convert this PDF to markdown: /path/to/document.pdf"
-   "Transcribe this audio file: /path/to/audio.mp3"
+   ```bash
+   gobbler webpage "https://example.com"
+   gobbler document /path/to/document.pdf
+   gobbler audio /path/to/audio.mp3
    ```
 
 2. **Read the CLI guide** - Learn about all available commands in the [CLI Usage](cli.md) guide

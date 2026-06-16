@@ -30,8 +30,7 @@ make test
 1. Create a feature branch
 2. Make your changes
 3. Run quality checks: `uv run pre-commit run --all-files`
-4. Test with MCP Inspector: `make inspector`
-5. Submit a pull request
+4. Submit a pull request
 
 ## Code Style
 

@@ -114,7 +114,7 @@ class TestGetCrawl4aiProxyUrl:
         with (
             patch.dict(os.environ, {}, clear=True),
             patch(
-                "gobbler_mcp.config.get_config",
+                "gobbler_core.config.get_config",
                 side_effect=Exception("No config"),
             ),
         ):
@@ -129,7 +129,7 @@ class TestGetCrawl4aiProxyUrl:
         with (
             patch.dict(os.environ, {"CRAWL4AI_PROXY": test_proxy}, clear=True),
             patch(
-                "gobbler_mcp.config.get_config",
+                "gobbler_core.config.get_config",
                 side_effect=Exception("No config"),
             ),
         ):
@@ -158,7 +158,7 @@ class TestGetCrawl4aiProxyUrl:
                 {"CRAWL4AI_PROXY": "http://env-proxy.com:8080"},
                 clear=True,
             ),
-            patch("gobbler_mcp.config.get_config", return_value=mock_config),
+            patch("gobbler_core.config.get_config", return_value=mock_config),
         ):
             result = get_crawl4ai_proxy_url()
 
@@ -177,7 +177,7 @@ class TestGetCrawl4aiProxyUrl:
 
         with (
             patch.dict(os.environ, {"CRAWL4AI_PROXY": test_proxy}, clear=True),
-            patch("gobbler_mcp.config.get_config", return_value=mock_config),
+            patch("gobbler_core.config.get_config", return_value=mock_config),
         ):
             result = get_crawl4ai_proxy_url()
 

@@ -1,4 +1,4 @@
-# Pre-commit hooks for Gobbler MCP server
+# Pre-commit hooks for Gobbler
 # See https://pre-commit.com for more information
 
 repos:

@@ -47,7 +47,7 @@ async def test_websocket():
             data = json.loads(response)
             logger.info("✓ Received: %s", data)
 
-            # Try to send a command (this simulates what the MCP tools do)
+            # Try to send a command (this simulates what CLI browser commands do)
             command_id = str(uuid.uuid4())
             await websocket.send(
                 json.dumps(
@@ -74,7 +74,7 @@ async def test_websocket():
                 )
 
     except ConnectionRefusedError:
-        logger.info("✗ Connection refused - is the MCP server running?")
+        logger.info("✗ Connection refused - is the relay server running?")
         return False
     except Exception as e:
         logger.info("✗ Error: %s", e)

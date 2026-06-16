@@ -1,5 +1,6 @@
 """YouTube transcript conversion module with proxy and fallback support."""
 
+import asyncio
 import logging
 import re
 from collections.abc import Callable
@@ -12,6 +13,8 @@ from gobbler_core.providers.youtube import (
     create_proxy_config,
 )
 from gobbler_core.utils.frontmatter import count_words, create_youtube_frontmatter
+
+YOUTUBE_CONVERSION_TIMEOUT_DEFAULT = 120
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +78,7 @@ def get_video_metadata(video_url: str) -> dict[str, str | None]:
         "quiet": True,
         "no_warnings": True,
         "extract_flat": True,
+        "socket_timeout": 30,
         "logger": logging.getLogger("yt_dlp_quiet"),  # Suppress yt-dlp's own logging
     }
 
@@ -133,6 +137,7 @@ async def convert_youtube_to_markdown(
     metrics_callback: Callable[[str, int], None] | None = None,
     provider: TranscriptProvider | None = None,
     logger_instance: logging.Logger | None = None,
+    timeout: int = YOUTUBE_CONVERSION_TIMEOUT_DEFAULT,
 ) -> tuple[str, dict]:
     """Convert YouTube video to markdown transcript.
 
@@ -148,6 +153,7 @@ async def convert_youtube_to_markdown(
         metrics_callback: Optional callback for metrics tracking (converter_type, size_bytes)
         provider: Optional pre-built TranscriptProvider instance
         logger_instance: Optional custom logger instance
+        timeout: Overall conversion timeout in seconds
 
     Returns:
         Tuple of (markdown_content, metadata)
@@ -174,17 +180,25 @@ async def convert_youtube_to_markdown(
         },
     )
 
-    # Get video metadata using yt-dlp (always reliable)
-    video_metadata = get_video_metadata(video_url)
-
     # Use provided provider or create one with proxy/fallback support from environment
     if provider is None:
         proxy_config = create_proxy_config()
         provider = create_provider(provider_name="auto", proxy_config=proxy_config)
 
-    # Fetch transcript using provider
+    def _sync_fetch():
+        video_metadata = get_video_metadata(video_url)
+        return video_metadata, provider.fetch(video_id, language)
+
+    # Fetch metadata + transcript in a worker thread with an overall timeout
     try:
-        result = provider.fetch(video_id, language)
+        loop = asyncio.get_running_loop()
+        video_metadata, result = await asyncio.wait_for(
+            loop.run_in_executor(None, _sync_fetch),
+            timeout=timeout,
+        )
+    except TimeoutError as e:
+        msg = f"YouTube conversion timed out after {timeout}s"
+        raise RuntimeError(msg) from e
     except Exception as e:
         # Simplify noisy error messages from youtube-transcript-api
         error_msg = str(e)

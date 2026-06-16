@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Gobbler",
   "version": "0.2.0",
-  "description": "Extract page content and send to Gobbler MCP for markdown conversion",
+  "description": "Extract page content and send to Gobbler for markdown conversion",
   "permissions": [
     "activeTab",
     "scripting",

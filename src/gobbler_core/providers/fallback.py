@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from gobbler_core.providers.base import ContentProvider, ProviderResult
 
 if TYPE_CHECKING:
-    from gobbler_mcp.config import Config
+    from gobbler_core.config import Config
 
 logger = logging.getLogger(__name__)
 

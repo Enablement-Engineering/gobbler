@@ -6,7 +6,7 @@ Extract authenticated web content directly from your browser and send it to Gobb
 
 - ✅ Extract current page content (works with authenticated sessions)
 - ✅ Extract with CSS selectors
-- ✅ Send to Gobbler MCP for markdown conversion
+- ✅ Send to Gobbler for markdown conversion
 - ✅ Copy markdown to clipboard
 - 🚧 Send to Claude Code (coming soon)
 
@@ -32,13 +32,13 @@ Or just create any PNG files and name them appropriately.
 3. Click "Load unpacked"
 4. Select the `browser-extension` directory
 
-### 3. Start Gobbler Server
+### 3. Start Gobbler Relay Server
 
-Make sure Gobbler MCP is running:
+Make sure the Gobbler relay is running:
 
 ```bash
 cd /Users/dylanisaac/Projects/gobbler
-uv run gobbler-mcp
+uv run gobbler relay start
 ```
 
 The HTTP server will start on `http://localhost:4625` by default.
@@ -113,7 +113,7 @@ The extension consists of:
 - Check Chrome extension errors in `chrome://extensions/`
 
 **"Failed to fetch" error:**
-- Make sure Gobbler MCP server is running
+- Make sure the Gobbler relay server is running
 - Check server URL in extension popup (default: http://localhost:4625)
 - Check browser console for CORS errors
 

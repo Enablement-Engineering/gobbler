@@ -32,11 +32,10 @@ Describe the tests you ran to verify your changes:
 
 ## Checklist
 - [ ] My code follows the project's code style (ran `ruff format` and `ruff check`)
-- [ ] I have run type checking (`mypy src/gobbler_mcp`)
+- [ ] I have run type checking (`mypy src/gobbler_core src/gobbler_cli src/gobbler_relay src/gobbler_queue`)
 - [ ] I have added tests that prove my fix/feature works
 - [ ] All new and existing tests pass (`pytest`)
 - [ ] I have updated documentation as needed
-- [ ] I have tested with MCP Inspector (`make inspector`)
 - [ ] My changes generate no new warnings
 - [ ] Any dependent changes have been merged and published
 

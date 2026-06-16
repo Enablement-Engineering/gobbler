@@ -1,1 +1,1 @@
-"""Unit tests for Gobbler MCP modules."""
+"""Unit tests for Gobbler modules."""

@@ -1,1 +1,1 @@
-"""Performance benchmarks for Gobbler MCP."""
+"""Performance benchmarks for Gobbler."""

@@ -1,1 +1,1 @@
-"""Gobbler MCP test suite."""
+"""Gobbler test suite."""
