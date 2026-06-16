@@ -23,11 +23,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # Ignore major version updates for core dependencies (review manually)
-      - dependency-name: "fastmcp"
-        update-types: ["version-update:semver-major"]
-
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"

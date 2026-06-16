@@ -36,7 +36,7 @@ def get_config(
         gobbler config get  # Show all config
         gobbler config get --format json  # All config as JSON
     """
-    from gobbler_mcp.config import get_config
+    from gobbler_core.config import get_config
 
     config = get_config()
 
@@ -71,7 +71,7 @@ def config_path() -> None:
     Examples:
         gobbler config path
     """
-    from gobbler_mcp.config import get_config
+    from gobbler_core.config import get_config
 
     config = get_config()
     typer.echo(config.config_path)
@@ -95,7 +95,7 @@ def show_config(
         gobbler config show
         gobbler config show --format json
     """
-    from gobbler_mcp.config import get_config
+    from gobbler_core.config import get_config
 
     config = get_config()
 

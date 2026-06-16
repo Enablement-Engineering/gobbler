@@ -296,11 +296,14 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
 
                     def _sync_convert():
                         import asyncio as _asyncio
-                        return _asyncio.run(convert_youtube_to_markdown(
-                            video_url=video["url"],
-                            include_timestamps=timestamps,
-                            language=language,
-                        ))
+
+                        return _asyncio.run(
+                            convert_youtube_to_markdown(
+                                video_url=video["url"],
+                                include_timestamps=timestamps,
+                                language=language,
+                            )
+                        )
 
                     markdown, metadata = await asyncio.wait_for(
                         loop.run_in_executor(None, _sync_convert),
@@ -311,7 +314,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     output_path.write_text(markdown, encoding="utf-8")
                     return (video, True, "success", {"output_file": str(output_path), **metadata})
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     return (video, False, f"Timed out after {per_video_timeout}s", None)
                 except Exception as e:
                     return (video, False, str(e), None)

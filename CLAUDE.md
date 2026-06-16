@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Gobbler is a universal content conversion tool that transforms YouTube videos, web pages, documents, and audio files into clean markdown with YAML frontmatter. It provides three access patterns: CLI, AI agent Skills, and MCP Protocol.
+Gobbler is a universal content conversion tool that transforms YouTube videos, web pages, documents, and audio files into clean markdown with YAML frontmatter. It provides a CLI-first experience plus AI agent Skills that call the CLI.
 
 ## Common Commands
 
@@ -28,18 +28,16 @@ uv run mypy src/                    # Type check
 uv run bandit -c pyproject.toml -r src/  # Security scan
 uv run pre-commit run --all-files   # All checks at once
 
-# Run MCP server for testing
-uv run gobbler-mcp
-
-# MCP Inspector (interactive testing)
-make inspector
+# Check CLI
+uv run gobbler --version
+uv run gobbler status --json
 ```
 
 ## Architecture
 
 ### Source Layout (`src/`)
 
-- **gobbler_core/** - Shared converters and utilities used by both CLI and MCP
+- **gobbler_core/** - Shared converters, config, providers, and utilities used by the CLI
   - `converters/` - YouTube, audio, document, webpage conversion logic
   - `providers/` - Backend service clients
   - `utils/` - Shared utilities
@@ -47,14 +45,6 @@ make inspector
 - **gobbler_cli/** - Typer-based CLI interface
   - `commands/` - Command implementations (batch, browser, convert, notebooklm, etc.)
   - `main.py` - CLI entry point
-
-- **gobbler_mcp/** - MCP server (FastMCP-based)
-  - `tools/` - MCP tool implementations (batch, browser, conversion, crawl, queue)
-  - `converters/` - MCP-specific converter wrappers
-  - `batch/` - Batch processing logic
-  - `server.py` - MCP server entry point
-  - `config.py` - Configuration management with hot-reload support
-  - `metrics.py` - Prometheus metrics
 
 - **gobbler_relay/** - WebSocket bridge to browser extension (port 4625)
   - `relay.py` - WebSocket server for bidirectional browser communication
@@ -72,8 +62,8 @@ make inspector
 
 ### Key Design Patterns
 
-1. **CLI-first architecture**: All interfaces (Skills, MCP) wrap the same CLI/core logic
-2. **Progressive disclosure**: Skills load ~100 tokens vs MCP's ~4,500 tokens of tool definitions
+1. **CLI-first architecture**: Skills and scripts call the same CLI/core logic
+2. **Progressive disclosure**: Skills load concise metadata and read full CLI instructions on demand
 3. **Auto-queue**: Long tasks (>1:45 estimated) automatically queue for background processing
 4. **Provider abstraction**: Multiple backends per capability with fallback (e.g., YouTube: free API → paid API)
 5. **Tab group security**: Browser automation only accesses tabs in the "Gobbler" Chrome tab group
@@ -95,8 +85,7 @@ Markdown instruction files for AI agents. Each skill contains a `SKILL.md` with 
 - Docstrings: Google style
 - Type hints required on all functions
 - Max cyclomatic complexity: 12
-- Custom exceptions in `gobbler_mcp.exceptions`
-- TypedDicts in `gobbler_mcp.types` for structured data
+- Prefer existing exception types and TypedDicts from the package you are editing
 
 ## Configuration
 

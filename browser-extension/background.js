@@ -330,7 +330,7 @@ async function getGobblerGroupTabs() {
   }));
 }
 
-// List tabs in Gobbler group (for MCP command)
+// List tabs in Gobbler group (for relay commands)
 async function listGobblerTabs(params = {}) {
   const stored = await chrome.storage.local.get('gobblerGroupId');
   if (!stored.gobblerGroupId) {
@@ -367,7 +367,7 @@ async function listGobblerTabs(params = {}) {
   return { success: true, tabs: tabList };
 }
 
-// Get information about injected APIs (for MCP command)
+// Get information about injected APIs (for relay commands)
 async function getInjectedApis(params = {}) {
   const stored = await chrome.storage.local.get('gobblerGroupId');
   if (!stored.gobblerGroupId) {
@@ -403,7 +403,7 @@ async function getInjectedApis(params = {}) {
   };
 }
 
-// Manually inject API into a tab (for MCP command)
+// Manually inject API into a tab (for relay commands)
 async function manuallyInjectApi(params) {
   const { tabId } = params;
 
@@ -600,7 +600,7 @@ function connectWebSocket() {
       console.log('Received message from server:', message);
 
       if (message.type === 'command') {
-        // Handle command from MCP server
+        // Handle command from relay server
         await handleCommand(message);
       } else if (message.type === 'registered') {
         console.log('Successfully registered with server:', message.server_version);
@@ -642,7 +642,7 @@ function connectWebSocket() {
   };
 }
 
-// Handle commands from MCP server
+// Handle commands from relay server
 async function handleCommand(message) {
   const { command_id, command, params } = message;
   let result = { success: false, error: 'Unknown command' };

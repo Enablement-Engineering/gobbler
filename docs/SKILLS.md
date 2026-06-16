@@ -177,29 +177,13 @@ for skill in skills/gobbler-*/; do
 done
 ```
 
-For MCP tools, add to your `opencode.json`:
-
-```json
-{
-  "mcp": {
-    "gobbler": {
-      "type": "local",
-      "command": ["uv", "--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
-    }
-  }
-}
-```
-
 ### For Claude Code
 
-Clone the repo and add to Claude Code:
+Clone the repo and use the included skills:
 
 ```bash
 git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler && make install
-
-# Add MCP server to Claude Code
-claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
 ```
 
 Skills are auto-discovered from `skills/gobbler-*/SKILL.md` when working in the repo.

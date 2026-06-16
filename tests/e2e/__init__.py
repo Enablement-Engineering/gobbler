@@ -1,1 +1,1 @@
-"""End-to-end tests for Gobbler MCP workflows."""
+"""End-to-end tests for Gobbler workflows."""

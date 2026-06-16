@@ -1,4 +1,6 @@
-"""Configuration management for Gobbler MCP server."""
+"""Configuration management for Gobbler."""
+
+from __future__ import annotations
 
 import logging
 import threading
@@ -13,18 +15,8 @@ logger = logging.getLogger(__name__)
 class Config:
     """Configuration loader and manager."""
 
-    # Default configuration
     DEFAULTS: ClassVar[dict[str, Any]] = {
-        # Proxy services configuration
-        "proxy_services": {
-            # Example structure, empty by default
-            # "webshare": {
-            #     "type": "rotating",
-            #     "username": "${WEBSHARE_USER}",
-            #     "password": "${WEBSHARE_PASS}",
-            # },
-        },
-        # Provider configuration - allows swapping implementations
+        "proxy_services": {},
         "providers": {
             "transcription": {
                 "default": "whisper-local",
@@ -50,7 +42,6 @@ class Config:
                 "transcriptapi": {},
             },
         },
-        # Legacy settings (kept for backwards compatibility)
         "whisper": {
             "model": "small",
             "language": "auto",
@@ -66,7 +57,7 @@ class Config:
         "output": {
             "default_format": "frontmatter",
             "timestamp_format": "iso8601",
-            "default_directory": None,  # Set to a path like "~/Documents/Gobbler" to auto-save
+            "default_directory": None,
         },
         "services": {
             "crawl4ai": {
@@ -85,18 +76,17 @@ class Config:
             "db": 0,
         },
         "queue": {
-            "auto_queue_threshold": 105,  # seconds (1:45)
+            "auto_queue_threshold": 105,
             "default_queue": "default",
         },
         "models_path": "~/.gobbler/models",
         "monitoring": {
-            "metrics_enabled": False,  # Enable Prometheus metrics collection
-            "metrics_port": 9090,  # Port for metrics HTTP endpoint
+            "metrics_enabled": False,
+            "metrics_port": 9090,
             "metrics_host": "0.0.0.0",  # noqa: S104  # nosec B104
-            "log_format": "text",  # 'text' or 'json' (use text for MCP stdio)
-            "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-            "health_check_interval": 60,  # Seconds between service health checks
-            "config_hot_reload": True,  # Enable config file hot-reload
+            "log_format": "text",
+            "log_level": "INFO",
+            "health_check_interval": 60,
         },
     }
 
@@ -107,8 +97,7 @@ class Config:
             config_path: Path to config file. If None, uses default location.
         """
         self.config_path = config_path or self._default_config_path()
-        self._lock = threading.RLock()  # Reentrant lock for thread-safety
-        self._watcher: Any | None = None  # ConfigWatcher instance
+        self._lock = threading.RLock()
         self.data = self._load_config()
 
     @staticmethod
@@ -120,18 +109,15 @@ class Config:
         """Load configuration from file, falling back to defaults.
 
         Returns:
-            Configuration dictionary
+            Configuration dictionary.
         """
-        # Start with defaults
         config = self.DEFAULTS.copy()
 
-        # Try to load user config
         if self.config_path.exists():
             try:
-                with self.config_path.open() as f:
-                    user_config = yaml.safe_load(f)
+                with self.config_path.open() as config_file:
+                    user_config = yaml.safe_load(config_file)
                     if user_config:
-                        # Deep merge user config over defaults
                         config = self._deep_merge(config, user_config)
                         logger.info("Loaded configuration from %s", self.config_path)
             except Exception:
@@ -147,11 +133,11 @@ class Config:
         """Deep merge two dictionaries.
 
         Args:
-            base: Base dictionary
-            override: Dictionary to merge over base
+            base: Base dictionary.
+            override: Dictionary to merge over base.
 
         Returns:
-            Merged dictionary
+            Merged dictionary.
         """
         result = base.copy()
         for key, value in override.items():
@@ -162,21 +148,21 @@ class Config:
         return result
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value using dot notation (thread-safe).
+        """Get configuration value using dot notation.
 
         Args:
-            key: Configuration key (e.g., "whisper.model")
-            default: Default value if key not found
+            key: Configuration key, such as ``whisper.model``.
+            default: Default value if key is not found.
 
         Returns:
-            Configuration value
+            Configuration value.
         """
         with self._lock:
             keys = key.split(".")
             value = self.data
-            for k in keys:
-                if isinstance(value, dict) and k in value:
-                    value = value[k]
+            for key_part in keys:
+                if isinstance(value, dict) and key_part in value:
+                    value = value[key_part]
                 else:
                     return default
             return value
@@ -185,10 +171,10 @@ class Config:
         """Get full service URL.
 
         Args:
-            service: Service name (crawl4ai, docling, whisper)
+            service: Service name, such as ``crawl4ai`` or ``docling``.
 
         Returns:
-            Full HTTP URL for service
+            Full HTTP URL for the service.
         """
         host = self.get(f"services.{service}.host", "localhost")
         port = self.get(f"services.{service}.port")
@@ -198,10 +184,10 @@ class Config:
         """Get the default provider name for a category.
 
         Args:
-            category: Provider category (transcription, document, webpage)
+            category: Provider category.
 
         Returns:
-            Provider name (e.g., "whisper-local", "docling", "crawl4ai")
+            Provider name.
         """
         return self.get(f"providers.{category}.default", self._default_provider(category))
 
@@ -209,11 +195,11 @@ class Config:
         """Get configuration for a specific provider.
 
         Args:
-            category: Provider category (transcription, document, webpage)
-            provider_name: Provider name, or None to use default
+            category: Provider category.
+            provider_name: Provider name, or None to use default.
 
         Returns:
-            Provider configuration dictionary
+            Provider configuration dictionary.
         """
         if provider_name is None:
             provider_name = self.get_provider_name(category)
@@ -225,10 +211,10 @@ class Config:
         """Get the default provider name for a category.
 
         Args:
-            category: Provider category
+            category: Provider category.
 
         Returns:
-            Default provider name
+            Default provider name.
         """
         defaults = {
             "transcription": "whisper-local",
@@ -242,25 +228,22 @@ class Config:
         """Get proxy service configuration by name.
 
         Args:
-            service_name: Name of the proxy service (e.g., "webshare")
+            service_name: Name of the proxy service.
 
         Returns:
-            Proxy service configuration dictionary, or None if not found
+            Proxy service configuration dictionary, or None if not found.
         """
         return self.get(f"proxy_services.{service_name}")
 
     def get_provider_proxy(self, category: str, provider_name: str | None = None) -> dict | None:
         """Get proxy configuration for a provider.
 
-        Looks up the proxy service name from the provider config, then
-        retrieves the full proxy service configuration.
-
         Args:
-            category: Provider category (transcription, document, webpage, youtube)
-            provider_name: Provider name, or None to use default
+            category: Provider category.
+            provider_name: Provider name, or None to use default.
 
         Returns:
-            Proxy service configuration dictionary, or None if no proxy configured
+            Proxy service configuration dictionary, or None if no proxy configured.
         """
         if provider_name is None:
             provider_name = self.get_provider_name(category)
@@ -275,11 +258,11 @@ class Config:
         """Get fallback configuration for a provider.
 
         Args:
-            category: Provider category (transcription, document, webpage, youtube)
-            provider_name: Provider name, or None to use default
+            category: Provider category.
+            provider_name: Provider name, or None to use default.
 
         Returns:
-            Fallback config dict with 'provider' and 'on' keys, or None if not configured
+            Fallback config dict with provider and condition keys, or None.
         """
         if provider_name is None:
             provider_name = self.get_provider_name(category)
@@ -288,120 +271,17 @@ class Config:
         if fallback is None:
             return None
 
-        # Validate fallback has required keys
         if not isinstance(fallback, dict) or "provider" not in fallback or "on" not in fallback:
             return None
 
         return fallback
 
     def reload(self) -> None:
-        """Reload configuration from file (thread-safe).
-
-        Validates new config before applying. If validation fails,
-        keeps current config and logs errors.
-        """
+        """Reload configuration from file."""
         with self._lock:
-            # Load new config
-            try:
-                new_config = self._load_config()
-            except Exception:
-                logger.exception("Failed to load config during reload")
-                return
-
-            # Validate new config
-            from .config_watcher import ConfigWatcher
-
-            validation_errors = ConfigWatcher.validate_config(new_config)
-            if validation_errors:
-                error_list = "\n".join(f"  - {err}" for err in validation_errors)
-                logger.error(
-                    "Config validation failed. Keeping current config. Errors:\n%s",
-                    error_list,
-                )
-                return
-
-            # Detect changes
-            changes = self._detect_changes(self.data, new_config)
-
-            # Apply new config atomically
-            self.data = new_config
-
-            # Log reload success
-            if changes:
-                change_list = "\n".join(f"  - {change}" for change in changes)
-                logger.info(
-                    "Configuration reloaded successfully. Changes:\n%s",
-                    change_list,
-                )
-            else:
-                logger.info("Configuration reloaded (no changes detected)")
-
-    def _detect_changes(
-        self, old: dict[str, Any], new: dict[str, Any], prefix: str = ""
-    ) -> list[str]:
-        """Detect changes between old and new config.
-
-        Args:
-            old: Old configuration
-            new: New configuration
-            prefix: Key prefix for nested dicts
-
-        Returns:
-            List of change descriptions
-        """
-        changes = []
-
-        # Check all keys in old config
-        for key, old_value in old.items():
-            full_key = f"{prefix}.{key}" if prefix else key
-
-            if key not in new:
-                changes.append(f"{full_key} removed")
-            elif isinstance(old_value, dict) and isinstance(new[key], dict):
-                # Recursively check nested dicts
-                changes.extend(self._detect_changes(old_value, new[key], full_key))
-            elif old_value != new[key]:
-                changes.append(f"{full_key}: {old_value} → {new[key]}")
-
-        # Check for new keys
-        for key, value in new.items():
-            if key not in old:
-                full_key = f"{prefix}.{key}" if prefix else key
-                changes.append(f"{full_key} added: {value}")
-
-        return changes
-
-    def enable_hot_reload(self, debounce_seconds: float = 1.0) -> None:
-        """Enable configuration hot-reload.
-
-        Starts watching config file for changes and automatically
-        reloads when modifications are detected.
-
-        Args:
-            debounce_seconds: Minimum time between reload triggers
-        """
-        if self._watcher and self._watcher.is_running():
-            logger.warning("Config hot-reload already enabled")
-            return
-
-        from .config_watcher import ConfigWatcher
-
-        self._watcher = ConfigWatcher(
-            config_path=self.config_path,
-            reload_callback=self.reload,
-            debounce_seconds=debounce_seconds,
-        )
-
-        self._watcher.start()
-
-    def disable_hot_reload(self) -> None:
-        """Disable configuration hot-reload."""
-        if self._watcher:
-            self._watcher.stop()
-            self._watcher = None
+            self.data = self._load_config()
 
 
-# Global config instance
 _config: Config | None = None
 
 
@@ -409,7 +289,7 @@ def get_config() -> Config:
     """Get global configuration instance.
 
     Returns:
-        Config instance
+        Config instance.
     """
     global _config  # noqa: PLW0603
     if _config is None:

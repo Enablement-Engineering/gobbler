@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from gobbler_mcp.config import Config
+    from gobbler_core.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -274,7 +274,7 @@ def get_youtube_proxy_config() -> Any:
 
     # Try to get from config file first
     try:
-        from gobbler_mcp.config import get_config
+        from gobbler_core.config import get_config
 
         config = get_config()
         provider_name = config.get("providers.youtube.default", "youtube-transcript-api")
@@ -347,7 +347,7 @@ def get_crawl4ai_proxy_url() -> str | None:
     """
     # Try to get from config file first
     try:
-        from gobbler_mcp.config import get_config
+        from gobbler_core.config import get_config
 
         config = get_config()
         proxy = get_proxy_for_provider(config, "webpage", "crawl4ai")

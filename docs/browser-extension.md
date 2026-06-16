@@ -48,7 +48,7 @@ Gobbler Extension (extracts HTML)
         ↓
 WebSocket to Relay Server (localhost:4625)
         ↓
-Gobbler CLI / MCP Server
+Gobbler CLI / Relay Server
         ↓
 Response with markdown
 ```

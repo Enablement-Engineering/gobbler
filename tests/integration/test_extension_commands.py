@@ -138,7 +138,7 @@ async def test_commands():
     except ConnectionRefusedError:
         print("✗ Connection refused")
         print("\n   The HTTP server is not running on port 4625")
-        print("   Start the MCP server with: make start")
+        print("   Start the relay server with: make start")
         return False
 
     except Exception as e:

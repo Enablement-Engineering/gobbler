@@ -4,9 +4,8 @@ Shared, portable core library for Gobbler content conversion.
 
 ## Overview
 
-`gobbler_core` provides standalone converters and utilities that can be used
-independently of the MCP server. This package has no MCP dependencies and
-can be used in any Python application.
+`gobbler_core` provides standalone converters and utilities used by the Gobbler
+CLI, skills, scripts, and other Python applications.
 
 ## Modules
 
@@ -43,9 +42,8 @@ markdown, metadata = await convert_youtube_to_markdown(
 ## Architecture
 
 This package is designed to be:
-- **Standalone**: No MCP or server dependencies
+- **Standalone**: No protocol-server dependencies
 - **Portable**: Can be used in skills, scripts, or other applications
 - **Testable**: All external services are mockable
 
-The `gobbler_mcp` package re-exports from this package and adds MCP-specific
-functionality.
+The Gobbler CLI imports these modules directly for conversion workflows.

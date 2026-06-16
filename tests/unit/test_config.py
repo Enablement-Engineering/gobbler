@@ -4,7 +4,7 @@ import threading
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-from gobbler_mcp.config import Config, get_config
+from gobbler_core.config import Config, get_config
 
 
 def create_test_config(data: dict) -> Config:
@@ -25,7 +25,7 @@ class TestConfigLoading:
         assert "redis" in Config.DEFAULTS
         assert Config.DEFAULTS["whisper"]["model"] == "small"
 
-    @patch("gobbler_mcp.config.Path")
+    @patch("gobbler_core.config.Path")
     def test_config_loads_defaults_when_no_file(self, mock_path_class):
         """Test that defaults are used when config file doesn't exist."""
         mock_path = MagicMock()
@@ -37,7 +37,7 @@ class TestConfigLoading:
         assert config.data["whisper"]["model"] == "small"
         assert config.data["services"]["crawl4ai"]["port"] == 11235
 
-    @patch("gobbler_mcp.config.Path")
+    @patch("gobbler_core.config.Path")
     def test_config_merges_user_config(self, mock_path_class):
         """Test that user config is merged over defaults."""
         mock_path = MagicMock()
@@ -142,11 +142,11 @@ class TestDeepMerge:
 class TestGlobalConfig:
     """Test global configuration instance."""
 
-    @patch("gobbler_mcp.config.Config")
+    @patch("gobbler_core.config.Config")
     def test_get_config_singleton(self, mock_config_class):
         """Test that get_config returns singleton instance."""
         # Reset global config
-        import gobbler_mcp.config as config_module
+        import gobbler_core.config as config_module
 
         config_module._config = None
 

@@ -108,7 +108,7 @@ You should see:
 ```
 ✅ Python 3.11+ detected
 ✅ uv installed
-✅ Gobbler MCP installed
+✅ Gobbler installed
 ✅ Crawl4AI: Healthy
 ✅ Docling: Healthy
 ```
@@ -127,20 +127,7 @@ These features work immediately without Docker:
 
 ### OpenCode
 
-Add MCP server to your `opencode.json`:
-
-```json
-{
-  "mcp": {
-    "gobbler": {
-      "type": "local",
-      "command": ["uv", "--directory", "/path/to/gobbler", "run", "gobbler-mcp"]
-    }
-  }
-}
-```
-
-For skills, symlink to OpenCode's skill directory:
+Symlink Gobbler skills to OpenCode's skill directory:
 
 ```bash
 mkdir -p ~/.config/opencode/skill
@@ -151,37 +138,9 @@ done
 
 ### Claude Code
 
-```bash
-# Show installation command
-make claude-install
-
-# Run the displayed command:
-claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
-```
-
-Skills are auto-discovered when working in the Gobbler repo directory.
-
-### Claude Desktop
-
-Add to `~/.config/claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "gobbler-mcp": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/gobbler",
-        "run",
-        "gobbler-mcp"
-      ]
-    }
-  }
-}
-```
-
-Restart Claude Desktop after configuration.
+Skills are available from `skills/gobbler-*/SKILL.md` when working in the
+Gobbler repo directory. You can also copy or symlink them into your agent's
+skill directory.
 
 ## Configuration
 

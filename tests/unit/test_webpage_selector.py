@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gobbler_mcp.converters.webpage_selector import (
+from gobbler_core.converters.webpage_selector import (
     _extract_links,
     _extract_selector_content,
     _html_to_simple_markdown,
@@ -30,7 +30,7 @@ def setup_mock_client(client_instance, task_response):
 @pytest.mark.asyncio
 async def test_convert_webpage_with_css_selector(mock_crawl4ai_response):
     """Test webpage conversion with CSS selector."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
+    with patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance
@@ -49,7 +49,7 @@ async def test_convert_webpage_with_css_selector(mock_crawl4ai_response):
 @pytest.mark.asyncio
 async def test_convert_webpage_with_xpath(mock_crawl4ai_response):
     """Test webpage conversion with XPath selector."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
+    with patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance
@@ -75,7 +75,7 @@ async def test_convert_webpage_with_both_selectors_raises_error():
 @pytest.mark.asyncio
 async def test_convert_webpage_with_selector_extracts_from_html(mock_crawl4ai_response):
     """Test webpage conversion extracts content from HTML using selector."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
+    with patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance
@@ -109,7 +109,7 @@ async def test_convert_webpage_with_selector_extracts_from_html(mock_crawl4ai_re
 @pytest.mark.asyncio
 async def test_convert_webpage_with_link_extraction(mock_crawl4ai_response):
     """Test webpage conversion with link extraction."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
+    with patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance
@@ -140,39 +140,9 @@ async def test_convert_webpage_with_link_extraction(mock_crawl4ai_response):
 
 
 @pytest.mark.asyncio
-async def test_convert_webpage_with_session(mock_crawl4ai_response):
-    """Test webpage conversion with session ID."""
-    with (
-        patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client,
-        patch("gobbler_mcp.crawlers.session_manager.SessionManager") as mock_session_mgr,
-    ):
-        # Setup mock session manager
-        session_instance = AsyncMock()
-        mock_session_mgr.return_value = session_instance
-        session_instance.load_session = AsyncMock(
-            return_value={
-                "cookies": [{"name": "session_token", "value": "abc123", "domain": "example.com"}]
-            }
-        )
-
-        # Setup mock client
-        client_instance = AsyncMock()
-        mock_client.return_value.__aenter__.return_value = client_instance
-        setup_mock_client(client_instance, mock_crawl4ai_response)
-
-        _markdown, metadata = await convert_webpage_with_selector(
-            url="https://example.com", session_id="test-session"
-        )
-
-        # Verify session was loaded
-        session_instance.load_session.assert_called_once_with("test-session")
-        assert metadata["session_id"] == "test-session"
-
-
-@pytest.mark.asyncio
 async def test_convert_webpage_bypass_cache(mock_crawl4ai_response):
     """Test webpage conversion with cache bypass."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
+    with patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance
@@ -278,7 +248,7 @@ def test_html_to_simple_markdown():
 @pytest.mark.asyncio
 async def test_convert_webpage_without_images(mock_crawl4ai_response):
     """Test webpage conversion without images."""
-    with patch("gobbler_mcp.converters.webpage_selector.RetryableHTTPClient") as mock_client:
+    with patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client:
         # Setup mock client
         client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = client_instance

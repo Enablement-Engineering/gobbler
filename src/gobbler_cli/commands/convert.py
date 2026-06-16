@@ -6,8 +6,6 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, cast
 
-YOUTUBE_TIMEOUT_DEFAULT = 120
-
 import typer
 
 if TYPE_CHECKING:
@@ -26,6 +24,8 @@ from gobbler_cli.output import (
     write_output,
 )
 from gobbler_cli.progress import ProgressTracker
+
+YOUTUBE_TIMEOUT_DEFAULT = 120
 
 app = typer.Typer(help="Convert individual content items to markdown")
 
@@ -583,7 +583,7 @@ async def _convert_webpage(  # noqa: PLR0912
 
         # Use selector-based conversion if selector is provided or clean mode
         if css_selector or clean:
-            from gobbler_mcp.converters.webpage_selector import convert_webpage_with_selector
+            from gobbler_core.converters.webpage_selector import convert_webpage_with_selector
 
             # If clean mode without selector, try common main content selectors
             effective_selector = css_selector

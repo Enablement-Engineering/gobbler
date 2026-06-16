@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Visual architecture diagrams in README and docs/ARCHITECTURE-VISUAL.md
+- Updated README architecture overview
 - Trust signal badges (Python version, CI status, code style)
 - "What's New" section highlighting recent features
 - Verify installation step in Quick Start guide
@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tools: `get_job_status`, `list_jobs`
 
 - **Core Features**
-  - MCP server implementation using FastMCP framework
+  - CLI-first conversion workflow
   - YAML frontmatter + markdown output for all conversions
   - Comprehensive metadata preservation
   - Health checking for all services
@@ -79,7 +79,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive test suite (72+ unit tests, integration tests, benchmarks)
   - GitHub Actions CI/CD pipeline
   - Code quality tools (ruff, mypy)
-  - MCP Inspector support for testing
   - Custom slash commands for advanced workflows
   - Detailed documentation and architecture guides
 

@@ -33,7 +33,6 @@ uv run pre-commit run --all-files
 src/
   gobbler_cli/      # CLI commands (Typer-based)
   gobbler_core/     # Core converters and providers
-  gobbler_mcp/      # MCP server (FastMCP-based)
   gobbler_relay/    # WebSocket relay for browser extension
   gobbler_queue/    # Background job queue (RQ-based)
 skills/             # Claude Code skill definitions
@@ -50,7 +49,7 @@ tests/e2e/          # End-to-end tests
 - **Docstrings**: Google-style, required for public functions
 - **Imports**: Organized by ruff/isort (stdlib, third-party, first-party, local)
 
-First-party packages: `gobbler_core`, `gobbler_cli`, `gobbler_mcp`, `gobbler_relay`, `gobbler_queue`
+First-party packages: `gobbler_core`, `gobbler_cli`, `gobbler_relay`, `gobbler_queue`
 
 ### Type Annotations
 
@@ -85,17 +84,6 @@ logger = logging.getLogger(__name__)
 
 logger.info("Starting conversion")
 logger.exception("Unexpected error in %s", operation_name)  # Includes traceback
-```
-
-### Error Handling
-
-Use `handle_tool_errors` decorator for MCP tools:
-```python
-from gobbler_mcp.decorators import handle_tool_errors
-
-@handle_tool_errors("convert video", service_name="Crawl4AI")
-async def convert_video(url: str) -> str:
-    ...
 ```
 
 ### Naming Conventions
@@ -160,7 +148,6 @@ Runs automatically on commit:
 
 ## Key Dependencies
 
-- **FastMCP**: MCP server framework
 - **Typer**: CLI framework
 - **httpx**: Async HTTP client
 - **RQ**: Background job queue (Redis-based)

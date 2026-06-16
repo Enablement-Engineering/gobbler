@@ -46,7 +46,7 @@ def get_service_status() -> dict[str, Any]:
     Returns:
         Dictionary with status of each service category
     """
-    from gobbler_mcp.config import get_config
+    from gobbler_core.config import get_config
 
     config = get_config()
 

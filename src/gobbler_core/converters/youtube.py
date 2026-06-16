@@ -5,8 +5,6 @@ import logging
 import re
 from collections.abc import Callable
 
-YOUTUBE_CONVERSION_TIMEOUT_DEFAULT = 120
-
 import yt_dlp
 
 from gobbler_core.providers.youtube import (
@@ -15,6 +13,8 @@ from gobbler_core.providers.youtube import (
     create_proxy_config,
 )
 from gobbler_core.utils.frontmatter import count_words, create_youtube_frontmatter
+
+YOUTUBE_CONVERSION_TIMEOUT_DEFAULT = 120
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +153,7 @@ async def convert_youtube_to_markdown(
         metrics_callback: Optional callback for metrics tracking (converter_type, size_bytes)
         provider: Optional pre-built TranscriptProvider instance
         logger_instance: Optional custom logger instance
+        timeout: Overall conversion timeout in seconds
 
     Returns:
         Tuple of (markdown_content, metadata)
@@ -195,8 +196,9 @@ async def convert_youtube_to_markdown(
             loop.run_in_executor(None, _sync_fetch),
             timeout=timeout,
         )
-    except asyncio.TimeoutError as e:
-        raise RuntimeError(f"YouTube conversion timed out after {timeout}s") from e
+    except TimeoutError as e:
+        msg = f"YouTube conversion timed out after {timeout}s"
+        raise RuntimeError(msg) from e
     except Exception as e:
         # Simplify noisy error messages from youtube-transcript-api
         error_msg = str(e)

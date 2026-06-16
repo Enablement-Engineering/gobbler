@@ -58,11 +58,11 @@ gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 ---
 
-## Three Ways to Use Gobbler
+## CLI-First Access
 
 === "CLI"
 
-    Direct command-line usage for humans and scripts:
+    Direct command-line usage for humans, agents, and scripts:
     
     ```bash
     gobbler youtube "URL" -o transcript.md
@@ -70,21 +70,17 @@ gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     gobbler document report.pdf --no-ocr
     ```
 
-=== "MCP Protocol"
-
-    For Claude Desktop and Claude Code:
-    
-    ```bash
-    claude mcp add gobbler-mcp -- uv --directory /path/to/gobbler run gobbler-mcp
-    ```
-    
-    Then ask Claude: *"Transcribe this YouTube video: URL"*
-
 === "Skills"
 
-    Markdown instruction files that teach Claude how to use the CLI. Skills provide progressive disclosure—AI only loads what it needs.
+    Markdown instruction files that teach AI agents how to use the CLI. Skills provide progressive disclosure—AI only loads what it needs.
     
     [:octicons-arrow-right-24: Learn about Skills](SKILLS.md)
+
+=== "Browser Extension"
+
+    A local extension plus relay lets the CLI extract authenticated browser sessions and automate supported AI chat surfaces.
+    
+    [:octicons-arrow-right-24: Set up the Browser Extension](browser-extension.md)
 
 ---
 

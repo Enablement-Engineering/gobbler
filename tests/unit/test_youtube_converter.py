@@ -307,18 +307,20 @@ class TestYouTubeConversion:
         mock_provider = MagicMock(spec=TranscriptProvider)
         mock_provider.fetch.side_effect = lambda *_args, **_kwargs: asyncio.run(asyncio.sleep(0.2))
 
-        with patch(
-            "gobbler_core.converters.youtube.get_video_metadata",
-            return_value={
-                "title": "Test Video",
-                "channel": "Test Channel",
-                "thumbnail": None,
-                "description": None,
-            },
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Test Video",
+                    "channel": "Test Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            pytest.raises(RuntimeError, match=r"timed out after 0\.01s"),
         ):
-            with pytest.raises(RuntimeError, match="timed out after 0.01s"):
-                await convert_youtube_to_markdown(
-                    "https://youtube.com/watch?v=dQw4w9WgXcQ",
-                    provider=mock_provider,
-                    timeout=0.01,
-                )
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=mock_provider,
+                timeout=0.01,
+            )

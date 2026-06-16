@@ -1,7 +1,7 @@
 [project]
 name = "gobbler"
 version = "0.2.0"
-description = "Universal content conversion fabric - convert YouTube, web, documents, audio/video to markdown via CLI, API, SDK, or MCP"
+description = "Universal content conversion fabric - convert YouTube, web, documents, audio/video to markdown via CLI and skills"
 authors = [
     {name = "Dylan Isaac", email = "dylan@enablement.engineering"}
 ]
@@ -9,8 +9,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 keywords = [
-    "mcp",
-    "model-context-protocol",
     "markdown",
     "conversion",
     "transcription",
@@ -44,15 +42,11 @@ dependencies = [
     "httpx>=0.27.0",
     "aiohttp>=3.9.0",
     "aiofiles>=24.0.0",
-    # MCP server
-    "fastmcp>=0.2.0",
     # CLI
     "typer>=0.15.0",
     "rich>=13.9.0",
     # Configuration & monitoring
     "pyyaml>=6.0.1",
-    "watchdog>=4.0.0",
-    "prometheus-client>=0.20.0",
     "psutil>=5.9.0",
     # Browser automation
     "playwright>=1.49.0",
@@ -92,8 +86,6 @@ docs = [
 [project.scripts]
 # Main CLI
 gobbler = "gobbler_cli.main:cli"
-# Individual services
-gobbler-mcp = "gobbler_mcp.__main__:main"
 # Queue worker
 gobbler-worker = "gobbler_queue.worker:main"
 
@@ -105,7 +97,6 @@ build-backend = "hatchling.build"
 packages = [
     "src/gobbler_core",
     "src/gobbler_cli",
-    "src/gobbler_mcp",
     "src/gobbler_relay",
     "src/gobbler_queue",
 ]
@@ -124,9 +115,6 @@ markers = [
 addopts = [
     "--strict-markers",
     "--tb=short",
-    "--cov=src/gobbler_mcp",
-    "--cov-report=term-missing:skip-covered",
-    "--cov-report=html",
 ]
 filterwarnings = [
     # SQLite connections in thread-local storage may not be garbage collected before test ends
@@ -213,7 +201,6 @@ convention = "google"
 known-first-party = [
     "gobbler_core",
     "gobbler_cli",
-    "gobbler_mcp",
     "gobbler_relay",
     "gobbler_queue",
 ]
@@ -223,7 +210,6 @@ combine-as-imports = true
 source = [
     "src/gobbler_core",
     "src/gobbler_cli",
-    "src/gobbler_mcp",
     "src/gobbler_relay",
     "src/gobbler_queue",
 ]
@@ -236,14 +222,6 @@ omit = [
     "*/.venv/*",
     "*/site-packages/*",
     "*/__init__.py",
-    # Entry points with no logic
-    "src/gobbler_mcp/__main__.py",
-    # Pure type definitions
-    "src/gobbler_mcp/types.py",
-    # Server startup (integration tested)
-    "src/gobbler_mcp/server.py",
-    # Metrics HTTP server (optional, integration tested)
-    "src/gobbler_mcp/metrics_server.py",
 ]
 
 [tool.coverage.report]

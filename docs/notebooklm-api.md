@@ -22,7 +22,7 @@ NotebookLM does not provide an official API for programmatic access. The Gobbler
 
 1. Automatically detecting when you open NotebookLM in your browser
 2. Injecting a custom JavaScript API into the page
-3. Providing a stable interface that Claude (or other AI assistants) can use via the `browser_execute_script` MCP tool
+3. Providing a stable interface that AI assistants can use through `gobbler browser exec`
 4. Enabling automated research, data extraction, and notebook management workflows
 
 ## How Injection Works
@@ -815,7 +815,7 @@ const inputSelectors = [
 The simplest and most reliable way to interact with NotebookLM:
 
 ```javascript
-// From Claude via browser_execute_script
+// From gobbler browser exec
 const result = await (async () => {
   const r = await window.gobblerNotebookLM.ask("What are the key themes in the sources?");
   return JSON.stringify(r);
@@ -909,41 +909,22 @@ return JSON.stringify(metadata, null, 2);
 
 ---
 
-### Example 4: Claude Code Integration
+### Example 4: CLI Browser Exec Integration
 
-How Claude Code would use this via the `browser_execute_script` MCP tool:
+Use `gobbler browser exec` to call the page API from the CLI:
 
-```python
+```bash
 # Step 1: Check if we're on a notebook page
-check_result = await browser_execute_script(
-    "window.gobblerNotebookLM?.isNotebookPage() || false"
-)
-
-if not check_result:
-    raise RuntimeError("Not on a NotebookLM notebook page")
+gobbler browser exec "window.gobblerNotebookLM?.isNotebookPage() || false"
 
 # Step 2: Get notebook info
-info_json = await browser_execute_script(
-    "JSON.stringify(window.gobblerNotebookLM.getNotebookInfo())"
-)
-info = json.loads(info_json)
-print(f"Working with notebook: {info['title']}")
+gobbler browser exec "JSON.stringify(window.gobblerNotebookLM.getNotebookInfo())"
 
 # Step 3: Ask a question
-question = "Summarize the key findings from all sources"
-result_json = await browser_execute_script(f"""
-(async () => {{
-  const result = await window.gobblerNotebookLM.ask({json.dumps(question)}, 90000);
+gobbler browser exec "(async () => {
+  const result = await window.gobblerNotebookLM.ask('Summarize the key findings from all sources', 90000);
   return JSON.stringify(result);
-}})()
-""")
-
-result = json.loads(result_json)
-if result['success']:
-    print("Answer:", result['response'])
-    print(f"Took {result['totalElapsed']/1000:.1f} seconds")
-else:
-    print("Error:", result['error'])
+})()"
 ```
 
 ---
@@ -1090,35 +1071,6 @@ const PAGE_API_REGISTRY = [
 4. Check browser console for injection confirmation
 5. Test the API: `window.gobblerYourSite.doSomething()`
 
-### Step 4: Create MCP Tools (Optional)
-
-Add MCP tools in `src/gobbler_mcp/tools/browser.py` to make your API accessible to Claude:
-
-```python
-@mcp.tool()
-async def browser_yoursite_do_something(timeout: float = 30.0) -> str:
-    """Call YourSite API method"""
-    from .http_server import send_command_to_extension
-
-    script = """
-    (async () => {
-      const result = await window.gobblerYourSite.doSomething();
-      return JSON.stringify(result);
-    })()
-    """
-
-    response = await send_command_to_extension(
-        command="execute_script",
-        params={"script": script},
-        timeout=timeout
-    )
-
-    if response.get("success"):
-        return response.get("result")
-    else:
-        return f"Error: {response.get('error')}"
-```
-
 ### Example: YouTube API
 
 Here's a simple YouTube API example:
@@ -1226,7 +1178,7 @@ for (const question of questions) {
 
 ### 6. Return Stringified JSON for Claude
 
-When using from Claude via `browser_execute_script`, always stringify:
+When returning structured values through `gobbler browser exec`, stringify JSON:
 
 ```javascript
 // Good - Claude can parse this
@@ -1353,7 +1305,7 @@ The API does not store, transmit, or access:
 
 ### 4. Code Execution
 
-The `browser_execute_script` MCP tool executes arbitrary JavaScript. Only use with:
+The `gobbler browser exec` command executes arbitrary JavaScript. Only use with:
 
 - Trusted code
 - Your own scripts
@@ -1409,4 +1361,4 @@ Found a bug or want to improve the API?
 
 ## License
 
-Part of the Gobbler MCP project. See main project LICENSE.
+Part of the Gobbler project. See main project LICENSE.

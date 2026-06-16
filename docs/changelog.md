@@ -50,5 +50,4 @@ For the complete changelog, see [CHANGELOG.md](https://github.com/Enablement-Eng
 
 - Comprehensive test suite
 - GitHub Actions CI/CD
-- MCP Inspector support
 - Detailed documentation

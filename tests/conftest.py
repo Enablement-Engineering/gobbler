@@ -1,4 +1,4 @@
-"""Shared pytest fixtures and configuration for Gobbler MCP tests."""
+"""Shared pytest fixtures and configuration for Gobbler tests."""
 
 import asyncio
 import tempfile
@@ -16,7 +16,7 @@ def reset_config_singleton():
     This fixture runs automatically before each test to reset the global
     config instance, preventing state leakage between tests.
     """
-    import gobbler_mcp.config as config_module
+    import gobbler_core.config as config_module
 
     # Reset before test
     config_module._config = None
