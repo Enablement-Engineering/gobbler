@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -22,6 +23,7 @@ from gobbler_cli.output import (
     write_json_result,
     write_output,
 )
+from gobbler_queue.models import Job, JobStatus, JobSummary, JobType
 
 # =============================================================================
 # Test Fixtures
@@ -289,6 +291,143 @@ class TestWriteOutput:
 
         captured = capsys.readouterr()
         assert captured.out.endswith("\n")
+
+
+# =============================================================================
+# Tests for jobs command JSON output
+# =============================================================================
+
+
+class TestJobsJsonOutput:
+    """Tests that job status commands provide parseable JSON for scripts."""
+
+    def test_jobs_list_json_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test jobs list JSON output contains summaries and no status preamble."""
+        created_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        summary = JobSummary(
+            id="job-1",
+            job_type=JobType.WEBPAGE,
+            status=JobStatus.FAILED,
+            progress=40,
+            progress_message="Fetching",
+            created_at=created_at,
+            error="Connection refused",
+        )
+        manager = MagicMock()
+        manager.list_jobs.return_value = [summary]
+        monkeypatch.setattr(jobs, "JobManager", lambda: manager)
+        monkeypatch.setattr(jobs, "is_worker_running", lambda: True)
+        monkeypatch.setattr(jobs, "get_worker_pid", lambda: 321)
+
+        result = runner.invoke(
+            cli_app,
+            ["jobs", "list", "--status", "failed", "--limit", "5", "--json"],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is True
+        assert payload["worker"] == {"running": True, "pid": 321}
+        assert payload["filters"] == {"status": "failed", "limit": 5}
+        assert payload["count"] == 1
+        assert payload["jobs"][0]["id"] == "job-1"
+        assert payload["jobs"][0]["error"] == "Connection refused"
+        assert "Worker:" not in result.output
+        manager.list_jobs.assert_called_once_with(status=JobStatus.FAILED, limit=5)
+
+    def test_jobs_get_json_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test jobs get JSON output contains the full job detail."""
+        job = Job(
+            id="job-2",
+            job_type=JobType.AUDIO,
+            status=JobStatus.COMPLETED,
+            command="gobbler audio sample.mp3",
+            progress=100,
+            progress_message="Done",
+            result={"stdout": "converted", "return_code": 0},
+            created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
+            started_at=datetime(2025, 1, 1, 12, 0, 1, tzinfo=UTC),
+            completed_at=datetime(2025, 1, 1, 12, 0, 3, tzinfo=UTC),
+        )
+        manager = MagicMock()
+        manager.get_job.return_value = job
+        monkeypatch.setattr(jobs, "JobManager", lambda: manager)
+
+        result = runner.invoke(cli_app, ["jobs", "get", "job-2", "--json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is True
+        assert payload["job"]["id"] == "job-2"
+        assert payload["job"]["status"] == "completed"
+        assert payload["job"]["result"] == {"stdout": "converted", "return_code": 0}
+        assert "Job Details" not in result.output
+        manager.get_job.assert_called_once_with("job-2")
+
+    def test_jobs_get_json_not_found_outputs_json_error(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test jobs get JSON mode keeps not-found errors parseable."""
+        manager = MagicMock()
+        manager.get_job.return_value = None
+        monkeypatch.setattr(jobs, "JobManager", lambda: manager)
+
+        result = runner.invoke(cli_app, ["jobs", "get", "missing-job", "--json"])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is False
+        assert payload["error_code"] == "JOB_NOT_FOUND"
+        assert "suggestion" not in payload
+        assert "missing-job" in payload["error"]
+        assert "Error:" not in result.output
+
+    def test_jobs_count_json_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test jobs count JSON output contains counts and worker state."""
+        counts = {
+            "pending": 1,
+            "running": 2,
+            "completed": 3,
+            "failed": 4,
+            "cancelled": 5,
+            "total": 15,
+        }
+        manager = MagicMock()
+        manager.count_jobs.return_value = counts
+        monkeypatch.setattr(jobs, "JobManager", lambda: manager)
+        monkeypatch.setattr(jobs, "is_worker_running", lambda: False)
+
+        result = runner.invoke(cli_app, ["jobs", "count", "--json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is True
+        assert payload["worker"] == {"running": False, "pid": None}
+        assert payload["counts"] == counts
+        assert "Job Counts" not in result.output
+        manager.count_jobs.assert_called_once_with()
 
 
 # =============================================================================
