@@ -6,7 +6,15 @@ from typing import Annotated
 
 import typer
 
-from gobbler_cli.output import print_error, print_info, print_success, print_warning
+from gobbler_cli.output import (
+    add_json_contract,
+    format_json_error,
+    print_error,
+    print_info,
+    print_success,
+    print_warning,
+    write_json_result,
+)
 from gobbler_queue import JobManager, JobStatus
 from gobbler_queue.cli_integration import (
     format_job_detail,
@@ -24,10 +32,20 @@ app.add_typer(worker_app, name="worker")
 
 def _get_worker_status_line() -> str:
     """Get a formatted worker status line."""
-    if is_worker_running():
-        pid = get_worker_pid()
+    worker = _get_worker_status_payload()
+    if worker["running"]:
+        pid = worker["pid"]
         return f"Worker: running (PID {pid})"
     return "Worker: stopped"
+
+
+def _get_worker_status_payload() -> dict[str, bool | int | None]:
+    """Get worker daemon status for machine-readable output."""
+    running = is_worker_running()
+    return {
+        "running": running,
+        "pid": get_worker_pid() if running else None,
+    }
 
 
 def _parse_status(status_str: str | None) -> JobStatus | None:
@@ -56,6 +74,10 @@ def list_jobs_cmd(
         int,
         typer.Option("--limit", "-l", help="Maximum number of jobs to show"),
     ] = 20,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output as JSON"),
+    ] = False,
 ) -> None:
     """List jobs.
 
@@ -63,18 +85,36 @@ def list_jobs_cmd(
         gobbler jobs list
         gobbler jobs list --status running
         gobbler jobs list --limit 10
+        gobbler jobs list --json
     """
     try:
-        # Show worker status
-        print_info(_get_worker_status_line())
-        print_info("")  # Blank line
-
         # Parse status filter
         status = _parse_status(status_filter)
 
         # Get jobs from manager
         manager = JobManager()
         jobs = manager.list_jobs(status=status, limit=limit)
+
+        if json_output:
+            write_json_result(
+                add_json_contract(
+                    {
+                        "success": True,
+                        "worker": _get_worker_status_payload(),
+                        "filters": {
+                            "status": status.value if status is not None else None,
+                            "limit": limit,
+                        },
+                        "count": len(jobs),
+                        "jobs": [job.to_dict() for job in jobs],
+                    }
+                )
+            )
+            return
+
+        # Show worker status
+        print_info(_get_worker_status_line())
+        print_info("")  # Blank line
 
         # Format and display
         table_output = format_job_table(jobs)
@@ -94,20 +134,45 @@ def get(
         bool,
         typer.Option("--result/--no-result", help="Show job result if completed"),
     ] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output as JSON"),
+    ] = False,
 ) -> None:
     """Get details about a specific job.
 
     Examples:
         gobbler jobs get abc123
         gobbler jobs get abc123 --result
+        gobbler jobs get abc123 --json
     """
     try:
         manager = JobManager()
         job = manager.get_job(job_id)
 
         if job is None:
-            print_error(f"Job not found: {job_id}")
+            if json_output:
+                write_json_result(
+                    format_json_error(
+                        f"Job not found: {job_id}",
+                        error_code="JOB_NOT_FOUND",
+                        suggestion="",
+                    )
+                )
+            else:
+                print_error(f"Job not found: {job_id}")
             raise typer.Exit(1)
+
+        if json_output:
+            write_json_result(
+                add_json_contract(
+                    {
+                        "success": True,
+                        "job": job.to_dict(),
+                    }
+                )
+            )
+            return
 
         # Format and display job details
         detail_output = format_job_detail(job)
@@ -239,15 +304,33 @@ def clear(
 
 
 @app.command()
-def count() -> None:
+def count(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", "-j", help="Output as JSON"),
+    ] = False,
+) -> None:
     """Show job counts by status.
 
     Examples:
         gobbler jobs count
+        gobbler jobs count --json
     """
     try:
         manager = JobManager()
         counts = manager.count_jobs()
+
+        if json_output:
+            write_json_result(
+                add_json_contract(
+                    {
+                        "success": True,
+                        "worker": _get_worker_status_payload(),
+                        "counts": counts,
+                    }
+                )
+            )
+            return
 
         # Show worker status
         print_info(_get_worker_status_line())
