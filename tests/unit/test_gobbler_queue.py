@@ -10,6 +10,7 @@ Tests cover:
 import json
 import os
 import shlex
+import signal
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -1250,6 +1251,24 @@ class TestJobManagerCompleteJob:
         result = job_manager.complete_job("nonexistent", {"output": "test"})
         assert result is False
 
+    def test_complete_cancelled_job_does_not_overwrite_cancelled(self, job_manager):
+        """Test worker completion cannot overwrite a cancelled running job."""
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        job_manager.start_job(job.id, worker_pid=99999)
+
+        with patch("os.kill"):
+            cancelled = job_manager.cancel_job(job.id)
+        result = job_manager.complete_job(job.id, {"output": "/tmp/video.md"})
+
+        retrieved = job_manager.get_job(job.id)
+        assert cancelled is True
+        assert result is False
+        assert retrieved is not None
+        assert retrieved.status == JobStatus.CANCELLED
+        assert retrieved.worker_pid is None
+        assert retrieved.result is None
+        assert retrieved.progress == 0
+
 
 class TestJobManagerFailJob:
     """Test JobManager.fail_job()."""
@@ -1271,6 +1290,23 @@ class TestJobManagerFailJob:
         """Test failing a nonexistent job."""
         result = job_manager.fail_job("nonexistent", "error")
         assert result is False
+
+    def test_fail_cancelled_job_does_not_overwrite_cancelled(self, job_manager):
+        """Test worker failure cannot overwrite a cancelled running job."""
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        job_manager.start_job(job.id, worker_pid=99999)
+
+        with patch("os.kill"):
+            cancelled = job_manager.cancel_job(job.id)
+        result = job_manager.fail_job(job.id, "Exit code: -15")
+
+        retrieved = job_manager.get_job(job.id)
+        assert cancelled is True
+        assert result is False
+        assert retrieved is not None
+        assert retrieved.status == JobStatus.CANCELLED
+        assert retrieved.worker_pid is None
+        assert retrieved.error is None
 
 
 class TestJobManagerCancelJob:
@@ -1299,6 +1335,24 @@ class TestJobManagerCancelJob:
             mock_kill.assert_called_once()
             retrieved = job_manager.get_job(job.id)
             assert retrieved.status == JobStatus.CANCELLED
+
+    def test_cancel_running_job_sets_status_before_signal(self, job_manager):
+        """Test running cancellation is persisted before signaling the worker."""
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        job_manager.start_job(job.id, worker_pid=99999)
+        statuses_seen_during_signal = []
+
+        def record_status_during_signal(pid, sig):
+            assert pid == 99999
+            assert sig == signal.SIGTERM
+            statuses_seen_during_signal.append(job_manager.get_job(job.id).status)
+
+        with patch("os.kill", side_effect=record_status_during_signal) as mock_kill:
+            result = job_manager.cancel_job(job.id)
+
+        assert result is True
+        assert statuses_seen_during_signal == [JobStatus.CANCELLED]
+        mock_kill.assert_called_once_with(99999, signal.SIGTERM)
 
     def test_cancel_completed_job(self, job_manager):
         """Test that cancelling a completed job returns False."""
