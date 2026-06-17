@@ -46,7 +46,7 @@ dependencies = [
     "aiofiles>=24.0.0",
     # CLI
     "typer>=0.15.0",
-    "rich>=13.9.0",
+    "rich>=15.0.0",
     # Configuration & monitoring
     "pyyaml>=6.0.1",
     "psutil>=5.9.0",
