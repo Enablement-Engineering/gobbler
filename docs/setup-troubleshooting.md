@@ -46,14 +46,46 @@ docker compose up -d docling
 
 ```bash
 # Start the services
-docker compose up -d
+make start-docker
 
 # Check they're running
-docker compose ps
+make status
+docker ps -a --filter "name=gobbler"
 
 # View logs if still failing
 docker logs gobbler-docling --tail 50
 docker logs gobbler-crawl4ai --tail 50
+```
+
+### "container name is already in use"
+
+**Cause**: A named Gobbler service container already exists outside the current Compose
+project context.
+
+`make start-docker` checks `gobbler-docling` and `gobbler-crawl4ai` before creating
+containers. If both are running and healthy, startup succeeds and reports the services as
+already available.
+
+```bash
+# Inspect named Gobbler containers directly
+docker ps -a --filter "name=gobbler"
+make status
+
+# Check logs for an unhealthy or stopped container
+docker logs gobbler-docling --tail 50
+docker logs gobbler-crawl4ai --tail 50
+```
+
+Only after confirming a container is stale, remove it explicitly and retry:
+
+```bash
+# Stopped stale container
+docker rm <container>
+
+# Running unhealthy stale container
+docker stop <container> && docker rm <container>
+
+make start-docker
 ```
 
 ### "Cannot connect to Docker daemon"

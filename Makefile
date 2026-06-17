@@ -1,5 +1,8 @@
 .PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop verify diagnose lint security typecheck docs docs-serve docs-build docs-deploy
 
+PYTHON ?= python3
+GOBBLER_DOCKER_HELPER = PYTHONPATH=src $(PYTHON) -m gobbler_cli.docker_services
+
 # Default target - Show available commands and their descriptions
 # Use this to get started or find the right command for your task
 help:
@@ -85,16 +88,7 @@ start:
 # Use this if you want to manage the worker separately
 # The services will run in background (detached mode)
 start-docker:
-	@echo "🐳 Starting Docker services..."
-	docker-compose up -d
-	@echo ""
-	@echo "✅ Services starting..."
-	@echo "   - Crawl4AI: http://localhost:11235"
-	@echo "   - Docling:  http://localhost:5001"
-	@echo ""
-	@echo "⏳ Waiting for services to be ready (this may take 30-60 seconds)..."
-	@sleep 5
-	@make status
+	@$(GOBBLER_DOCKER_HELPER) start
 
 # Stop all Docker services
 # This will gracefully shut down Crawl4AI and Docling containers
@@ -121,15 +115,7 @@ logs:
 # Shows container status and performs health checks on each service
 # Use this to verify services are running correctly
 status:
-	@echo "📊 Service Status:"
-	@echo ""
-	@docker-compose ps
-	@echo ""
-	@echo "🏥 Health Checks:"
-	@echo -n "   Crawl4AI: "
-	@curl -sf http://localhost:11235/health > /dev/null && echo "✅ Healthy" || echo "❌ Unavailable"
-	@echo -n "   Docling:  "
-	@curl -sf http://localhost:5001/health > /dev/null && echo "✅ Healthy" || echo "❌ Unavailable"
+	@$(GOBBLER_DOCKER_HELPER) status
 
 # ============================================================================
 # Worker Management Targets
