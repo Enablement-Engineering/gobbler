@@ -9,17 +9,17 @@ metadata:
     install:
       - id: docker
         kind: script
-        label: Install Docker Desktop
+        label: Install Docker runtime
         script: |
-          echo "Install Docker Desktop from https://docker.com/products/docker-desktop"
-          open "https://docker.com/products/docker-desktop"
+          echo "Install Docker Desktop or Colima. On macOS with Homebrew: brew install colima docker docker-compose && colima start --memory 4 --cpu 2"
+          docker info || colima start --memory 4 --cpu 2
       - id: gobbler
         kind: script
         label: Install Gobbler (git clone + uv)
         script: |
           git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
           cd ~/Projects/gobbler && uv sync && uv tool install .
-          cd ~/Projects/gobbler && docker compose up -d crawl4ai
+          cd ~/Projects/gobbler && (docker compose up -d crawl4ai || docker-compose up -d crawl4ai)
     homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
@@ -27,7 +27,7 @@ metadata:
 
 Convert web pages to markdown using the Crawl4AI service.
 
-**Requires**: Crawl4AI Docker container running (`docker compose up -d crawl4ai`)
+**Requires**: Crawl4AI Docker container running (`docker compose up -d crawl4ai` or `docker-compose up -d crawl4ai`). Crawl4AI is configured for up to 2 GB RAM and 1 CPU; allocate enough Docker resources before starting the service.
 
 ## CLI Options
 
@@ -119,7 +119,7 @@ Start services before using:
 
 ```bash
 cd /path/to/gobbler
-docker compose up -d crawl4ai
+docker compose up -d crawl4ai || docker-compose up -d crawl4ai
 
 # Check health
 curl http://localhost:11235/health

@@ -43,7 +43,7 @@ redis-cli -p 6380 ping && echo " ← Redis OK"
 ### Prerequisites
 
 - Python 3.11+
-- Docker Desktop
+- Docker runtime: Docker Desktop, Colima, or compatible Docker Engine
 - uv (Python package manager)
 - ffmpeg (for audio processing)
 
@@ -56,8 +56,12 @@ redis-cli -p 6380 ping && echo " ← Redis OK"
 # Install dependencies
 brew install uv ffmpeg
 
-# Install Docker Desktop from https://docker.com/products/docker-desktop
+# Install Docker runtime (Docker Desktop or Colima)
+brew install colima docker docker-compose
+colima start --memory 10 --cpu 5
 ```
+
+If you use Docker Desktop instead of Colima, install it from https://docker.com/products/docker-desktop and start the app before running Gobbler services. Gobbler's document service is configured for up to 8 GB RAM and 4 CPUs, so allocate enough Docker resources before starting Docling.
 
 ### Install Prerequisites (Linux/Ubuntu)
 
@@ -94,10 +98,10 @@ gobbler --version
 
 ```bash
 # Start all services
-docker compose up -d
+docker compose up -d || docker-compose up -d
 
 # Wait for services to be healthy (30-60 seconds)
-docker compose ps
+docker compose ps || docker-compose ps
 ```
 
 ### Verify Installation
@@ -186,7 +190,7 @@ gobbler document file.pdf --no-ocr -o output.md
 
 # Or increase memory in docker-compose.yml
 # Change: memory: 4g → memory: 8g
-docker compose up -d docling
+docker compose up -d docling || docker-compose up -d docling
 ```
 
 ### Issue: "Connection refused" on port 5001/11235
@@ -197,10 +201,10 @@ docker compose up -d docling
 
 ```bash
 # Start the services
-docker compose up -d
+docker compose up -d || docker-compose up -d
 
 # Check they're running
-docker compose ps
+docker compose ps || docker-compose ps
 
 # View logs if still failing
 docker logs gobbler-docling --tail 50
@@ -209,12 +213,16 @@ docker logs gobbler-crawl4ai --tail 50
 
 ### Issue: "Cannot connect to Docker daemon"
 
-**Cause**: Docker Desktop not running
+**Cause**: Docker runtime not running
 
 **Solution**:
 
 ```bash
-# Start Docker Desktop (macOS)
+# Start Colima (macOS lightweight Docker runtime)
+colima start --memory 10 --cpu 5
+docker context use colima
+
+# Or start Docker Desktop (macOS)
 open -a Docker
 
 # Start Docker (Linux)
@@ -288,7 +296,7 @@ gobbler document file.pdf --no-ocr -o output.md
 
 # If OCR needed, increase Docker memory
 # Edit docker-compose.yml: memory: 8g
-docker compose up -d docling
+docker compose up -d docling || docker-compose up -d docling
 ```
 
 ---
@@ -344,10 +352,10 @@ docker compose down
 docker compose down -v
 
 # Restart fresh
-docker compose up -d
+docker compose up -d || docker-compose up -d
 
 # Verify
-docker compose ps
+docker compose ps || docker-compose ps
 ```
 
 ---
@@ -367,7 +375,7 @@ Create `~/Library/LaunchAgents/com.gobbler.plist`:
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>cd /path/to/gobbler && docker compose up -d && sleep 10 && gobbler daemon start</string>
+        <string>cd /path/to/gobbler && (docker compose up -d || docker-compose up -d) && sleep 10 && gobbler daemon start</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

@@ -153,18 +153,18 @@ redis-cli -p 6380 ping
 ```bash
 # Start all Docker services
 cd /path/to/gobbler
-docker compose up -d
+docker compose up -d || docker-compose up -d
 
 # Start specific service
-docker compose up -d docling
-docker compose up -d crawl4ai
+docker compose up -d docling || docker-compose up -d docling
+docker compose up -d crawl4ai || docker-compose up -d crawl4ai
 
 # View service logs
 docker logs gobbler-docling --tail 50
 docker logs gobbler-crawl4ai --tail 50
 
 # Restart a service
-docker compose restart docling
+docker compose restart docling || docker-compose restart docling
 ```
 
 ## Daemon Management

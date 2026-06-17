@@ -38,7 +38,7 @@ Add `socket_timeout` to `yt-dlp` metadata extraction as an extra guard.
 
 ## Why this belongs upstream
 
-This is not Dylan-specific workflow logic.
+This is not project-specific wrapper logic.
 It is baseline reliability for anyone automating YouTube transcript extraction.
 
 ## Non-goals
