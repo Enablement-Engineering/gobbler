@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from gobbler_core.providers.proxy import (
     ProxyConfig,
+    _safe_proxy_url,
     get_crawl4ai_proxy_url,
     get_proxy_for_provider,
 )
@@ -104,6 +105,28 @@ class TestProxyConfig:
 
         assert proxy is not None
         assert proxy.url == "http://envuser-rotate:envpass@p.webshare.io:80"
+
+    def test_rotating_proxy_url_encodes_reserved_credentials(self):
+        """Test rotating proxy URL remains parseable with reserved characters."""
+        config = {
+            "type": "rotating",
+            "username": "user@example",
+            "password": "p@ss:word",
+            "name": "webshare",
+        }
+
+        proxy = ProxyConfig.from_config(config)
+
+        assert proxy is not None
+        assert proxy.url == "http://user%40example-rotate:p%40ss%3Aword@p.webshare.io:80"
+
+    def test_safe_proxy_url_masks_authenticated_shorthand(self):
+        """Test host:port:username:password shorthand masks credentials in logs."""
+        assert _safe_proxy_url("proxy.example:8080:user:secret") == "proxy.example:8080:***:***"
+
+    def test_safe_proxy_url_masks_url_userinfo(self):
+        """Test URL userinfo proxy credentials are masked in logs."""
+        assert _safe_proxy_url("http://user:secret@proxy.example:8080") == "proxy.example:8080"
 
 
 class TestGetCrawl4aiProxyUrl:

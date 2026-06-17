@@ -423,7 +423,7 @@ class TestConvertJsonStdoutPurity:
         ) -> tuple[str, dict[str, str]]:
             return "# Paper", {"title": "Paper"}
 
-        def fake_get_default_provider() -> object:
+        def fake_get_default_provider(**_kwargs: object) -> object:
             return object()
 
         monkeypatch.setattr(
@@ -460,7 +460,7 @@ class TestConvertJsonStdoutPurity:
         ) -> tuple[str, dict[str, str]]:
             return "# Page", {"title": "Page"}
 
-        def fake_get_default_provider() -> object:
+        def fake_get_default_provider(**_kwargs: object) -> object:
             return object()
 
         monkeypatch.setattr(

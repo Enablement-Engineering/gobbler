@@ -156,6 +156,55 @@ async def test_convert_webpage_bypass_cache(mock_crawl4ai_response):
         assert crawl_request["crawler_config"]["params"]["cache_mode"] == "bypass"
 
 
+@pytest.mark.asyncio
+async def test_convert_webpage_selector_uses_documented_proxy_config(mock_crawl4ai_response):
+    """Test selector conversion sends Crawl4AI proxy settings as a plain dict."""
+    proxy_url = "http://proxy-user:proxy-pass@proxy.example:8080"
+    with (
+        patch(
+            "gobbler_core.providers.proxy.get_crawl4ai_proxy_url",
+            return_value=proxy_url,
+        ),
+        patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client,
+    ):
+        client_instance = AsyncMock()
+        mock_client.return_value.__aenter__.return_value = client_instance
+        setup_mock_client(client_instance, mock_crawl4ai_response)
+
+        await convert_webpage_with_selector(url="https://example.com")
+
+        post_call_args = client_instance.post.call_args
+        crawl_request = post_call_args[1]["json"]
+        proxy_config = crawl_request["crawler_config"]["params"]["proxy_config"]
+
+    assert proxy_config == {
+        "server": "http://proxy.example:8080",
+        "username": "proxy-user",
+        "password": "proxy-pass",
+    }
+    assert "type" not in proxy_config
+
+
+@pytest.mark.asyncio
+async def test_convert_webpage_selector_can_bypass_configured_proxy(mock_crawl4ai_response):
+    """Test selector conversion can skip configured Crawl4AI proxy settings."""
+    with (
+        patch("gobbler_core.providers.proxy.get_crawl4ai_proxy_url") as mock_proxy,
+        patch("gobbler_core.converters.webpage_selector.RetryableHTTPClient") as mock_client,
+    ):
+        client_instance = AsyncMock()
+        mock_client.return_value.__aenter__.return_value = client_instance
+        setup_mock_client(client_instance, mock_crawl4ai_response)
+
+        await convert_webpage_with_selector(url="https://example.com", use_proxy=False)
+
+        post_call_args = client_instance.post.call_args
+        crawl_request = post_call_args[1]["json"]
+
+    mock_proxy.assert_not_called()
+    assert "proxy_config" not in crawl_request["crawler_config"]["params"]
+
+
 def test_extract_links():
     """Test link extraction from HTML."""
     html = """

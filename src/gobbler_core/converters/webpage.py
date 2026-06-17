@@ -121,6 +121,7 @@ async def convert_webpage_to_markdown(
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
     provider: WebPageProvider | None = None,
+    use_proxy: bool = True,
 ) -> tuple[str, dict]:
     """Convert web page to markdown using a webpage provider.
 
@@ -140,6 +141,7 @@ async def convert_webpage_to_markdown(
         logger_instance: Optional custom logger instance
         provider: Optional webpage provider. If None, uses default
             Crawl4AIProvider with the specified service_url and api_token.
+        use_proxy: Use configured Crawl4AI proxy settings when provider is None.
 
     Returns:
         Tuple of (markdown_content, metadata)
@@ -165,7 +167,11 @@ async def convert_webpage_to_markdown(
     if provider is None:
         from gobbler_core.providers.webpage import get_default_provider
 
-        provider = get_default_provider(service_url=service_url, api_token=api_token)
+        provider = get_default_provider(
+            service_url=service_url,
+            api_token=api_token,
+            use_proxy=use_proxy,
+        )
 
     provider_name = provider.name
 

@@ -141,6 +141,22 @@ class TestConvertCommandProviderOption:
         assert result.exit_code == 0
         assert "--provider" in result.output or "-p" in result.output
 
+    def test_webpage_command_accepts_no_proxy_option(self, runner: CliRunner, cli_app) -> None:
+        """Test that webpage command accepts --no-proxy as an option."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "webpage",
+                "https://example.com",
+                "--provider",
+                "nonexistent-provider",
+                "--no-proxy",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "No such option" not in result.output
+        assert "not found" in result.output.lower() or "Error" in result.output
+
     def test_audio_invalid_provider(self, runner: CliRunner, cli_app, tmp_path) -> None:
         """Test that audio command with invalid provider shows error."""
         # Create a dummy audio file

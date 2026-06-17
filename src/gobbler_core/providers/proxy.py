@@ -34,6 +34,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote, urlparse
 
 if TYPE_CHECKING:
     from gobbler_core.config import Config
@@ -86,6 +87,24 @@ def _resolve_env_vars(value: str, env_vars: dict[str, str] | None = None) -> str
         return os.environ.get(var_name, "")
 
     return ENV_VAR_PATTERN.sub(replacer, value)
+
+
+PROXY_CREDENTIAL_SHORTHAND_PARTS = 4
+
+
+def _safe_proxy_url(proxy_url: str) -> str:
+    """Return a proxy URL/log value with credentials masked."""
+    if "://" in proxy_url:
+        parsed = urlparse(proxy_url)
+        if parsed.username or parsed.password:
+            return proxy_url.split("@", 1)[-1]
+        return proxy_url
+
+    parts = proxy_url.split(":")
+    if len(parts) == PROXY_CREDENTIAL_SHORTHAND_PARTS and all(parts):
+        host, port, *_credentials = parts
+        return f"{host}:{port}:***:***"
+    return proxy_url
 
 
 class ProxyConfig:
@@ -164,7 +183,10 @@ class ProxyConfig:
             )
             return None
 
-        url = WEBSHARE_URL_TEMPLATE.format(username=username, password=password)
+        url = WEBSHARE_URL_TEMPLATE.format(
+            username=quote(username, safe=""),
+            password=quote(password, safe=""),
+        )
         logger.debug("Configured rotating proxy '%s'", name)
 
         return ProxyService(name=name, type="rotating", url=url)
@@ -194,7 +216,7 @@ class ProxyConfig:
             return None
 
         # Log proxy without credentials for security
-        safe_url = url.split("@")[-1] if "@" in url else url
+        safe_url = _safe_proxy_url(url)
         logger.debug("Configured static proxy '%s': %s", name, safe_url)
 
         return ProxyService(name=name, type="static", url=url)
@@ -318,7 +340,7 @@ def get_youtube_proxy_config() -> Any:
         )
 
     if proxy_url:
-        safe_url = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
+        safe_url = _safe_proxy_url(proxy_url)
         logger.info("Using static proxy from environment for YouTube: %s", safe_url)
         return GenericProxyConfig(
             http_url=proxy_url,
@@ -362,7 +384,7 @@ def get_crawl4ai_proxy_url() -> str | None:
     proxy_url = os.environ.get("CRAWL4AI_PROXY")
 
     if proxy_url:
-        safe_url = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
+        safe_url = _safe_proxy_url(proxy_url)
         logger.info("Using proxy from CRAWL4AI_PROXY env var: %s", safe_url)
         return proxy_url
 

@@ -56,6 +56,7 @@ def get_default_provider(**kwargs: Any) -> WebPageProvider:
     service_url = kwargs.pop("service_url", None)
     api_token = kwargs.pop("api_token", None)
     proxy_url = kwargs.pop("proxy_url", None)
+    use_proxy = kwargs.pop("use_proxy", True)
 
     if service_url is None or api_token is None:
         try:
@@ -75,7 +76,7 @@ def get_default_provider(**kwargs: Any) -> WebPageProvider:
             api_token = api_token or "gobbler-local-token"
 
     # Get proxy from config if not overridden
-    if proxy_url is None:
+    if proxy_url is None and use_proxy:
         proxy_url = get_crawl4ai_proxy_url()
 
     return Crawl4AIProvider(
