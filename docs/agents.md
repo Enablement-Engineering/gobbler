@@ -43,6 +43,7 @@ Hermes should treat Gobbler as a local CLI dependency and use terminal/file tool
 ```bash
 # From a local checkout
 uv --directory /path/to/gobbler run gobbler --version
+uv --directory /path/to/gobbler run gobbler doctor --json
 uv --directory /path/to/gobbler run gobbler status --json
 uv --directory /path/to/gobbler run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md
 ```
@@ -88,6 +89,7 @@ Some commands work without Docker; others require local services.
 
 | Command family | Requirement | Verify |
 | --- | --- | --- |
+| any | local CLI/runtime | `gobbler doctor --json` |
 | `gobbler youtube` | none | `gobbler youtube URL` |
 | `gobbler audio` | ffmpeg, local model download | `gobbler audio FILE --model tiny` |
 | `gobbler document` | Docling service | `make start-docker && gobbler status --json` |

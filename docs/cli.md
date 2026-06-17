@@ -57,6 +57,20 @@ gobbler providers info transcription whisper-local --format json
 
 ## Service Health & Diagnostics
 
+### Doctor JSON for agents
+
+Use `gobbler doctor --json` when an agent or script needs one local diagnostic payload that answers whether Gobbler can be used and what to do next. The command reports the Gobbler version, Python runtime, ffmpeg and Docker availability, redacted configuration, conversion service status, and `next_actions`.
+
+```bash
+gobbler doctor --json
+```
+
+The top-level `status` is one of:
+
+- `ready`: all checked conversion paths are ready.
+- `degraded`: at least one optional conversion path needs setup, but Gobbler can still be useful for available paths.
+- `error`: no core conversion path is usable.
+
 ### Check Service Status
 
 Before running conversions, check that all services are healthy:

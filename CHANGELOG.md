@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Agent-friendly `gobbler doctor --json` diagnostics with redacted config, local tool checks, service status, and next actions.
 - Agent usage guide for Hermes, OpenClaw, and similar CLI automation.
 - `SECURITY.md` and `ROADMAP.md` for public project hygiene.
 - README project status, badges, and release-prep trust signals.

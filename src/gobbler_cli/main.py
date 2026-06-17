@@ -104,6 +104,7 @@ def cli() -> None:
         config,
         convert,
         daemon,
+        doctor,
         explain,
         gemini,
         jobs,
@@ -115,6 +116,7 @@ def cli() -> None:
 
     # Add command groups
     app.add_typer(status.app, name="status", help="Check service status and health")
+    app.add_typer(doctor.app, name="doctor", help="Run agent-friendly diagnostics")
     app.add_typer(explain.app, name="explain", help="Diagnose errors and get solutions")
     app.add_typer(convert.app, name="convert", help="Convert individual content items")
     app.add_typer(batch.app, name="batch", help="Batch processing operations")
