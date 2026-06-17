@@ -35,7 +35,7 @@ dependencies = [
     "youtube-transcript-api>=0.6.3",
     "yt-dlp>=2026.6.9",
     "faster-whisper>=1.2.0",
-    "beautifulsoup4>=4.12.0",
+    "beautifulsoup4>=4.15.0",
     "markdownify>=0.13.0",
     # Legacy Excel (.xls) support
     "xlrd>=2.0.0",
