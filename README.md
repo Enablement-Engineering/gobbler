@@ -267,8 +267,9 @@ gobbler document file.pdf --no-ocr -o output.md
 ### Service not responding
 
 ```bash
-docker compose up -d
-docker compose ps
+make start-docker
+make status
+docker ps -a --filter "name=gobbler"
 curl http://localhost:5001/health   # Docling
 curl http://localhost:11235/health  # Crawl4AI
 ```
