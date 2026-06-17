@@ -12,9 +12,75 @@ from gobbler_core.converters.webpage import convert_webpage_to_markdown
 from gobbler_core.providers.webpage.crawl4ai import (
     Crawl4AIConversionError,
     Crawl4AIProvider,
+    _build_crawl_request,
+    _parse_proxy_url,
+    _sensitive_fragments,
     check_crawl4ai_conversion_probe,
 )
 from gobbler_core.utils.redaction import REDACTED
+
+
+def test_crawl_request_uses_documented_proxy_config_dict() -> None:
+    """Crawl4AI requests send proxy_config as a CrawlerRunConfig dict."""
+    request = _build_crawl_request(
+        "https://example.com",
+        proxy_url="http://proxy-user:proxy-pass@proxy.example:8080",
+    )
+
+    proxy_config = request["crawler_config"]["params"]["proxy_config"]
+
+    assert proxy_config == {
+        "server": "http://proxy.example:8080",
+        "username": "proxy-user",
+        "password": "proxy-pass",
+    }
+    assert "type" not in proxy_config
+    assert "params" not in proxy_config
+
+
+def test_crawl_request_omits_proxy_config_without_proxy() -> None:
+    """Direct Crawl4AI requests do not send stale proxy settings."""
+    request = _build_crawl_request("https://example.com", proxy_url=None)
+
+    assert "proxy_config" not in request["crawler_config"]["params"]
+
+
+def test_parse_proxy_url_decodes_credentials_and_preserves_missing_port() -> None:
+    """Proxy URL parsing passes raw credentials and avoids inventing ports."""
+    proxy_config = _parse_proxy_url("https://user%40name:p%40ss@proxy.example")
+
+    assert proxy_config == {
+        "server": "https://proxy.example",
+        "username": "user@name",
+        "password": "p@ss",
+    }
+
+
+def test_parse_proxy_url_accepts_crawl4ai_host_port_shorthand() -> None:
+    """Crawl4AI shorthand proxy syntax is accepted for environment overrides."""
+    proxy_config = _parse_proxy_url("proxy.example:8080:proxy-user:proxy-pass")
+
+    assert proxy_config == {
+        "server": "http://proxy.example:8080",
+        "username": "proxy-user",
+        "password": "proxy-pass",
+    }
+
+
+def test_shorthand_proxy_credentials_are_treated_as_sensitive() -> None:
+    """Authenticated shorthand proxy credentials are redacted from diagnostics."""
+    fragments = _sensitive_fragments(proxy_url="proxy.example:8080:proxy-user:proxy-pass")
+
+    assert "proxy-user" in fragments
+    assert "proxy-pass" in fragments
+    assert "proxy-user:proxy-pass" in fragments
+
+
+def test_safe_proxy_url_masks_authenticated_shorthand() -> None:
+    """Provider debug logging masks authenticated proxy shorthand credentials."""
+    provider = Crawl4AIProvider(proxy_url="proxy.example:8080:proxy-user:proxy-pass")
+
+    assert provider._safe_proxy_url(provider.proxy_url or "") == "proxy.example:8080:***:***"
 
 
 @pytest.mark.asyncio

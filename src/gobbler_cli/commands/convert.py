@@ -547,6 +547,13 @@ def webpage(
         str | None,
         typer.Option("--provider", "-p", help="Webpage conversion provider (default: crawl4ai)"),
     ] = None,
+    use_proxy: Annotated[
+        bool,
+        typer.Option(
+            "--proxy/--no-proxy",
+            help="Use configured Crawl4AI webpage proxy settings",
+        ),
+    ] = True,
     verbose: Annotated[
         bool,
         typer.Option("--verbose", "-v", help="Enable verbose/debug logging"),
@@ -563,6 +570,7 @@ def webpage(
         gobbler webpage https://example.com -o page.md
         gobbler webpage https://example.com --selector "article"
         gobbler webpage https://example.com --clean  # Auto-strip boilerplate
+        gobbler webpage https://example.com --no-proxy
         echo "https://example.com" | gobbler webpage
     """
     # Handle stdin input
@@ -587,6 +595,7 @@ def webpage(
             include_images=include_images,
             output_format=output_format,
             provider_name=provider,
+            use_proxy=use_proxy,
             skip_if_exists=skip_if_exists,
         )
     )
@@ -601,6 +610,7 @@ async def _convert_webpage(
     include_images: bool,
     output_format: OutputFormat,
     provider_name: str | None = None,
+    use_proxy: bool = True,
     skip_if_exists: bool = False,
 ) -> None:
     """Async implementation of webpage conversion."""
@@ -642,6 +652,7 @@ async def _convert_webpage(
                     css_selector=effective_selector,
                     timeout=timeout,
                     include_images=include_images,
+                    use_proxy=use_proxy,
                 )
         else:
             # Import here to avoid circular imports and defer heavy imports
@@ -663,7 +674,7 @@ async def _convert_webpage(
                     raise typer.Exit(1) from None
             else:
                 # Use default provider which reads config (including proxy)
-                webpage_provider = get_default_provider()
+                webpage_provider = get_default_provider(use_proxy=use_proxy)
 
             progress_context = (
                 nullcontext()
@@ -676,6 +687,7 @@ async def _convert_webpage(
                     timeout=timeout,
                     include_images=include_images,
                     provider=webpage_provider,
+                    use_proxy=use_proxy,
                 )
 
         if output_format == OutputFormat.JSON:

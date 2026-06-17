@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 CRAWL4AI_PROBE_URL = "https://example.com"
 DIAGNOSTIC_SNIPPET_LIMIT = 500
 MIN_SECRET_FRAGMENT_LENGTH = 4
+HOST_PORT_PROXY_PARTS = 2
+AUTHENTICATED_HOST_PORT_PROXY_PARTS = 4
 
 
 @dataclass
@@ -47,6 +49,17 @@ class Crawl4AIConversionError(RuntimeError):
         super().__init__(sanitized_message)
 
 
+def _shorthand_proxy_credentials(proxy_url: str) -> tuple[str, str] | None:
+    """Return username/password from host:port:username:password proxy shorthand."""
+    if "://" in proxy_url:
+        return None
+    parts = proxy_url.split(":")
+    if len(parts) != AUTHENTICATED_HOST_PORT_PROXY_PARTS or not all(parts):
+        return None
+    _host, _port, username, password = parts
+    return unquote(username), unquote(password)
+
+
 def _sensitive_fragments(
     api_token: str | None = None,
     proxy_url: str | None = None,
@@ -58,6 +71,10 @@ def _sensitive_fragments(
 
     if proxy_url:
         fragments.append(proxy_url)
+        shorthand_credentials = _shorthand_proxy_credentials(proxy_url)
+        if shorthand_credentials is not None:
+            username, password = shorthand_credentials
+            fragments.extend([username, password, f"{username}:{password}"])
         try:
             parsed = urlparse(proxy_url)
         except ValueError:
@@ -201,14 +218,53 @@ def _raise_for_crawl4ai_status(
         ) from exc
 
 
+def _format_proxy_server(scheme: str, host: str, port: int | None) -> str:
+    """Return a Playwright-compatible proxy server URL."""
+    bracketed_host = f"[{host}]" if ":" in host and not host.startswith("[") else host
+    server = f"{scheme}://{bracketed_host}"
+    if port is not None:
+        server = f"{server}:{port}"
+    return server
+
+
+def _parse_host_port_proxy(proxy_url: str) -> dict[str, str] | None:
+    """Parse Crawl4AI shorthand proxy formats."""
+    parts = proxy_url.split(":")
+    if len(parts) == HOST_PORT_PROXY_PARTS:
+        host, port = parts
+        if host and port:
+            return {"server": f"http://{host}:{port}"}
+    if len(parts) == AUTHENTICATED_HOST_PORT_PROXY_PARTS:
+        host, port, username, password = parts
+        if host and port and username and password:
+            return {
+                "server": f"http://{host}:{port}",
+                "username": unquote(username),
+                "password": unquote(password),
+            }
+    return None
+
+
 def _parse_proxy_url(proxy_url: str) -> dict[str, str]:
     """Parse proxy URL into Crawl4AI proxy_config format."""
-    parsed = urlparse(proxy_url)
-    config: dict[str, str] = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 80}"}
+    clean_proxy_url = proxy_url.strip()
+    if "://" not in clean_proxy_url:
+        shorthand_config = _parse_host_port_proxy(clean_proxy_url)
+        if shorthand_config is not None:
+            return shorthand_config
+
+    parsed = urlparse(clean_proxy_url)
+    if not parsed.scheme or not parsed.hostname:
+        msg = "Invalid Crawl4AI proxy URL; expected scheme://host[:port] or host:port"
+        raise ValueError(msg)
+
+    config: dict[str, str] = {
+        "server": _format_proxy_server(parsed.scheme, parsed.hostname, parsed.port)
+    }
     if parsed.username:
-        config["username"] = parsed.username
+        config["username"] = unquote(parsed.username)
     if parsed.password:
-        config["password"] = parsed.password
+        config["password"] = unquote(parsed.password)
     return config
 
 
@@ -228,10 +284,7 @@ def _build_crawl_request(
         crawler_params["wait_for"] = wait_for
 
     if proxy_url:
-        crawler_params["proxy_config"] = {
-            "type": "ProxyConfig",
-            "params": _parse_proxy_url(proxy_url),
-        }
+        crawler_params["proxy_config"] = _parse_proxy_url(proxy_url)
 
     return {
         "urls": [url],
@@ -485,6 +538,11 @@ class Crawl4AIProvider(WebPageProvider):
             >>> self._safe_proxy_url("http://user:pass@host:port")
             'http://***:***@host:port'
         """
+        credentials = _shorthand_proxy_credentials(url)
+        if credentials is not None:
+            host, port, *_credential_parts = url.split(":")
+            return f"{host}:{port}:***:***"
+
         parsed = urlparse(url)
         if parsed.username or parsed.password:
             # Reconstruct with masked credentials

@@ -46,6 +46,43 @@ class _DiagnosticError(RuntimeError):
 
 
 @pytest.mark.asyncio
+async def test_webpage_no_proxy_bypasses_default_provider_proxy_lookup(capsys) -> None:
+    """The webpage command can bypass configured Crawl4AI proxy settings."""
+    captured_kwargs: dict[str, Any] = {}
+
+    async def convert_page(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, Any]]:
+        return "# Page", {"title": "Page"}
+
+    def get_provider(**kwargs: Any) -> object:
+        captured_kwargs.update(kwargs)
+        return object()
+
+    with (
+        patch("gobbler_cli.commands.convert.ProgressTracker", _NoopProgress),
+        patch("gobbler_core.providers.webpage.get_default_provider", side_effect=get_provider),
+        patch(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            side_effect=convert_page,
+        ),
+    ):
+        await convert._convert_webpage(
+            url="https://example.com",
+            output=None,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+            use_proxy=False,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert captured_kwargs["use_proxy"] is False
+    assert payload["success"] is True
+
+
+@pytest.mark.asyncio
 async def test_webpage_json_error_includes_sanitized_diagnostics(capsys) -> None:
     """Webpage JSON failures include structured diagnostics without proxy credentials."""
 

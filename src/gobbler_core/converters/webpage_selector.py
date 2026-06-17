@@ -28,6 +28,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
     bypass_cache: bool = False,
     timeout: int = 30,
     use_stealth: bool = False,
+    use_proxy: bool = True,
 ) -> tuple[str, dict]:
     """Convert web page to markdown with CSS/XPath selector extraction.
 
@@ -40,6 +41,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
         bypass_cache: Bypass Crawl4AI cache for fresh content.
         timeout: Request timeout in seconds.
         use_stealth: Enable stealth mode to evade bot detection.
+        use_proxy: Use configured Crawl4AI proxy settings.
 
     Returns:
         Tuple of markdown content and metadata.
@@ -61,7 +63,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
 
     from gobbler_core.providers.proxy import get_crawl4ai_proxy_url
 
-    proxy_url = get_crawl4ai_proxy_url()
+    proxy_url = get_crawl4ai_proxy_url() if use_proxy else None
 
     logger.info("Converting web page with selector: %s", url)
     start_time = time.time()
@@ -73,18 +75,9 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
     }
 
     if proxy_url:
-        parsed = urlparse(proxy_url)
-        proxy_config_params: dict[str, str] = {
-            "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 80}"
-        }
-        if parsed.username:
-            proxy_config_params["username"] = parsed.username
-        if parsed.password:
-            proxy_config_params["password"] = parsed.password
-        crawler_params["proxy_config"] = {
-            "type": "ProxyConfig",
-            "params": proxy_config_params,
-        }
+        from gobbler_core.providers.webpage.crawl4ai import _parse_proxy_url
+
+        crawler_params["proxy_config"] = _parse_proxy_url(proxy_url)
         logger.info("Using proxy for Crawl4AI")
 
     if use_stealth:

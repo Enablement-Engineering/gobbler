@@ -246,6 +246,9 @@ gobbler webpage "https://slow-site.com" --timeout 60
 # Explicitly specify provider
 gobbler webpage "https://example.com" --provider crawl4ai -o page.md
 
+# Bypass configured Crawl4AI webpage proxy for this run
+gobbler webpage "https://example.com" --no-proxy
+
 # Skip if output already exists
 gobbler webpage "https://example.com" -o page.md --skip-if-exists
 
@@ -258,6 +261,7 @@ echo "https://example.com" | gobbler webpage -o page.md
 | `--selector`, `-s` | CSS selector for content extraction | full page |
 | `--timeout`, `-t` | Request timeout in seconds | 30 |
 | `--provider`, `-p` | Webpage provider | `crawl4ai` |
+| `--proxy/--no-proxy` | Use configured Crawl4AI webpage proxy settings | `--proxy` |
 | `--skip-if-exists` | Skip if output file exists | false |
 | `-o, --output` | Output file path | stdout |
 
