@@ -83,7 +83,7 @@ nav:
     - Configuration: configuration.md
     - Browser Extension: browser-extension.md
     - Skills Overview: SKILLS.md
-    - Agent Usage: agents.md
+    - Hermes/OpenClaw Usage: agents.md
     - Skills:
       - YouTube: skills/youtube.md
       - Audio: skills/audio.md
