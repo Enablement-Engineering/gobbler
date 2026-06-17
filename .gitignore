@@ -72,8 +72,9 @@ tests/fixtures/*queued*.md
 # Claude Code local settings only (skills and commands are now at root)
 .claude/
 
-# Skill caches
+# Skill and agent-local caches
 skills/**/__pycache__/
 skills/**/*.pyc
 .ai/
+.hermes/
 site/

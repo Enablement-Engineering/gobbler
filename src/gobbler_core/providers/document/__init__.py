@@ -52,7 +52,7 @@ def get_default_provider(**kwargs) -> DocumentProvider:
 
     if service_url is None:
         try:
-            from gobbler_mcp.config import get_config
+            from gobbler_core.config import get_config
 
             config = get_config()
             service_url = config.get_service_url("docling")
