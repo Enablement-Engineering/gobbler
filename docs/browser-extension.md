@@ -4,14 +4,16 @@ icon: material/puzzle
 
 # Browser Extension
 
-The Gobbler browser extension enables bidirectional communication between Gobbler and your browser, allowing extraction of authenticated content and browser automation.
+The Gobbler browser extension enables bidirectional communication between Gobbler and your
+browser for intentionally selected tabs. It can extract authenticated pages when those pages are
+already open in the browser and have been added to the Gobbler tab group.
 
 ## Features
 
 - Extract current page content (works with authenticated sessions)
 - Extract with CSS selectors
-- Navigate pages programmatically
-- Execute JavaScript in browser tabs
+- Navigate selected Gobbler tabs programmatically
+- Execute JavaScript in selected Gobbler tabs
 - Control AI chat interfaces (NotebookLM, Claude.ai, ChatGPT, Gemini)
 
 ## Installation
@@ -56,11 +58,12 @@ Response with markdown
 ## Advantages
 
 - Uses your real browser session (no cookie copying)
-- Uses your real browser session without copying cookies
 - Can access pages you are already authenticated to when those tabs are intentionally placed in the Gobbler tab group
-- Full JavaScript execution capability
+- JavaScript execution in selected Gobbler tabs
 
-Sites may still rate-limit, block, or detect automated behavior. Use browser automation only on pages the user explicitly asks to use.
+The extension does not bypass site access controls or bot detection. Sites may still rate-limit,
+block, or detect automated behavior. Use browser automation only on pages the user explicitly asks
+to use.
 
 ## Security Model
 
@@ -73,6 +76,9 @@ To add a tab to the group:
 To remove a tab:
 1. Right-click the tab
 2. Select "Remove from group"
+
+Do not submit forms, send messages, or take account-changing actions unless the user explicitly
+requests that action.
 
 ## CLI Commands
 
@@ -150,6 +156,30 @@ gobbler browser exec "document.querySelectorAll('h1').length"
 - Increase timeout: `--timeout 60`
 - Check browser tab is active
 - Verify page has loaded completely
+
+## Validation Coverage
+
+Automated tests cover the extension pieces that can run reliably in CI without launching Chrome:
+
+- Manifest wiring, local assets, popup script order, and conservative default host permissions.
+- Page API registry metadata and references to extension-local scripts.
+- Relay command names shared by `gobbler_relay.client` and `background.js`.
+- WebSocket registration, ping/pong, and command response envelope shape.
+- Static tab-group guards on commands that read, navigate, inject into, or execute scripts in tabs.
+- Extraction payload serialization to the relay `/extract` endpoint.
+
+Manual validation is still required for browser behavior that depends on Chrome and third-party
+pages:
+
+- Load `browser-extension/` in Chrome, start `gobbler relay start`, and confirm
+  `gobbler browser status` reports one connected extension.
+- Add a harmless page such as `https://example.com` to the Gobbler tab group, then run
+  `gobbler browser list` and `gobbler browser extract --selector "body" -o example.md`.
+- Keep a second tab outside the Gobbler group and verify extraction or script execution is rejected.
+- On authenticated pages, only use tabs intentionally added to the Gobbler group. Prefer read-only
+  checks first, such as `gobbler browser exec "document.title"`.
+- For NotebookLM, Claude.ai, ChatGPT, or Gemini pages, verify API injection only after the relevant
+  tab is in the Gobbler group. Do not submit prompts or forms unless that is the explicit test.
 
 ## Development
 

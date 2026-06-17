@@ -72,17 +72,11 @@ gobbler browser exec "({
 
 ## Example 6: Multi-Step Workflow
 
-Search Wikipedia and extract the result:
+Navigate to a known page and extract the relevant content:
 
 ```bash
-# Navigate to Wikipedia
-gobbler browser navigate "https://en.wikipedia.org"
-
-# Fill search and submit
-gobbler browser exec "
-  document.querySelector('#searchInput').value = 'Python programming';
-  document.querySelector('form').submit();
-"
+# Navigate directly
+gobbler browser navigate "https://en.wikipedia.org/wiki/Python_(programming_language)"
 
 # Wait for page load, then extract
 sleep 2
