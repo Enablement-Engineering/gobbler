@@ -23,7 +23,7 @@ What actually happened.
 ## Environment
 - **OS**: [e.g., macOS 14.0, Ubuntu 22.04]
 - **Python Version**: [e.g., 3.11.5]
-- **Gobbler Version**: [e.g., 0.1.0]
+- **Gobbler Version**: [e.g., 0.2.0]
 - **Docker Version** (if applicable): [e.g., 24.0.6]
 - **Installation Method**: [e.g., make install, uv sync]
 

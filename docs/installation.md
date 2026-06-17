@@ -60,7 +60,7 @@ Before installing Gobbler, ensure you have:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/dylanisaac/gobbler.git
+git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler
 ```
 

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SECURITY.md` and `ROADMAP.md` for public project hygiene.
 - README project status, badges, and release-prep trust signals.
 
+### Changed
+- Cleaned up public documentation examples to remove stale local paths and repository references.
+
 ## [0.2.0] - 2026-06-16
 
 ### Changed
