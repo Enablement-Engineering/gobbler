@@ -215,7 +215,12 @@ async def _convert_youtube(
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.youtube import convert_youtube_to_markdown
 
-        with ProgressTracker("Converting YouTube video"):
+        progress_context = (
+            nullcontext()
+            if output_format == OutputFormat.JSON
+            else ProgressTracker("Converting YouTube video")
+        )
+        with progress_context:
             result, metadata = await convert_youtube_to_markdown(
                 video_url=url,
                 language=language,
@@ -351,7 +356,12 @@ async def _convert_audio(
                 print_error(str(e))
                 raise typer.Exit(1) from None
 
-        with ProgressTracker("Transcribing audio file"):
+        progress_context = (
+            nullcontext()
+            if output_format == OutputFormat.JSON
+            else ProgressTracker("Transcribing audio file")
+        )
+        with progress_context:
             result, metadata = await convert_audio_to_markdown(
                 file_path=str(file_path),
                 language=language or "auto",
@@ -472,7 +482,12 @@ async def _convert_document(
             # Use default provider which reads config (including service URL)
             document_provider = get_default_provider()
 
-        with ProgressTracker("Converting document"):
+        progress_context = (
+            nullcontext()
+            if output_format == OutputFormat.JSON
+            else ProgressTracker("Converting document")
+        )
+        with progress_context:
             result, metadata = await convert_document_to_markdown(
                 file_path=str(file_path),
                 enable_ocr=ocr,
