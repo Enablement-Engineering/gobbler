@@ -35,7 +35,7 @@ src/
   gobbler_core/     # Core converters and providers
   gobbler_relay/    # WebSocket relay for browser extension
   gobbler_queue/    # Background job queue (RQ-based)
-skills/             # Claude Code skill definitions
+skills/             # AI agent skill definitions
 tests/unit/         # Unit tests
 tests/integration/  # Integration tests
 tests/e2e/          # End-to-end tests

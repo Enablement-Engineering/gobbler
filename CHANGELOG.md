@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Agent-friendly `gobbler doctor --json` diagnostics with redacted config, local tool checks, service status, and next actions.
-- Agent usage guide for Hermes, OpenClaw, and similar CLI automation.
-- `SECURITY.md` and `ROADMAP.md` for public project hygiene.
+- Consolidated `gobbler` skill for convert/extract/transcribe/archive-to-markdown workflows, with detailed references for YouTube, audio, document, webpage, and batch recipes.
+- Unified public skill language around CLI-capable AI agents and documented `npx skills@latest add Enablement-Engineering/gobbler` as the recommended skill-install path.
+- Agent usage guide for CLI-capable automation workflows.
+- `SECURITY.md` for public project hygiene.
 - README project status, badges, and release-prep trust signals.
 
 ### Changed

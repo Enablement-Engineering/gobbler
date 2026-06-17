@@ -37,7 +37,7 @@ Only tabs in the "Gobbler" group can be controlled by Gobbler (security feature)
 gobbler browser status
 ```
 
-Should show: `1 browser extension(s) connected`
+With the extension loaded and connected, this should show `1 browser extension(s) connected`. Without the extension connected, expect `No browser extension connected`.
 
 ## How It Works
 
@@ -56,9 +56,11 @@ Response with markdown
 ## Advantages
 
 - Uses your real browser session (no cookie copying)
-- No bot detection (it's your actual browser)
-- Works with 2FA, private content, etc.
+- Uses your real browser session without copying cookies
+- Can access pages you are already authenticated to when those tabs are intentionally placed in the Gobbler tab group
 - Full JavaScript execution capability
+
+Sites may still rate-limit, block, or detect automated behavior. Use browser automation only on pages the user explicitly asks to use.
 
 ## Security Model
 
@@ -160,10 +162,3 @@ The extension consists of:
 | `content.js` | Content script for page interaction |
 | `background.js` | Service worker for WebSocket |
 | `page-apis/*.js` | Site-specific APIs (NotebookLM, Claude, etc.) |
-
-## Future Features
-
-- [ ] Batch extraction (multiple tabs)
-- [ ] Auto-extract on page load
-- [ ] Save extractions to files
-- [ ] Custom extraction templates

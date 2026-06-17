@@ -4,206 +4,127 @@ icon: material/lightning-bolt
 
 # Gobbler Skills
 
-Skills are reusable, filesystem-based instructions that teach Claude how to use the `gobbler` CLI to convert content to markdown.
+Skills are reusable, filesystem-based instructions that teach CLI-capable AI agents how to use the `gobbler` CLI to convert content to markdown.
 
 ## What are Skills?
 
-Skills are markdown files (`SKILL.md`) with YAML frontmatter that Claude discovers and loads on-demand. Each skill contains:
+Skills are markdown files (`SKILL.md`) with YAML frontmatter that agents discover and load on-demand. Each skill contains:
 
-- **Metadata** (frontmatter) - `name` and `description` that tell Claude when to use the skill
+- **Metadata** (frontmatter) - `name` and `description` that tell agents when to use the skill
 - **Instructions** - CLI commands, examples, and options for completing tasks
+- **References** - optional supporting files loaded only when needed
 
-Skills use **progressive disclosure**: Claude only loads ~100 tokens of metadata at startup. The full instructions are read only when the skill is triggered.
+Skills use **progressive disclosure**: agents can load lightweight metadata first, then read full instructions or references only when the task requires them.
 
 ## Skill Structure
 
-Each Gobbler skill is a `SKILL.md` file:
+Gobbler intentionally keeps the top-level skill list small:
 
-```
-skills/gobbler-youtube/
-└── SKILL.md           # Instructions with YAML frontmatter
-```
-
-Example `SKILL.md`:
-
-```yaml
----
-name: gobbler-youtube
-description: Transcribe YouTube videos to markdown. Use when user wants to get transcripts from YouTube.
----
-
-# Gobbler YouTube
-
-Convert YouTube videos to markdown transcripts.
-
-## Transcribe Video
-
-```bash
-# Basic transcription
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID"
-
-# With timestamps
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" --timestamps
-
-# Save to file
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md
-```
+```text
+skills/
+├── gobbler/          # Convert/extract/transcribe/archive content to markdown
+│   └── references/   # YouTube, audio, document, webpage, and batch details
+├── gobbler-browser/  # Browser/session automation and AI chat integrations
+└── gobbler-setup/    # Installation, diagnostics, services, and troubleshooting
 ```
 
-## How Claude Uses Skills
+This avoids trigger competition between separate YouTube/audio/document/webpage skills while preserving detailed recipes through references.
 
-1. **Discovery** - Claude sees skill metadata in its system prompt
-2. **Trigger** - When your request matches a skill's description, Claude reads `SKILL.md`
-3. **Execute** - Claude runs the `gobbler` CLI commands from the instructions
-4. **Output** - CLI returns markdown that Claude can use or save
+## How Agents Use Skills
 
-Skills work with Claude Code, Claude Desktop, and OpenCode. They're discovered from:
-- `skills/gobbler-*/SKILL.md` (in the Gobbler repo)
-- `.claude/skills/*/SKILL.md` (Claude Code compatible)
+1. **Discovery** - The agent sees skill metadata in its workspace or system prompt.
+2. **Trigger** - When the request matches a skill's description, the agent reads `SKILL.md`.
+3. **Reference loading** - If the task needs details, the agent reads only the relevant reference file.
+4. **Execute** - The agent runs the `gobbler` CLI commands from the instructions.
+5. **Output** - CLI returns markdown that the agent can use or save.
+
+Skills work with AI agents that can read `SKILL.md` files, run CLI commands, and inspect output files. They are discovered from:
+
+- `skills/gobbler*/SKILL.md` in the Gobbler repo
+- agent-specific skill folders or workspace instruction directories
+- installs created by the open skills installer
 
 ## Available Skills
 
-| Skill | Description | CLI Command |
-|-------|-------------|-------------|
-| `gobbler-youtube` | YouTube transcription | `gobbler youtube URL` |
-| `gobbler-audio` | Audio/video transcription | `gobbler audio FILE` |
-| `gobbler-document` | PDF, DOCX, PPTX, XLSX conversion | `gobbler document FILE` |
-| `gobbler-webpage` | Web page to markdown | `gobbler webpage URL` |
-| `gobbler-browser` | Browser control + AI chat integrations | `gobbler browser ...` |
-| `gobbler-setup` | Installation and troubleshooting | Various |
+| Skill | Description | Primary command |
+|-------|-------------|-----------------|
+| `gobbler` | Convert, extract, transcribe, fetch, download, archive, or save external content as markdown | `gobbler ...` |
+| `gobbler-browser` | Browser control, authenticated tab extraction, and AI chat integrations | `gobbler browser ...` |
+| `gobbler-setup` | Installation, diagnostics, Docker/ffmpeg/service troubleshooting | `gobbler doctor --json` |
 
-The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini. These use DOM automation and may break with site updates.
+## Main `gobbler` Skill
 
-## Skill Reference
-
-### gobbler-youtube
-
-Transcribe YouTube videos to markdown.
+Use `gobbler` for the normal content-to-markdown workflow:
 
 ```bash
-gobbler youtube "https://youtube.com/watch?v=VIDEO_ID"
-gobbler youtube "URL" --timestamps           # Include timestamps
-gobbler youtube "URL" --language es          # Specific language
-gobbler youtube "URL" -o transcript.md       # Save to file
+gobbler doctor --json
+gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o ./outputs/video.md
+gobbler audio ./meeting.mp3 --model small -o ./outputs/meeting.md
+gobbler document ./paper.pdf --no-ocr -o ./outputs/paper.md
+gobbler webpage "https://example.com" -o ./outputs/page.md
 ```
 
-### gobbler-audio
+Detailed recipes live in:
 
-Transcribe audio and video files using Whisper.
+- `skills/gobbler/references/youtube.md`
+- `skills/gobbler/references/audio.md`
+- `skills/gobbler/references/document.md`
+- `skills/gobbler/references/webpage.md`
+- `skills/gobbler/references/batch.md`
+
+## Browser Skill
+
+Use `gobbler-browser` for workflows that touch browser tabs, authenticated pages, or AI chat services. Browser automation has different safety boundaries than normal conversion.
 
 ```bash
-gobbler audio /path/to/audio.mp3
-gobbler audio /path/to/video.mp4 --model medium    # Larger model
-gobbler audio /path/to/audio.mp3 --timestamps      # With timestamps
-gobbler audio /path/to/audio.mp3 -o transcript.md  # Save to file
+gobbler browser status
+gobbler browser list
+gobbler browser extract -o page.md
+gobbler browser inject
 ```
 
-**Models:** tiny, base, small (default), medium, large
+The browser skill includes integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini. These use DOM automation and may break with site updates.
 
-### gobbler-document
+## Setup Skill
 
-Convert documents to markdown using Docling.
-
-**Requires:** Docling Docker container (`make start-docker`)
+Use `gobbler-setup` when installing Gobbler or troubleshooting service readiness.
 
 ```bash
-gobbler document /path/to/file.pdf
-gobbler document /path/to/file.docx --no-ocr    # Skip OCR (faster)
-gobbler document /path/to/file.pdf -o output.md # Save to file
-```
-
-**Supported formats:** PDF, DOCX, PPTX, XLSX
-
-### gobbler-webpage
-
-Convert web pages to markdown using Crawl4AI.
-
-**Requires:** Crawl4AI Docker container (`make start-docker`)
-
-```bash
-gobbler webpage "https://example.com"
-gobbler webpage "https://example.com" -o page.md
-```
-
-### gobbler-browser
-
-Control browser tabs via the Gobbler extension. Includes AI chat integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini.
-
-**Requires:** Browser extension installed, tabs in "Gobbler" group
-
-> **Note:** AI chat integrations use DOM automation and may break when sites update their UI.
-
-```bash
-# Core browser commands
-gobbler browser status              # Check connection
-gobbler browser list                # List controlled tabs
-gobbler browser extract             # Extract current page
-gobbler browser inject              # Inject APIs (required for AI chats)
-
-# AI Chat Integrations (all follow same pattern)
-gobbler notebooklm list                              # List notebooks
-gobbler notebooklm query "What are the key points?"  # Query notebook
-
-gobbler chatgpt list                        # List ChatGPT tabs
-gobbler chatgpt query "Your message here"   # Send message
-
-gobbler claude list                         # List Claude tabs
-gobbler claude query "Your message here"    # Send message
-
-gobbler gemini list                         # List Gemini tabs
-gobbler gemini query "Your message here"    # Send message
-
-# Common commands for all AI chats
-gobbler <service> last                      # Get last response
-gobbler <service> history --count 10        # Get history
-gobbler <service> info                      # Get metadata
+gobbler --version
+gobbler doctor --json
+make start-docker
 ```
 
 ## Installation
 
-### For OpenCode
-
-OpenCode discovers skills from `.opencode/skill/` or `~/.config/opencode/skill/`. Clone Gobbler and symlink the skills:
+### Recommended: open skills installer
 
 ```bash
-# Clone the repo
-git clone https://github.com/Enablement-Engineering/gobbler.git
-cd gobbler && make install
+# Inspect available Gobbler skills without installing
+npx skills@latest add Enablement-Engineering/gobbler --list
 
-# Symlink skills to OpenCode's skill directory
-mkdir -p ~/.config/opencode/skill
-for skill in skills/gobbler-*/; do
-  ln -sf "$(pwd)/$skill" ~/.config/opencode/skill/
-done
+# Interactive install: choose skills and target agent(s)
+npx skills@latest add Enablement-Engineering/gobbler
+
+# Non-interactive example: install the main conversion skill globally
+npx skills@latest add Enablement-Engineering/gobbler --skill gobbler --global --yes
 ```
 
-### For Claude Code
+The skills installer copies or symlinks skill files into the selected agent's skill directory. It does **not** install the `gobbler` CLI itself.
 
-Clone the repo and use the included skills:
+### Manual copy/symlink
 
 ```bash
-git clone https://github.com/Enablement-Engineering/gobbler.git
-cd gobbler && make install
+mkdir -p ~/.local/share/gobbler-skills
+cp -R skills/gobbler* ~/.local/share/gobbler-skills/
 ```
 
-Skills are auto-discovered from `skills/gobbler-*/SKILL.md` when working in the repo.
-
-### Via Git Clone (Manual)
-
-```bash
-git clone https://github.com/Enablement-Engineering/gobbler.git
-cd gobbler
-make install
-```
-
-Skills are in `skills/gobbler-*/SKILL.md`.
-
-### Prerequisites
+## Prerequisites
 
 - **Python 3.11+** and **uv** package manager
-- **Docker** (for webpage/document conversion): `make start-docker`
-- **ffmpeg** (for audio): `brew install ffmpeg`
-- **Browser extension** (for browser skills): See [Browser Extension](browser-extension.md)
+- **Docker runtime** for webpage/document conversion: `make start-docker`
+- **ffmpeg** for audio/video transcription
+- **Browser extension** for browser skills: see [Browser Extension](browser-extension.md)
 
 ## Backend Services
 

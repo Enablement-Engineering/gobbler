@@ -123,24 +123,33 @@ These features work immediately without Docker:
 | Audio transcription | faster-whisper (local) |
 | YouTube downloads | yt-dlp |
 
-## AI Assistant Integration
+## AI Agent Integration
 
-### OpenCode
+Gobbler skills are for CLI-capable AI agents: agents that can read `SKILL.md` files, run shell commands, and inspect output files.
 
-Symlink Gobbler skills to OpenCode's skill directory:
+Recommended install path:
 
 ```bash
-mkdir -p ~/.config/opencode/skill
-for skill in skills/gobbler-*/; do
-  ln -sf "$(pwd)/$skill" ~/.config/opencode/skill/
-done
+# Inspect available Gobbler skills without installing
+npx skills@latest add Enablement-Engineering/gobbler --list
+
+# Interactive install: choose skills and target agent(s)
+npx skills@latest add Enablement-Engineering/gobbler
+
+# Non-interactive example: install the main conversion skill globally
+npx skills@latest add Enablement-Engineering/gobbler --skill gobbler --global --yes
 ```
 
-### Claude Code
+The installer handles agent-specific skill directories. It installs skill files only; keep this Gobbler CLI installation available on PATH with `make install` or `uv tool install .`.
 
-Skills are available from `skills/gobbler-*/SKILL.md` when working in the
-Gobbler repo directory. You can also copy or symlink them into your agent's
-skill directory.
+Manual copy/symlink also works if your agent has a custom skill directory:
+
+```bash
+mkdir -p ~/.local/share/gobbler-skills
+cp -R skills/gobbler* ~/.local/share/gobbler-skills/
+```
+
+The top-level skills are `gobbler`, `gobbler-browser`, and `gobbler-setup`; detailed conversion recipes live under `skills/gobbler/references/`.
 
 ## Configuration
 

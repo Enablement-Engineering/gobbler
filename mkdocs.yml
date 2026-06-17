@@ -83,17 +83,7 @@ nav:
     - Configuration: configuration.md
     - Browser Extension: browser-extension.md
     - Skills Overview: SKILLS.md
-    - Hermes/OpenClaw/Agent Usage: agents.md
-    - Skills:
-      - YouTube: skills/youtube.md
-      - Audio: skills/audio.md
-      - Documents: skills/document.md
-      - Web Pages: skills/webpage.md
-      - Browser: skills/browser.md
-      - NotebookLM: skills/notebooklm.md
-      - Claude.ai: skills/claude.md
-      - ChatGPT: skills/chatgpt.md
-      - Gemini: skills/gemini.md
+    - Agent Usage: agents.md
     - Examples:
       - Browser Automation: examples/browser-automation.md
   - Reference:

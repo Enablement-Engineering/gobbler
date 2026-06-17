@@ -13,7 +13,7 @@ All notable changes to this project are tracked in the root [CHANGELOG.md](https
 - Reframed Gobbler as a CLI-first, Skills-ready content conversion tool.
 - Moved reusable configuration and webpage-selector logic into core modules.
 - Updated CI, Dependabot, pre-commit, and PR templates for the CLI-first architecture.
-- Added public project hygiene docs: security policy, roadmap, and agent usage guide.
+- Added public project hygiene docs: security policy and agent usage guide.
 
 ### Removed
 
