@@ -61,6 +61,8 @@ gobbler providers info transcription whisper-local --format json
 
 For CLI-capable AI agents and scripts, JSON modes write machine-readable payloads to stdout without human progress text. Single-command JSON modes such as `gobbler doctor --json`, `gobbler status --json`, and conversion commands with `--format json` emit one JSON object. Batch commands with `--json` emit newline-delimited JSON event objects.
 
+Documented CLI JSON objects include top-level `schema_version: 1`. Single conversion JSON success objects include `success: true`, `markdown`, and `metadata`; conversion JSON errors include `success: false`, `error`, and `error_code`. Batch JSONL writes one parseable JSON object per line. The terminal `batch_complete` event includes `success` and `summary` counts with `total`, `successful`, `failed`, and `skipped`.
+
 ### Doctor JSON for agents
 
 Use `gobbler doctor --json` when an agent or script needs one local diagnostic payload that answers whether Gobbler can be used and what to do next. The command reports the Gobbler version, Python runtime, ffmpeg and Docker availability, redacted configuration, conversion service status, and `next_actions`.

@@ -12,7 +12,7 @@ from typing import Annotated, Any
 import typer
 
 from gobbler_cli import __version__
-from gobbler_cli.output import console
+from gobbler_cli.output import add_json_contract, console
 from gobbler_core.config import Config, get_config
 from gobbler_core.providers.webpage.crawl4ai import check_crawl4ai_conversion_probe
 from gobbler_core.utils.redaction import redact_value
@@ -275,26 +275,28 @@ def collect_doctor_report() -> dict[str, Any]:
             "Gobbler is ready. Run a conversion command such as `gobbler youtube URL`.",
         )
 
-    report = {
-        "status": status,
-        "can_use": status in {"ready", "degraded"},
-        "version": __version__,
-        "python": {
-            "executable": sys.executable,
-            "version": platform.python_version(),
-        },
-        "tools": {
-            "ffmpeg": ffmpeg,
-            "docker": docker,
-        },
-        "config": {
-            "path": str(config.config_path),
-            "exists": config.config_path.exists(),
-            "values": redact_value(config.data),
-        },
-        "services": services,
-        "next_actions": list(dict.fromkeys(next_actions)),
-    }
+    report = add_json_contract(
+        {
+            "status": status,
+            "can_use": status in {"ready", "degraded"},
+            "version": __version__,
+            "python": {
+                "executable": sys.executable,
+                "version": platform.python_version(),
+            },
+            "tools": {
+                "ffmpeg": ffmpeg,
+                "docker": docker,
+            },
+            "config": {
+                "path": str(config.config_path),
+                "exists": config.config_path.exists(),
+                "values": redact_value(config.data),
+            },
+            "services": services,
+            "next_actions": list(dict.fromkeys(next_actions)),
+        }
+    )
     return redact_value(report)
 
 

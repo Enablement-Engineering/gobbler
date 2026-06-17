@@ -90,5 +90,6 @@ Useful options:
 
 - Prefer deterministic filenames.
 - Use `--skip-if-exists` or `--skip-existing` for repeatable reruns when available.
+- In `--json` mode, parse stdout as newline-delimited JSON. Each event includes `schema_version: 1`; the final `batch_complete` event includes `summary.total`, `summary.successful`, `summary.failed`, and `summary.skipped`.
 - Summarize successes/failures instead of pasting every converted document into chat.
 - Verify the output directory contains expected markdown files before reporting success.

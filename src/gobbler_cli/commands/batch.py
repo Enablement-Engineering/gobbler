@@ -18,14 +18,24 @@ from gobbler_cli.knowledge import (
     SECONDS_PER_YOUTUBE_VIDEO,
     format_duration,
 )
-from gobbler_cli.output import print_error, print_info, print_success
+from gobbler_cli.output import add_json_contract, print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
 
 
 def _write_json_line(data: dict[str, Any]) -> None:
     """Write a JSON line to stdout for streaming output."""
-    sys.stdout.write(json.dumps(data, ensure_ascii=False) + "\n")
+    sys.stdout.write(json.dumps(add_json_contract(data), ensure_ascii=False) + "\n")
     sys.stdout.flush()
+
+
+def _batch_summary(total: int, successful: int, failed: int, skipped: int) -> dict[str, int]:
+    """Return the stable summary shape for batch completion events."""
+    return {
+        "total": total,
+        "successful": successful,
+        "failed": failed,
+        "skipped": skipped,
+    }
 
 
 def _scan_existing_video_ids(directory: Path) -> set[str]:
@@ -372,12 +382,15 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     "successful": successful,
                     "failed": failed,
                     "skipped": skipped,
+                    "summary": _batch_summary(len(videos), successful, failed, skipped),
                     "output_dir": str(output_dir),
                     "processing_time_seconds": processing_time,
                     "success_details": success_details,
                     "failures": failures,
                 }
             )
+            if failed > 0:
+                raise typer.Exit(1)
         else:
             # Progress bar mode
             progress = create_progress()
@@ -490,6 +503,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                         "error_code": "DIRECTORY_NOT_FOUND",
                     }
                 )
+                raise typer.Exit(1)
             raise ValueError(error_msg)
 
         # Create output directory (unless dry run)
@@ -504,7 +518,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                     {
                         "type": "batch_complete",
                         "success": True,
-                        "summary": {"total": 0, "successful": 0, "failed": 0, "skipped": 0},
+                        "summary": _batch_summary(0, 0, 0, 0),
                         "message": f"No files matching pattern '{pattern}' found",
                     }
                 )
@@ -686,14 +700,11 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 {
                     "type": "batch_complete",
                     "success": failed == 0,
-                    "summary": {
-                        "total": len(files),
-                        "successful": successful,
-                        "failed": failed,
-                        "skipped": skipped,
-                    },
+                    "summary": _batch_summary(len(files), successful, failed, skipped),
                 }
             )
+            if failed > 0:
+                raise typer.Exit(1)
         else:
             # Process files with progress bar
             progress = create_progress()
@@ -719,6 +730,8 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
             if skipped > 0:
                 print_info(f"{skipped} files skipped (unknown type)")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         if json_output:
             _write_json_line(
@@ -1145,12 +1158,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 {
                     "type": "batch_complete",
                     "success": failed == 0,
-                    "summary": {
-                        "total": len(urls),
-                        "successful": successful,
-                        "failed": failed,
-                        "skipped": skipped,
-                    },
+                    "summary": _batch_summary(len(urls), successful, failed, skipped),
                 }
             )
             if failed > 0:

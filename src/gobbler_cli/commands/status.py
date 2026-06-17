@@ -8,7 +8,7 @@ from typing import Annotated, Any
 import typer
 
 from gobbler_cli.knowledge import HTTP_OK
-from gobbler_cli.output import console
+from gobbler_cli.output import add_json_contract, console
 from gobbler_core.providers.webpage.crawl4ai import check_crawl4ai_conversion_probe
 from gobbler_core.utils.redaction import redact_value
 
@@ -195,12 +195,14 @@ def get_service_status() -> dict[str, Any]:
     # Get config path
     config_path = str(config.config_path)
 
-    return {
-        "status": overall_status,
-        "services": services,
-        "config_path": config_path,
-        "proxy": proxy_config,
-    }
+    return add_json_contract(
+        {
+            "status": overall_status,
+            "services": services,
+            "config_path": config_path,
+            "proxy": proxy_config,
+        }
+    )
 
 
 @app.callback(invoke_without_command=True)
