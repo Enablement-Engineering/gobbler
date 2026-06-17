@@ -9,6 +9,7 @@ import typer
 
 from gobbler_cli.knowledge import HTTP_OK
 from gobbler_cli.output import console
+from gobbler_core.utils.redaction import redact_value
 
 app = typer.Typer(help="Check Gobbler status and service health")
 
@@ -170,7 +171,7 @@ def status(  # noqa: C901, PLR0912
     if ctx.invoked_subcommand is not None:
         return
 
-    status_data = get_service_status()
+    status_data = redact_value(get_service_status())
 
     if json_output:
         typer.echo(json.dumps(status_data, indent=2))
