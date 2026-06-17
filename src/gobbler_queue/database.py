@@ -31,6 +31,7 @@ class Database:
         job_type TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
         command TEXT NOT NULL,
+        argv_json TEXT,
         args_json TEXT,
         progress INTEGER DEFAULT 0,
         progress_message TEXT,
@@ -111,6 +112,12 @@ class Database:
         """
         with self.connect() as conn:
             conn.executescript(self.SCHEMA)
+            self._migrate_jobs_table(conn)
+
+    def _migrate_jobs_table(self, conn: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+        if "argv_json" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN argv_json TEXT")
 
     def execute(
         self,

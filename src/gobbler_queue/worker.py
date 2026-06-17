@@ -8,6 +8,7 @@ import argparse
 import logging
 import os
 import re
+import shlex
 import signal
 import subprocess
 import time
@@ -25,6 +26,13 @@ MAX_JOB_TIMEOUT = 3600
 
 # Progress line pattern: PROGRESS:<percent>:<message>
 PROGRESS_PATTERN = re.compile(r"^PROGRESS:(\d+):(.*)$")
+
+
+def _command_args(job: Job) -> list[str]:
+    """Return structured argv for a job, falling back to the legacy command string."""
+    if job.argv is not None:
+        return list(job.argv)
+    return shlex.split(job.command)
 
 
 class Worker:
@@ -176,24 +184,19 @@ class Worker:
     def _execute_job(self, job: Job) -> None:
         """Execute a job's command via subprocess.
 
-        Spawns the job's command, captures stdout/stderr, parses
+        Spawns the job's argv, captures stdout/stderr, parses
         progress updates, and updates job status on completion.
 
         Args:
             job: The Job to execute.
         """
-        import shlex
-
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
 
         try:
-            # Parse command string into list of arguments
-            # This is safer than shell=True as it prevents shell injection
-            cmd_args = shlex.split(job.command)
+            cmd_args = _command_args(job)
 
             # Start the subprocess
-            # cmd_args is parsed from job.command using shlex.split (no shell injection)
             self.current_process = subprocess.Popen(  # nosec B603
                 cmd_args,
                 stdout=subprocess.PIPE,
