@@ -257,6 +257,8 @@ class TestWebSocketMessageHandling:
         # Verify the message structure
         call_args = mock_websocket.send_json.call_args[0][0]
         assert call_args["type"] == "command"
+        assert isinstance(call_args["command_id"], str)
+        assert call_args["command_id"]
         assert call_args["command"] == "navigate"
         assert call_args["params"] == {"url": "https://example.com"}
 

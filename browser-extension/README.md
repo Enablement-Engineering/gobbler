@@ -1,10 +1,11 @@
 # Gobbler Browser Extension
 
-Extract authenticated web content directly from your browser and send it to Gobbler for markdown conversion.
+Extract authenticated web content from intentionally selected browser tabs and send it to Gobbler
+for markdown conversion.
 
 ## Features
 
-- ✅ Extract current page content (works with authenticated sessions)
+- ✅ Extract current page content from tabs in the Gobbler tab group
 - ✅ Extract with CSS selectors
 - ✅ Send to Gobbler for markdown conversion
 - ✅ Copy markdown to clipboard
@@ -47,26 +48,29 @@ The HTTP server will start on `http://localhost:4625` by default.
 ### Basic Page Extraction
 
 1. Navigate to any webpage (e.g., YouTube Watch Later)
-2. Click the Gobbler extension icon
-3. Click "Extract Current Page"
-4. Content will be converted to markdown
-5. Click "Copy" to copy to clipboard
+2. Add the tab to the Gobbler tab group from the extension popup or context menu
+3. Click the Gobbler extension icon
+4. Click "Extract Current Page"
+5. Content will be converted to markdown
+6. Click "Copy" to copy to clipboard
 
 ### Extract with Selector
 
 1. Navigate to the page
-2. Click the Gobbler extension icon
-3. Click "Extract with Selector"
-4. Enter a CSS selector (e.g., `ytd-playlist-video-renderer`, `article`, `.main-content`)
-5. Content will be extracted and converted
+2. Add the tab to the Gobbler tab group
+3. Click the Gobbler extension icon
+4. Click "Extract with Selector"
+5. Enter a CSS selector (e.g., `ytd-playlist-video-renderer`, `article`, `.main-content`)
+6. Content will be extracted and converted
 
 ### Extract YouTube Watch Later
 
 1. Open YouTube and make sure you're logged in
 2. Go to https://www.youtube.com/playlist?list=WL
-3. Click Gobbler extension
-4. Use selector: `ytd-playlist-video-renderer` to get video titles
-5. Or extract the full page
+3. Add the tab to the Gobbler tab group
+4. Click Gobbler extension
+5. Use selector: `ytd-playlist-video-renderer` to get video titles
+6. Or extract the full page
 
 ## Configuration
 
@@ -94,6 +98,9 @@ Display in extension popup
 - ✅ No cookie export or cookie copying
 - ✅ Can access pages you are already authenticated to when those tabs are intentionally placed in the Gobbler tab group
 - ✅ Simple and fast
+
+The extension does not bypass site access controls or bot detection. Only automate pages the user
+explicitly asks to use, and do not submit forms or messages unless requested.
 
 ## Development
 
