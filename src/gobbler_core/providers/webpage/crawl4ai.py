@@ -9,16 +9,420 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Any
-from urllib.parse import urlparse, urlunparse
+from dataclasses import dataclass
+from typing import Any, cast
+from urllib.parse import unquote, urlparse, urlunparse
 
 import httpx
 
 from gobbler_core.providers.registry import ProviderRegistry
 from gobbler_core.providers.webpage.base import WebPageProvider, WebPageResult
 from gobbler_core.utils.http_client import RetryableHTTPClient
+from gobbler_core.utils.redaction import REDACTED, redact_value
 
 logger = logging.getLogger(__name__)
+
+CRAWL4AI_PROBE_URL = "https://example.com"
+DIAGNOSTIC_SNIPPET_LIMIT = 500
+MIN_SECRET_FRAGMENT_LENGTH = 4
+
+
+@dataclass
+class Crawl4AIConversionError(RuntimeError):
+    """Sanitized Crawl4AI conversion error with machine-readable diagnostics."""
+
+    message: str
+    diagnostics: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        """Initialize RuntimeError with the sanitized message."""
+        sanitized_message = str(redact_value(self.message))
+        sanitized_diagnostics = redact_value(self.diagnostics)
+        self.message = sanitized_message
+        self.diagnostics = (
+            cast("dict[str, Any]", sanitized_diagnostics)
+            if isinstance(sanitized_diagnostics, dict)
+            else {}
+        )
+        super().__init__(sanitized_message)
+
+
+def _sensitive_fragments(
+    api_token: str | None = None,
+    proxy_url: str | None = None,
+) -> list[str]:
+    """Return secret-like fragments that should be removed from diagnostics."""
+    fragments: list[str] = []
+    if api_token:
+        fragments.append(api_token)
+
+    if proxy_url:
+        fragments.append(proxy_url)
+        try:
+            parsed = urlparse(proxy_url)
+        except ValueError:
+            parsed = None
+        if parsed is not None:
+            if parsed.username:
+                fragments.append(unquote(parsed.username))
+            if parsed.password:
+                fragments.append(unquote(parsed.password))
+            if "@" in parsed.netloc:
+                fragments.append(parsed.netloc.split("@", 1)[0])
+
+    return [fragment for fragment in fragments if len(fragment) >= MIN_SECRET_FRAGMENT_LENGTH]
+
+
+def _redact_text(text: str, sensitive_fragments: list[str] | None = None) -> str:
+    """Redact known credentials and URL userinfo from diagnostic text."""
+    redacted = str(redact_value(text))
+    for fragment in sensitive_fragments or []:
+        redacted = redacted.replace(fragment, REDACTED)
+    return redacted
+
+
+def _response_body_snippet(
+    response: httpx.Response,
+    sensitive_fragments: list[str],
+) -> str | None:
+    """Return a short sanitized response body snippet for diagnostics."""
+    try:
+        body = response.text.strip()
+    except Exception:
+        return None
+
+    if not body:
+        return None
+
+    redacted_body = _redact_text(body, sensitive_fragments)
+    snippet = redacted_body[:DIAGNOSTIC_SNIPPET_LIMIT]
+    redaction_index = redacted_body.find(REDACTED)
+    if 0 <= redaction_index < DIAGNOSTIC_SNIPPET_LIMIT and REDACTED not in snippet:
+        prefix_length = DIAGNOSTIC_SNIPPET_LIMIT - len(REDACTED)
+        snippet = f"{redacted_body[:prefix_length]}{REDACTED}"
+    return snippet
+
+
+def _endpoint_path(response: httpx.Response) -> str:
+    """Return a stable endpoint path from an HTTPX response."""
+    try:
+        return urlparse(str(response.request.url)).path or "unknown"
+    except RuntimeError:
+        return "unknown"
+
+
+def _extract_response_error(
+    data: Any,
+    sensitive_fragments: list[str],
+) -> str | None:
+    """Extract a sanitized error-like field from a Crawl4AI response payload."""
+    if not isinstance(data, dict):
+        return None
+
+    for key in ("error", "message", "detail"):
+        value = data.get(key)
+        if value:
+            return _redact_text(str(value), sensitive_fragments)[:DIAGNOSTIC_SNIPPET_LIMIT]
+    return None
+
+
+def _build_diagnostic_error(
+    *,
+    message: str,
+    stage: str,
+    proxy_configured: bool,
+    service_url: str,
+    endpoint: str = "unknown",
+    status_code: int | None = None,
+    response_body: str | None = None,
+    response_error: str | None = None,
+    response_keys: list[str] | None = None,
+) -> Crawl4AIConversionError:
+    """Create a sanitized Crawl4AIConversionError."""
+    advice = (
+        "Crawl4AI /health only confirms the service is reachable; inspect the "
+        "Crawl4AI container logs and proxy settings for /crawl failures."
+    )
+    if proxy_configured:
+        advice = (
+            "A proxy is configured for Crawl4AI; verify proxy credentials, network "
+            "reachability, and Crawl4AI container logs."
+        )
+
+    diagnostics: dict[str, Any] = {
+        "provider": "crawl4ai",
+        "stage": stage,
+        "endpoint": endpoint,
+        "service_url": service_url,
+        "proxy_configured": proxy_configured,
+        "advice": advice,
+    }
+    if status_code is not None:
+        diagnostics["status_code"] = status_code
+    if response_body:
+        diagnostics["response_body_snippet"] = response_body
+    if response_error:
+        diagnostics["response_error"] = response_error
+    if response_keys:
+        diagnostics["response_keys"] = response_keys
+
+    return Crawl4AIConversionError(message=message, diagnostics=diagnostics)
+
+
+def _raise_for_crawl4ai_status(
+    response: httpx.Response,
+    *,
+    stage: str,
+    service_url: str,
+    api_token: str | None,
+    proxy_url: str | None,
+) -> None:
+    """Raise a sanitized diagnostic error for non-success Crawl4AI responses."""
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        sensitive = _sensitive_fragments(api_token=api_token, proxy_url=proxy_url)
+        endpoint = _endpoint_path(exc.response)
+        body = _response_body_snippet(exc.response, sensitive)
+        message = (
+            f"Crawl4AI {endpoint} returned HTTP {exc.response.status_code} during "
+            f"{stage}. Service health may still pass while conversion is failing."
+        )
+        if body:
+            message = f"{message} Response: {body}"
+        raise _build_diagnostic_error(
+            message=message,
+            stage=stage,
+            endpoint=endpoint,
+            service_url=service_url,
+            proxy_configured=proxy_url is not None,
+            status_code=exc.response.status_code,
+            response_body=body,
+        ) from exc
+
+
+def _parse_proxy_url(proxy_url: str) -> dict[str, str]:
+    """Parse proxy URL into Crawl4AI proxy_config format."""
+    parsed = urlparse(proxy_url)
+    config: dict[str, str] = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 80}"}
+    if parsed.username:
+        config["username"] = parsed.username
+    if parsed.password:
+        config["password"] = parsed.password
+    return config
+
+
+def _build_crawl_request(
+    url: str,
+    *,
+    proxy_url: str | None = None,
+    wait_for: str | None = None,
+    headless: bool = True,
+) -> dict[str, Any]:
+    """Build a Crawl4AI /crawl request payload."""
+    crawler_params: dict[str, Any] = {
+        "stream": False,
+        "cache_mode": "bypass",
+    }
+    if wait_for:
+        crawler_params["wait_for"] = wait_for
+
+    if proxy_url:
+        crawler_params["proxy_config"] = {
+            "type": "ProxyConfig",
+            "params": _parse_proxy_url(proxy_url),
+        }
+
+    return {
+        "urls": [url],
+        "browser_config": {
+            "type": "BrowserConfig",
+            "params": {"headless": headless},
+        },
+        "crawler_config": {
+            "type": "CrawlerRunConfig",
+            "params": crawler_params,
+        },
+    }
+
+
+def _probe_success(
+    *,
+    service_url: str,
+    proxy_configured: bool,
+    probe_url: str,
+    stage: str,
+    result_mode: str,
+) -> dict[str, Any]:
+    """Return a successful Crawl4AI probe payload."""
+    return {
+        "status": "ready",
+        "ok": True,
+        "provider": "crawl4ai",
+        "stage": stage,
+        "result_mode": result_mode,
+        "probe_url": probe_url,
+        "service_url": service_url,
+        "proxy_configured": proxy_configured,
+    }
+
+
+def check_crawl4ai_conversion_probe(  # noqa: PLR0911
+    service_url: str,
+    *,
+    api_token: str = "gobbler-local-token",  # noqa: S107
+    proxy_url: str | None = None,
+    probe_url: str = CRAWL4AI_PROBE_URL,
+    timeout: float = 8.0,
+) -> dict[str, Any]:
+    """Submit a lightweight Crawl4AI /crawl probe and return sanitized readiness data.
+
+    The probe intentionally checks the conversion endpoint instead of `/health`.
+    For direct-result Crawl4AI APIs it validates that markdown is present. For
+    task-id APIs it treats task acceptance as ready because this lightweight
+    probe does not block on full task completion.
+    """
+    service_url = service_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {api_token}"}
+    sensitive = _sensitive_fragments(api_token=api_token, proxy_url=proxy_url)
+
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.post(
+                f"{service_url}/crawl",
+                json=_build_crawl_request(probe_url, proxy_url=proxy_url),
+                headers=headers,
+            )
+            _raise_for_crawl4ai_status(
+                response,
+                stage="crawl_probe",
+                service_url=service_url,
+                api_token=api_token,
+                proxy_url=proxy_url,
+            )
+            data = response.json()
+    except Crawl4AIConversionError as exc:
+        result = {
+            "status": "failed",
+            "ok": False,
+            "error": str(exc),
+            **exc.diagnostics,
+        }
+        result["probe_url"] = probe_url
+        return cast("dict[str, Any]", redact_value(result))
+    except httpx.ConnectError:
+        return {
+            "status": "unavailable",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "service_connection",
+            "service_url": service_url,
+            "proxy_configured": proxy_url is not None,
+            "probe_url": probe_url,
+            "error": "connection refused",
+            "advice": "Start the Crawl4AI service before probing /crawl.",
+        }
+    except httpx.TimeoutException:
+        return {
+            "status": "failed",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "crawl_probe",
+            "service_url": service_url,
+            "proxy_configured": proxy_url is not None,
+            "probe_url": probe_url,
+            "error": f"timeout after {timeout:g} seconds",
+            "advice": "Crawl4AI /crawl did not respond within the probe timeout.",
+        }
+    except ValueError as exc:
+        return {
+            "status": "failed",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "crawl_probe",
+            "service_url": service_url,
+            "proxy_configured": proxy_url is not None,
+            "probe_url": probe_url,
+            "error": _redact_text(f"invalid JSON response: {exc}", sensitive),
+            "advice": "Inspect the Crawl4AI service response for /crawl.",
+        }
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "crawl_probe",
+            "service_url": service_url,
+            "proxy_configured": proxy_url is not None,
+            "probe_url": probe_url,
+            "error": _redact_text(str(exc), sensitive),
+            "advice": "Inspect Crawl4AI container logs for /crawl failures.",
+        }
+
+    if isinstance(data, dict) and "results" in data and data.get("success"):
+        results = data.get("results") or []
+        if results:
+            try:
+                Crawl4AIProvider(
+                    service_url=service_url,
+                    api_token=api_token,
+                    proxy_url=proxy_url,
+                )._extract_markdown(results[0])
+            except RuntimeError as exc:
+                return {
+                    "status": "failed",
+                    "ok": False,
+                    "provider": "crawl4ai",
+                    "stage": "crawl_result",
+                    "service_url": service_url,
+                    "proxy_configured": proxy_url is not None,
+                    "probe_url": probe_url,
+                    "error": _redact_text(str(exc), sensitive),
+                    "advice": "Crawl4AI /crawl responded, but no markdown was produced.",
+                }
+            return _probe_success(
+                service_url=service_url,
+                proxy_configured=proxy_url is not None,
+                probe_url=probe_url,
+                stage="crawl_result",
+                result_mode="direct_results",
+            )
+
+    if isinstance(data, dict) and data.get("task_id"):
+        return _probe_success(
+            service_url=service_url,
+            proxy_configured=proxy_url is not None,
+            probe_url=probe_url,
+            stage="crawl_start",
+            result_mode="task_id",
+        )
+
+    response_keys = sorted(str(key) for key in data) if isinstance(data, dict) else None
+    response_error = _extract_response_error(data, sensitive)
+    error = _build_diagnostic_error(
+        message=(
+            "Crawl4AI /crawl probe returned an unexpected response format. "
+            "Service health may still pass while conversion is not ready."
+        ),
+        stage="crawl_probe",
+        endpoint="/crawl",
+        service_url=service_url,
+        proxy_configured=proxy_url is not None,
+        response_error=response_error,
+        response_keys=response_keys,
+    )
+    return cast(
+        "dict[str, Any]",
+        redact_value(
+            {
+                "status": "failed",
+                "ok": False,
+                "error": str(error),
+                "probe_url": probe_url,
+                **error.diagnostics,
+            }
+        ),
+    )
 
 
 class Crawl4AIProvider(WebPageProvider):
@@ -107,15 +511,7 @@ class Crawl4AIProvider(WebPageProvider):
             >>> self._parse_proxy_url("http://user:pass@proxy.example.com:8080")
             {'server': 'http://proxy.example.com:8080', 'username': 'user', 'password': 'pass'}
         """
-        parsed = urlparse(proxy_url)
-        config: dict[str, str] = {
-            "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 80}"
-        }
-        if parsed.username:
-            config["username"] = parsed.username
-        if parsed.password:
-            config["password"] = parsed.password
-        return config
+        return _parse_proxy_url(proxy_url)
 
     async def fetch(
         self,
@@ -144,38 +540,17 @@ class Crawl4AIProvider(WebPageProvider):
         wait_for = options.get("wait_for")
         headless = options.get("headless", True)
 
-        # Build crawl request
-        crawler_params: dict[str, Any] = {
-            "stream": False,
-            "cache_mode": "bypass",
-        }
-        if wait_for:
-            crawler_params["wait_for"] = wait_for
-
-        # Build browser config
-        browser_params: dict[str, Any] = {"headless": headless}
-
-        # Add proxy to crawler config (not browser config) per Crawl4AI REST API
         if self.proxy_url:
-            proxy_config = self._parse_proxy_url(self.proxy_url)
-            crawler_params["proxy_config"] = {
-                "type": "ProxyConfig",
-                "params": proxy_config,
-            }
             logger.debug("Using proxy for Crawl4AI: %s", self._safe_proxy_url(self.proxy_url))
 
-        crawl_request = {
-            "urls": [url],
-            "browser_config": {
-                "type": "BrowserConfig",
-                "params": browser_params,
-            },
-            "crawler_config": {
-                "type": "CrawlerRunConfig",
-                "params": crawler_params,
-            },
-        }
+        crawl_request = _build_crawl_request(
+            url,
+            proxy_url=self.proxy_url,
+            wait_for=wait_for,
+            headless=headless,
+        )
         headers = {"Authorization": f"Bearer {self.api_token}"}
+        sensitive = _sensitive_fragments(api_token=self.api_token, proxy_url=self.proxy_url)
 
         try:
             async with RetryableHTTPClient(timeout=float(timeout)) as client:
@@ -185,7 +560,13 @@ class Crawl4AIProvider(WebPageProvider):
                     json=crawl_request,
                     headers=headers,
                 )
-                response.raise_for_status()
+                _raise_for_crawl4ai_status(
+                    response,
+                    stage="crawl_start",
+                    service_url=self.service_url,
+                    api_token=self.api_token,
+                    proxy_url=self.proxy_url,
+                )
                 task_data = response.json()
 
                 # Handle both API formats:
@@ -195,16 +576,36 @@ class Crawl4AIProvider(WebPageProvider):
                     # New API (v0.7.x) - results returned directly
                     results = task_data.get("results", [])
                     if not results:
-                        msg = "Crawl4AI returned no results"
-                        raise RuntimeError(msg)
+                        raise _build_diagnostic_error(
+                            message=(
+                                "Crawl4AI /crawl returned success but no results. "
+                                "Service health may still pass while conversion is failing."
+                            ),
+                            stage="crawl_result",
+                            endpoint="/crawl",
+                            service_url=self.service_url,
+                            proxy_configured=self.proxy_url is not None,
+                            response_error=_extract_response_error(task_data, sensitive),
+                            response_keys=sorted(str(key) for key in task_data),
+                        )
                     result = results[0]
                 elif task_data.get("task_id"):
                     # Old API (v0.3.x) - poll for completion
                     task_id = task_data["task_id"]
                     result = await self._poll_for_completion(client, task_id, headers, timeout)
                 else:
-                    msg = "Unexpected Crawl4AI response format"
-                    raise RuntimeError(msg)
+                    raise _build_diagnostic_error(
+                        message=(
+                            "Crawl4AI /crawl returned an unexpected response format. "
+                            "Service health may still pass while conversion is failing."
+                        ),
+                        stage="crawl_start",
+                        endpoint="/crawl",
+                        service_url=self.service_url,
+                        proxy_configured=self.proxy_url is not None,
+                        response_error=_extract_response_error(task_data, sensitive),
+                        response_keys=sorted(str(key) for key in task_data),
+                    )
 
                 # Extract markdown
                 markdown_content = self._extract_markdown(result)
@@ -238,10 +639,22 @@ class Crawl4AIProvider(WebPageProvider):
                 "Start with: docker-compose up -d crawl4ai"
             )
             raise RuntimeError(msg) from e
+        except httpx.HTTPStatusError as e:
+            _raise_for_crawl4ai_status(
+                e.response,
+                stage="crawl_start",
+                service_url=self.service_url,
+                api_token=self.api_token,
+                proxy_url=self.proxy_url,
+            )
+            raise
         except RuntimeError:
             raise
         except Exception as e:
-            msg = f"Web page conversion failed: {e}"
+            msg = _redact_text(
+                f"Web page conversion failed: {e}",
+                _sensitive_fragments(api_token=self.api_token, proxy_url=self.proxy_url),
+            )
             raise RuntimeError(msg) from e
 
     async def _poll_for_completion(
@@ -277,7 +690,13 @@ class Crawl4AIProvider(WebPageProvider):
                 f"{self.service_url}/task/{task_id}",
                 headers=headers,
             )
-            response.raise_for_status()
+            _raise_for_crawl4ai_status(
+                response,
+                stage="task_poll",
+                service_url=self.service_url,
+                api_token=self.api_token,
+                proxy_url=self.proxy_url,
+            )
             task_status = response.json()
 
             status = task_status.get("status")
@@ -285,14 +704,42 @@ class Crawl4AIProvider(WebPageProvider):
             if status == "completed":
                 results = task_status.get("results")
                 if not results:
-                    msg = "Crawl4AI returned no results"
-                    raise RuntimeError(msg)
+                    sensitive = _sensitive_fragments(
+                        api_token=self.api_token,
+                        proxy_url=self.proxy_url,
+                    )
+                    raise _build_diagnostic_error(
+                        message=(
+                            "Crawl4AI task completed but returned no results. "
+                            "Service health may still pass while conversion is failing."
+                        ),
+                        stage="task_result",
+                        endpoint=f"/task/{task_id}",
+                        service_url=self.service_url,
+                        proxy_configured=self.proxy_url is not None,
+                        response_error=_extract_response_error(task_status, sensitive),
+                        response_keys=sorted(str(key) for key in task_status),
+                    )
                 return results[0]
 
             if status == "failed":
                 error = task_status.get("error", "Unknown error")
-                msg = f"Crawl4AI task failed: {error}"
-                raise RuntimeError(msg)
+                sensitive = _sensitive_fragments(
+                    api_token=self.api_token,
+                    proxy_url=self.proxy_url,
+                )
+                raise _build_diagnostic_error(
+                    message=(
+                        "Crawl4AI task failed during webpage conversion. "
+                        f"Error: {_redact_text(str(error), sensitive)}"
+                    ),
+                    stage="task_result",
+                    endpoint=f"/task/{task_id}",
+                    service_url=self.service_url,
+                    proxy_configured=self.proxy_url is not None,
+                    response_error=_redact_text(str(error), sensitive),
+                    response_keys=sorted(str(key) for key in task_status),
+                )
 
         msg = f"Crawl task did not complete within {timeout} seconds"
         raise TimeoutError(msg)

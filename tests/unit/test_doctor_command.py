@@ -101,6 +101,16 @@ def test_ready_services_do_not_recommend_docker_install(monkeypatch, tmp_path: P
         return True, None
 
     monkeypatch.setattr(doctor, "_check_service_health", service_ready)
+    monkeypatch.setattr(
+        doctor,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "ready",
+            "ok": True,
+            "provider": "crawl4ai",
+            "stage": "crawl_result",
+        },
+    )
 
     report = doctor.collect_doctor_report()
 
@@ -152,6 +162,16 @@ def test_collect_doctor_report_redacts_config_secrets(monkeypatch, tmp_path: Pat
         return True, None
 
     monkeypatch.setattr(doctor, "_check_service_health", service_ready)
+    monkeypatch.setattr(
+        doctor,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "ready",
+            "ok": True,
+            "provider": "crawl4ai",
+            "stage": "crawl_result",
+        },
+    )
 
     values = doctor.collect_doctor_report()["config"]["values"]
 
@@ -161,6 +181,62 @@ def test_collect_doctor_report_redacts_config_secrets(monkeypatch, tmp_path: Pat
     assert REDACTED in values["proxy_services"]["webshare"]["url"]
     assert "pass" not in values["proxy_services"]["webshare"]["url"]
     assert values["services"]["crawl4ai"]["api_token"] == REDACTED
+
+
+def test_collect_doctor_report_separates_webpage_health_from_probe_failure(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Doctor JSON distinguishes Crawl4AI health from /crawl readiness."""
+    config = make_config(
+        tmp_path,
+        {
+            "providers": {
+                "youtube": {"default": "youtube-transcript-api"},
+                "transcription": {"default": "whisper-local", "whisper-local": {"model": "tiny"}},
+            },
+            "services": {
+                "docling": {"host": "localhost", "port": 5001},
+                "crawl4ai": {"host": "localhost", "port": 11235},
+            },
+        },
+    )
+    monkeypatch.setattr(doctor, "get_config", lambda: config)
+    monkeypatch.setattr(
+        doctor,
+        "get_ffmpeg_status",
+        lambda: {"available": True, "path": "/usr/bin/ffmpeg"},
+    )
+    monkeypatch.setattr(
+        doctor,
+        "get_docker_status",
+        lambda: {"available": True, "path": "/usr/bin/docker", "daemon_available": True},
+    )
+    monkeypatch.setattr(doctor, "_check_service_health", lambda _url: (True, None))
+    monkeypatch.setattr(
+        doctor,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "failed",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "crawl_probe",
+            "status_code": 500,
+            "error": "Crawl4AI /crawl returned HTTP 500",
+            "proxy_configured": True,
+        },
+    )
+
+    report = doctor.collect_doctor_report()
+    webpage = report["services"]["webpage"]
+
+    assert report["status"] == "degraded"
+    assert webpage["status"] == "degraded"
+    assert webpage["service_health"]["status"] == "ready"
+    assert webpage["conversion_probe"]["status"] == "failed"
+    assert webpage["provider_readiness"] == "degraded"
+    assert "HTTP 500" in webpage["error"]
+    assert any("/crawl" in action for action in report["next_actions"])
 
 
 def test_doctor_json_command_outputs_valid_json(monkeypatch, tmp_path: Path) -> None:

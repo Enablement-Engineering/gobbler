@@ -7,6 +7,7 @@ JSON/YAML diagnostic output, not for transport-layer configuration.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -30,6 +31,7 @@ _SECRET_KEY_PARTS = (
 # Usernames are not always secret, but proxy service usernames are frequently
 # paired credentials. Mask them in known credential-bearing contexts.
 _USERNAME_PARENT_KEYS = {"proxy", "proxies", "proxy_services", "webshare", "static"}
+_EMBEDDED_URL_WITH_USERINFO = re.compile(r"(?P<url>https?://[^\s<>'\")]+@[^\s<>'\")]+)")
 
 
 def is_sensitive_key(key: str, parent_keys: tuple[str, ...] = ()) -> bool:
@@ -83,6 +85,13 @@ def redact_url_userinfo(value: str) -> str:
 def _redact_string(value: str) -> str:
     """Redact credentials embedded in string diagnostics."""
     redacted = redact_url_userinfo(value)
+
+    # `redact_url_userinfo` handles strings that are exactly URLs. Error
+    # messages often embed credential-bearing proxy URLs inside surrounding
+    # prose, so scrub those URL substrings too.
+    redacted = _EMBEDDED_URL_WITH_USERINFO.sub(
+        lambda match: redact_url_userinfo(match.group("url")), redacted
+    )
 
     # Common header/value style fragments that may appear in errors or stdout.
     lowered = redacted.lower()

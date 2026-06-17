@@ -162,7 +162,12 @@ async def convert_webpage_to_markdown(
         )
     """
     log = logger_instance or logger
-    provider_name = provider.name if provider else "crawl4ai"
+    if provider is None:
+        from gobbler_core.providers.webpage import get_default_provider
+
+        provider = get_default_provider(service_url=service_url, api_token=api_token)
+
+    provider_name = provider.name
 
     log.info(
         "Starting webpage conversion",
@@ -177,21 +182,9 @@ async def convert_webpage_to_markdown(
     )
     start_time = time.time()
 
-    # Use provider-based conversion if a provider is specified
-    if provider is not None:
-        result = await provider.fetch(url, timeout=timeout, include_images=include_images)
-        markdown_content = result.markdown
-        page_title = result.title
-    else:
-        # Legacy path: use direct Crawl4AI HTTP calls
-        markdown_content, page_title = await _convert_with_crawl4ai(
-            url=url,
-            include_images=include_images,
-            timeout=timeout,
-            service_url=service_url,
-            api_token=api_token,
-            log=log,
-        )
+    result = await provider.fetch(url, timeout=timeout, include_images=include_images)
+    markdown_content = result.markdown
+    page_title = result.title
 
     conversion_time_ms = int((time.time() - start_time) * 1000)
     word_count = count_words(markdown_content)
