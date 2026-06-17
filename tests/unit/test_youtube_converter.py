@@ -1,8 +1,10 @@
 """Unit tests for YouTube converter module."""
 
 import asyncio
+import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from youtube_transcript_api import (
     TranscriptsDisabled,
@@ -15,9 +17,13 @@ from gobbler_core.converters.youtube import (
     get_video_metadata,
 )
 from gobbler_core.providers.youtube import (
+    TranscriptAPIProvider,
     TranscriptProvider,
     TranscriptResult,
     TranscriptSegment,
+    YouTubeTranscriptAPIProvider,
+    YouTubeTranscriptError,
+    is_youtube_rate_limit_error,
 )
 
 
@@ -145,6 +151,92 @@ def create_mock_provider(segments, language="en", metadata=None):
     return mock_provider
 
 
+class TestYouTubeProviderRateLimits:
+    """Test YouTube provider rate-limit classification."""
+
+    def test_video_id_containing_429_is_not_rate_limit(self):
+        """Test a transcript error with 429 only in the video ID is not rate limited."""
+        error_text = (
+            "Could not retrieve a transcript for the video abc429defgh! "
+            "This is most likely caused by: Subtitles are disabled for this video"
+        )
+
+        assert is_youtube_rate_limit_error(error_text) is False
+
+    def test_retry_library_429_response_text_is_rate_limit(self):
+        """Test retry-library 429 response text is classified as rate limited."""
+        error_text = "ResponseError('too many 429 error responses')"
+
+        assert is_youtube_rate_limit_error(error_text) is True
+
+    @patch("gobbler_core.providers.youtube.YouTubeTranscriptApi")
+    def test_youtube_transcript_api_429_raises_actionable_error(self, mock_api):
+        """Test timedtext HTTP 429 responses become actionable diagnostics."""
+        mock_instance = MagicMock()
+        mock_instance.list.side_effect = RuntimeError(
+            "HTTP 429 Too Many Requests for url: "
+            "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ"
+        )
+        mock_api.return_value = mock_instance
+
+        provider = YouTubeTranscriptAPIProvider()
+
+        with pytest.raises(YouTubeTranscriptError) as exc_info:
+            provider.fetch("dQw4w9WgXcQ", language="en")
+
+        error = exc_info.value
+        dumped = json.dumps(error.diagnostics)
+        assert "rate limited" in str(error)
+        assert "Wait 10-15 minutes" in str(error)
+        assert "TRANSCRIPTAPI_KEY" in str(error)
+        assert error.diagnostics["error_type"] == "rate_limited"
+        assert error.diagnostics["status_code"] == 429
+        assert error.diagnostics["provider"] == "youtube-transcript-api"
+        assert error.diagnostics["video_id"] == "dQw4w9WgXcQ"
+        assert error.diagnostics["proxy_configured"] is False
+        assert "api/timedtext" not in dumped
+
+    @patch("gobbler_core.providers.youtube.httpx.Client")
+    def test_transcriptapi_429_raises_actionable_error(self, mock_client):
+        """Test TranscriptAPI HTTP 429 responses include retry diagnostics."""
+
+        class FakeClient:
+            """Context manager returning a mocked TranscriptAPI 429 response."""
+
+            def __init__(self, *_args, **_kwargs):
+                """Accept httpx.Client constructor arguments."""
+
+            def __enter__(self):
+                """Return the fake client."""
+                return self
+
+            def __exit__(self, *_args):
+                """Exit the fake client context."""
+
+            def get(self, *_args, **_kwargs):
+                """Return a rate-limited response."""
+                request = httpx.Request("GET", "https://transcriptapi.com/test")
+                return httpx.Response(
+                    429,
+                    headers={"Retry-After": "120"},
+                    request=request,
+                )
+
+        mock_client.side_effect = FakeClient
+        provider = TranscriptAPIProvider(api_key="secret-token")
+
+        with pytest.raises(YouTubeTranscriptError) as exc_info:
+            provider.fetch("dQw4w9WgXcQ", language="en")
+
+        error = exc_info.value
+        dumped = json.dumps({"message": str(error), "diagnostics": error.diagnostics})
+        assert "TranscriptAPI rate limited" in str(error)
+        assert "Retry after 120s" in str(error)
+        assert error.diagnostics["provider"] == "transcriptapi"
+        assert error.diagnostics["retry_after_seconds"] == 120
+        assert "secret-token" not in dumped
+
+
 class TestYouTubeConversion:
     """Test full YouTube to markdown conversion."""
 
@@ -267,6 +359,39 @@ class TestYouTubeConversion:
                 "https://youtube.com/watch?v=dQw4w9WgXcQ",
                 provider=mock_provider,
             )
+
+    @pytest.mark.asyncio
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_429_raises_actionable_error(self, mock_metadata):
+        """Test plain provider 429 errors become actionable YouTube diagnostics."""
+        mock_metadata.return_value = {
+            "title": "Test Video",
+            "channel": "Test Channel",
+            "thumbnail": None,
+            "description": None,
+        }
+
+        mock_provider = MagicMock(spec=TranscriptProvider)
+        mock_provider.fetch.side_effect = RuntimeError(
+            "HTTP 429 Too Many Requests for url: "
+            "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ"
+        )
+
+        with pytest.raises(YouTubeTranscriptError) as exc_info:
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                language="auto",
+                provider=mock_provider,
+            )
+
+        error = exc_info.value
+        assert "YouTube transcript fetch was rate limited" in str(error)
+        assert "different video or caption language" in str(error)
+        assert "another transcript source" in str(error)
+        assert error.diagnostics["error_type"] == "rate_limited"
+        assert error.diagnostics["status_code"] == 429
+        assert error.diagnostics["video_id"] == "dQw4w9WgXcQ"
+        assert error.diagnostics["language"] == "auto"
 
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.youtube.get_video_metadata")

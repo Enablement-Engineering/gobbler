@@ -274,13 +274,21 @@ curl http://localhost:5001/health   # Docling
 curl http://localhost:11235/health  # Crawl4AI
 ```
 
-### YouTube "IP blocked"
+### YouTube rate limited or IP blocked
 
 ```bash
-# Set up TranscriptAPI.com for reliable access
+# Wait and retry, or try another caption language
+gobbler youtube "URL" --language auto
+
+# Optional: enable the documented TranscriptAPI fallback
 export TRANSCRIPTAPI_KEY=your_key
 gobbler youtube "URL"
 ```
+
+YouTube may temporarily return HTTP 429 for transcript `timedtext` requests. If this
+happens, wait 10-15 minutes and retry, try a different video or caption language,
+configure a documented YouTube proxy, set `TRANSCRIPTAPI_KEY` to enable the
+TranscriptAPI fallback, or use another transcript source if one is available.
 
 See [gobbler-setup skill](skills/gobbler-setup/SKILL.md) for complete troubleshooting.
 
