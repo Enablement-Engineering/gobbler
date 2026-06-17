@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Agent usage guide for Hermes/OpenClaw-style CLI automation.
+- Agent usage guide for Hermes, OpenClaw, and similar CLI automation.
 - `SECURITY.md` and `ROADMAP.md` for public project hygiene.
 - README project status, badges, and release-prep trust signals.
 
@@ -21,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved README and docs around current supported interfaces.
 
 ### Removed
-- Removed the MCP server package, FastMCP dependency, and `gobbler-mcp` console script.
-- Removed MCP-specific docs, examples, tests, and hidden command files.
+- Retired the legacy server package and duplicate console script.
+- Removed docs, examples, tests, and hidden command files for the retired duplicate surface.
 
 ## [0.1.0] - 2025-12-05
 

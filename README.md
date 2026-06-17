@@ -78,13 +78,12 @@ Gobbler is an **active beta** project focused on reliable, agent-friendly conten
 - **Primary interface:** `gobbler` CLI for humans, scripts, and AI agents.
 - **Agent experience:** markdown Skills and setup docs teach agents the same commands a human can run and verify.
 - **Browser support:** optional local extension for authenticated browser sessions and supported AI chat surfaces.
-- **Not supported:** MCP server integration was removed in v0.2.0 to reduce duplicate maintenance and keep the public interface reliable.
 
-See the [roadmap](ROADMAP.md), [security policy](SECURITY.md), and [Hermes/OpenClaw usage guide](https://enablement-engineering.github.io/gobbler/agents/) for current direction.
+See the [roadmap](ROADMAP.md), [security policy](SECURITY.md), and [Hermes/OpenClaw/agent usage guide](https://enablement-engineering.github.io/gobbler/agents/) for current direction.
 
 ## CLI-First, Skills-Ready
 
-Gobbler's primary interface is the `gobbler` CLI. Hermes and OpenClaw use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI. For Hermes/OpenClaw-specific workflows, start with the [Hermes/OpenClaw usage guide](https://enablement-engineering.github.io/gobbler/agents/).
+Gobbler's primary interface is the `gobbler` CLI. Hermes, OpenClaw, and other agents use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI. For agent-specific workflows, start with the [Hermes/OpenClaw/agent usage guide](https://enablement-engineering.github.io/gobbler/agents/).
 
 ### 1. CLI
 
@@ -332,7 +331,7 @@ Key pages:
 - [Quick Start](https://Enablement-Engineering.github.io/gobbler/QUICK_START/) - Get running in 5 minutes
 - [CLI Reference](https://Enablement-Engineering.github.io/gobbler/cli/) - All commands and options
 - [Skills Guide](https://Enablement-Engineering.github.io/gobbler/SKILLS/) - Using skills with AI agents
-- [Hermes/OpenClaw Usage](https://Enablement-Engineering.github.io/gobbler/agents/) - CLI-first patterns for Hermes and OpenClaw
+- [Hermes/OpenClaw/Agent Usage](https://Enablement-Engineering.github.io/gobbler/agents/) - CLI-first patterns for Hermes, OpenClaw, and agents
 - [Browser Extension](https://Enablement-Engineering.github.io/gobbler/browser-extension/) - Setup and usage
 - [Configuration](https://Enablement-Engineering.github.io/gobbler/configuration/) - Customize Gobbler
 

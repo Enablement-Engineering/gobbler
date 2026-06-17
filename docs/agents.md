@@ -2,13 +2,13 @@
 icon: material/robot
 ---
 
-# Hermes and OpenClaw Agent Usage
+# Hermes / OpenClaw / Agent Usage
 
-This page is specifically for **Hermes Agent** and **OpenClaw** workflows. Gobbler is meant to be used by those agents through the same stable interface humans use: the `gobbler` CLI plus focused markdown Skills.
+This page is for **Hermes Agent**, **OpenClaw**, and other coding/task agents that need reliable content-to-markdown conversion. Gobbler is meant to be used by agents through the same stable interface humans use: the `gobbler` CLI plus focused markdown Skills.
 
-Gobbler does **not** require a custom agent server or MCP integration. Hermes and OpenClaw should call CLI commands, save explicit markdown outputs, and verify those files before using them in downstream reasoning.
+Hermes, OpenClaw, and similar agents should call CLI commands, save explicit markdown outputs, and verify those files before using them in downstream reasoning.
 
-## Recommended Hermes/OpenClaw Pattern
+## Recommended Hermes / OpenClaw / Agent Pattern
 
 1. Load the narrowest Gobbler Skill or workspace instruction for the content type.
 2. Run `gobbler` from a checked-out repo or installed tool environment.
@@ -80,7 +80,7 @@ Then OpenClaw can trigger focused skills such as:
 - `gobbler-browser` for browser-extension workflows.
 - `gobbler-setup` for installation and troubleshooting.
 
-Skills are intentionally thin wrappers around the CLI. That keeps Hermes/OpenClaw behavior auditable and makes failures easy to reproduce outside the agent.
+Skills are intentionally thin wrappers around the CLI. That keeps Hermes, OpenClaw, and other agent behavior auditable and makes failures easy to reproduce outside the agent.
 
 ## Service Readiness
 
@@ -94,7 +94,7 @@ Some commands work without Docker; others require local services.
 | `gobbler webpage` | Crawl4AI service | `make start-docker && gobbler status --json` |
 | `gobbler browser` | browser extension and relay | `gobbler browser status` |
 
-## Verification Checklist for Hermes/OpenClaw
+## Verification Checklist for Hermes / OpenClaw / Agents
 
 After every conversion, check:
 
@@ -118,6 +118,6 @@ print('ok')
 PY
 ```
 
-## Why CLI-First for Hermes/OpenClaw?
+## Why not MCP?
 
-Gobbler previously carried an MCP server surface. That integration duplicated the CLI, increased dependency churn, and made tests more fragile. As of v0.2.0, the supported Hermes/OpenClaw contract is CLI-first plus Skills. This is simpler for users, easier for agents to verify, and more maintainable for the project.
+Gobbler previously carried an MCP server surface. For Hermes, OpenClaw, and similar agents, that duplicated the CLI, increased dependency churn, and made failures harder to reproduce. The supported agent contract is now CLI-first plus Skills: simpler for users, easier for agents to verify, and more maintainable for the project.

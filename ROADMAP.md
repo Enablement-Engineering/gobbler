@@ -11,9 +11,8 @@ Gobbler is an active beta project: the core CLI works today, and the next work f
 
 ## Recently Completed
 
-- Removed MCP support and FastMCP dependency to simplify the supported surface.
 - Reframed docs around CLI-first usage and Skills.
-- Kept unit tests, Ruff, Bandit, Dependency Review, and CodeQL green after the removal.
+- Kept unit tests, Ruff, Bandit, Dependency Review, and CodeQL green for the active CLI-first surface.
 
 ## Next Milestones
 
@@ -33,13 +32,12 @@ Gobbler is an active beta project: the core CLI works today, and the next work f
 
 ### v0.4: Agent experience
 
-- Add more focused Skill examples for Hermes/OpenClaw-style workflows.
+- Add more focused Skill examples for Hermes, OpenClaw, and other agent workflows.
 - Improve JSON/status output for scripts and agents.
 - Add recipe docs for research ingestion, meeting/audio workflows, and document batches.
 
 ## Non-Goals
 
-- Reintroducing an MCP server before the CLI and Skills path has a clear unmet need.
 - Adding hosted SaaS behavior to the core project.
 - Supporting browser automation outside explicitly selected Gobbler tabs.
 

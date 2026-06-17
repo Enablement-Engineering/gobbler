@@ -17,8 +17,8 @@ All notable changes to this project are tracked in the root [CHANGELOG.md](https
 
 ### Removed
 
-- Removed the MCP server package, FastMCP dependency, and `gobbler-mcp` console script.
-- Removed MCP-specific docs, examples, tests, and hidden command files.
+- Retired the legacy server package and duplicate console script.
+- Removed docs, examples, tests, and hidden command files for the retired duplicate surface.
 
 ## [0.1.0] - 2025-12-05
 
