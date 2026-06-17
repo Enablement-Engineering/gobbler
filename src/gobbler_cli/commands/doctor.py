@@ -14,11 +14,13 @@ import typer
 from gobbler_cli import __version__
 from gobbler_cli.output import console
 from gobbler_core.config import Config, get_config
+from gobbler_core.providers.webpage.crawl4ai import check_crawl4ai_conversion_probe
 from gobbler_core.utils.redaction import redact_value
 
 app = typer.Typer(help="Run agent-friendly diagnostics")
 
 SERVICE_TIMEOUT_SECONDS = 1.0
+WEBPAGE_PROBE_TIMEOUT_SECONDS = 8.0
 
 
 def _run_command(args: list[str], timeout: float = 2.0) -> tuple[bool, str | None]:
@@ -114,6 +116,37 @@ def _service_url(config: Config, service: str, default_port: int) -> str:
     return f"http://{host}:{port}"
 
 
+def _crawl4ai_api_token(config: Config) -> str:
+    """Return the configured Crawl4AI API token or the local default."""
+    token = (
+        config.data.get("services", {}).get("crawl4ai", {}).get("api_token", "gobbler-local-token")
+    )
+    return str(token)
+
+
+def _skipped_webpage_probe(reason: str) -> dict[str, Any]:
+    """Return a skipped webpage conversion probe payload."""
+    return {
+        "status": "skipped",
+        "ok": False,
+        "provider": "crawl4ai",
+        "stage": "crawl_probe",
+        "reason": reason,
+    }
+
+
+def _webpage_conversion_probe(crawl4ai_url: str, config: Config) -> dict[str, Any]:
+    """Run the Crawl4AI conversion readiness probe with configured proxy support."""
+    from gobbler_core.providers.proxy import get_crawl4ai_proxy_url
+
+    return check_crawl4ai_conversion_probe(
+        crawl4ai_url,
+        api_token=_crawl4ai_api_token(config),
+        proxy_url=get_crawl4ai_proxy_url(),
+        timeout=WEBPAGE_PROBE_TIMEOUT_SECONDS,
+    )
+
+
 def _collect_services(config: Config, ffmpeg: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Collect conversion service readiness and suggested next actions."""
     next_actions: list[str] = []
@@ -164,11 +197,30 @@ def _collect_services(config: Config, ffmpeg: dict[str, Any]) -> tuple[dict[str,
 
     crawl4ai_url = _service_url(config, "crawl4ai", 11235)
     web_healthy, web_error = _check_service_health(crawl4ai_url)
-    services["webpage"] = {
+    web_service_health = {
         "status": "ready" if web_healthy else "unavailable",
+        "ok": web_healthy,
+        "endpoint": "/health",
+        "error": web_error,
+    }
+    web_probe = (
+        _webpage_conversion_probe(crawl4ai_url, config)
+        if web_healthy
+        else _skipped_webpage_probe("service_health_unavailable")
+    )
+    web_probe_ready = bool(web_probe.get("ok"))
+    web_status = "ready" if web_healthy and web_probe_ready else "unavailable"
+    if web_healthy and not web_probe_ready:
+        web_status = "degraded"
+
+    services["webpage"] = {
+        "status": web_status,
         "provider": "crawl4ai",
         "url": crawl4ai_url,
         "requires": ["docker", "crawl4ai service"],
+        "service_health": web_service_health,
+        "conversion_probe": web_probe,
+        "provider_readiness": web_status,
     }
     if not web_healthy:
         services["webpage"].update(
@@ -178,6 +230,19 @@ def _collect_services(config: Config, ffmpeg: dict[str, Any]) -> tuple[dict[str,
             }
         )
         next_actions.append("Start Crawl4AI before using `gobbler webpage`.")
+    elif not web_probe_ready:
+        services["webpage"].update(
+            {
+                "error": web_probe.get("error", "Crawl4AI /crawl probe failed"),
+                "fix": (
+                    "Check Crawl4AI container logs and proxy configuration; "
+                    "/health is passing but /crawl is not ready."
+                ),
+            }
+        )
+        next_actions.append(
+            "Fix Crawl4AI /crawl or proxy readiness before using `gobbler webpage`."
+        )
 
     return services, next_actions
 
@@ -190,7 +255,7 @@ def collect_doctor_report() -> dict[str, Any]:
     services, next_actions = _collect_services(config, ffmpeg)
 
     service_backed_unavailable = any(
-        services[name]["status"] != "ready" for name in ("document", "webpage")
+        services[name]["status"] == "unavailable" for name in ("document", "webpage")
     )
     if service_backed_unavailable:
         if docker["available"] and not docker.get("daemon_available"):

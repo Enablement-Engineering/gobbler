@@ -74,6 +74,16 @@ def test_redact_value_masks_nested_secret_keys_and_url_userinfo() -> None:
     assert "https://[REDACTED]@example.com/path" in dumped
 
 
+def test_redact_value_masks_embedded_url_userinfo_in_error_text() -> None:
+    redacted = redact_value(
+        "Crawl4AI failed for http://proxy-user:super-secret-password@proxy.example:8080"
+    )
+
+    assert redacted == f"Crawl4AI failed for http://{REDACTED}@proxy.example:8080"
+    assert RAW_USERNAME not in redacted
+    assert RAW_PASSWORD not in redacted
+
+
 def test_redact_url_userinfo_preserves_url_without_credentials() -> None:
     assert redact_url_userinfo("https://example.com/path?x=1") == "https://example.com/path?x=1"
     assert redact_url_userinfo(RAW_PROXY_URL) == f"http://{REDACTED}@proxy.example:8080"

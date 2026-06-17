@@ -9,9 +9,12 @@ import typer
 
 from gobbler_cli.knowledge import HTTP_OK
 from gobbler_cli.output import console
+from gobbler_core.providers.webpage.crawl4ai import check_crawl4ai_conversion_probe
 from gobbler_core.utils.redaction import redact_value
 
 app = typer.Typer(help="Check Gobbler status and service health")
+
+WEBPAGE_PROBE_TIMEOUT_SECONDS = 8.0
 
 
 def check_service_health(url: str, timeout: float = 5.0) -> tuple[bool, str | None]:
@@ -39,6 +42,37 @@ def check_service_health(url: str, timeout: float = 5.0) -> tuple[bool, str | No
         return False, "timeout"
     except Exception as e:
         return False, str(e)
+
+
+def _crawl4ai_api_token(config_data: dict[str, Any]) -> str:
+    """Return the configured Crawl4AI API token or the local default."""
+    token = (
+        config_data.get("services", {}).get("crawl4ai", {}).get("api_token", "gobbler-local-token")
+    )
+    return str(token)
+
+
+def _skipped_webpage_probe(reason: str) -> dict[str, Any]:
+    """Return a skipped webpage conversion probe payload."""
+    return {
+        "status": "skipped",
+        "ok": False,
+        "provider": "crawl4ai",
+        "stage": "crawl_probe",
+        "reason": reason,
+    }
+
+
+def _webpage_conversion_probe(crawl4ai_url: str, config_data: dict[str, Any]) -> dict[str, Any]:
+    """Run the Crawl4AI conversion readiness probe with configured proxy support."""
+    from gobbler_core.providers.proxy import get_crawl4ai_proxy_url
+
+    return check_crawl4ai_conversion_probe(
+        crawl4ai_url,
+        api_token=_crawl4ai_api_token(config_data),
+        proxy_url=get_crawl4ai_proxy_url(),
+        timeout=WEBPAGE_PROBE_TIMEOUT_SECONDS,
+    )
 
 
 def get_service_status() -> dict[str, Any]:
@@ -102,21 +136,47 @@ def get_service_status() -> dict[str, Any]:
     crawl4ai_url = f"http://{crawl4ai_host}:{crawl4ai_port}"
 
     web_healthy, web_error = check_service_health(crawl4ai_url)
-    if web_healthy:
-        services["webpage"] = {
-            "status": "ready",
-            "provider": "crawl4ai",
-            "url": crawl4ai_url,
-        }
-    else:
+    web_service_health = {
+        "status": "ready" if web_healthy else "unavailable",
+        "ok": web_healthy,
+        "endpoint": "/health",
+        "error": web_error,
+    }
+    if not web_healthy:
         services["webpage"] = {
             "status": "unavailable",
             "provider": "crawl4ai",
             "url": crawl4ai_url,
+            "service_health": web_service_health,
+            "conversion_probe": _skipped_webpage_probe("service_health_unavailable"),
+            "provider_readiness": "unavailable",
             "error": web_error,
             "fix": "docker compose up -d crawl4ai",
         }
         overall_status = "degraded"
+    else:
+        web_probe = _webpage_conversion_probe(crawl4ai_url, config.data)
+        web_probe_ready = bool(web_probe.get("ok"))
+        web_status = "ready" if web_probe_ready else "degraded"
+        services["webpage"] = {
+            "status": web_status,
+            "provider": "crawl4ai",
+            "url": crawl4ai_url,
+            "service_health": web_service_health,
+            "conversion_probe": web_probe,
+            "provider_readiness": web_status,
+        }
+        if not web_probe_ready:
+            services["webpage"].update(
+                {
+                    "error": web_probe.get("error", "Crawl4AI /crawl probe failed"),
+                    "fix": (
+                        "Check Crawl4AI container logs and proxy configuration; "
+                        "/health is passing but /crawl is not ready."
+                    ),
+                }
+            )
+            overall_status = "degraded"
 
     # Check proxy configuration
     proxy_config: dict[str, Any] = {"configured": False}
@@ -219,6 +279,9 @@ def status(  # noqa: C901, PLR0912
                 console.print(f"       [dim]Error: {info['error']}[/dim]")
             if info.get("fix"):
                 console.print(f"       [dim]Fix: {info['fix']}[/dim]")
+        if name == "webpage" and verbose and info.get("conversion_probe"):
+            probe = info["conversion_probe"]
+            console.print(f"       [dim]/crawl probe: {probe.get('status')}[/dim]")
 
     console.print()
 

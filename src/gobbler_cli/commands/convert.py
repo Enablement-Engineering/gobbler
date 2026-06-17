@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 import typer
 
@@ -24,6 +25,7 @@ from gobbler_cli.output import (
     write_output,
 )
 from gobbler_cli.progress import ProgressTracker
+from gobbler_core.utils.redaction import redact_value
 
 YOUTUBE_TIMEOUT_DEFAULT = 120
 
@@ -43,6 +45,20 @@ def _read_stdin_url() -> str | None:
 
     line = sys.stdin.readline().strip()
     return line if line else None
+
+
+def _safe_error_text(error: Exception) -> str:
+    """Return a redacted error string for CLI diagnostics."""
+    return str(redact_value(str(error)))
+
+
+def _safe_error_diagnostics(error: Exception) -> dict[str, Any] | None:
+    """Return redacted structured diagnostics attached to an exception."""
+    diagnostics = getattr(error, "diagnostics", None)
+    if not isinstance(diagnostics, dict):
+        return None
+    redacted = redact_value(diagnostics)
+    return redacted if isinstance(redacted, dict) else None
 
 
 @app.command()
@@ -594,9 +610,14 @@ async def _convert_webpage(
             if clean and not css_selector:
                 effective_selector = "main, article, [role='main'], .content, #content"
 
-            with ProgressTracker(
-                "Converting web page" + (" with selector" if css_selector else " (clean mode)")
-            ):
+            progress_context = (
+                nullcontext()
+                if output_format == OutputFormat.JSON
+                else ProgressTracker(
+                    "Converting web page" + (" with selector" if css_selector else " (clean mode)")
+                )
+            )
+            with progress_context:
                 result, metadata = await convert_webpage_with_selector(
                     url=url,
                     css_selector=effective_selector,
@@ -625,7 +646,12 @@ async def _convert_webpage(
                 # Use default provider which reads config (including proxy)
                 webpage_provider = get_default_provider()
 
-            with ProgressTracker("Converting web page"):
+            progress_context = (
+                nullcontext()
+                if output_format == OutputFormat.JSON
+                else ProgressTracker("Converting web page")
+            )
+            with progress_context:
                 result, metadata = await convert_webpage_to_markdown(
                     url=url,
                     timeout=timeout,
@@ -641,9 +667,13 @@ async def _convert_webpage(
             if output:
                 print_success("Web page converted successfully")
     except Exception as e:
+        error_text = _safe_error_text(e)
+        diagnostics = _safe_error_diagnostics(e)
         if output_format == OutputFormat.JSON:
-            json_result = format_json_error(str(e), "WEBPAGE_CONVERSION_ERROR", source=url)
+            json_result = format_json_error(error_text, "WEBPAGE_CONVERSION_ERROR", source=url)
+            if diagnostics:
+                json_result["diagnostics"] = diagnostics
             write_json_result(json_result)
         else:
-            print_error(f"Failed to convert web page: {e}")
+            print_error(f"Failed to convert web page: {error_text}")
         raise typer.Exit(1) from None
