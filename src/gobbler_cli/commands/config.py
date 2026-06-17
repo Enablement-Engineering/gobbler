@@ -10,6 +10,7 @@ import typer
 import yaml
 
 from gobbler_cli.output import print_error, print_success
+from gobbler_core.utils.redaction import REDACTED, is_sensitive_key, redact_value
 
 app = typer.Typer(help="View and manage Gobbler configuration")
 
@@ -24,6 +25,13 @@ def get_config(
         str,
         typer.Option("--format", "-f", help="Output format: text, json, yaml"),
     ] = "text",
+    show_secrets: Annotated[
+        bool,
+        typer.Option(
+            "--show-secrets",
+            help="Print raw secret values. Avoid using this in logs or issue reports.",
+        ),
+    ] = False,
 ) -> None:
     """Get configuration value(s).
 
@@ -50,6 +58,16 @@ def get_config(
         if value is sentinel:
             print_error(f"Configuration key '{key}' not found")
             raise typer.Exit(1)
+
+    if not show_secrets:
+        if key is not None:
+            key_parts = tuple(key.split("."))
+            parent_keys = key_parts[:-1]
+            value = (
+                REDACTED if is_sensitive_key(key_parts[-1], parent_keys) else redact_value(value)
+            )
+        else:
+            value = redact_value(value)
 
     # Format output
     if output_format == "json":
@@ -88,6 +106,13 @@ def show_config(
         str,
         typer.Option("--format", "-f", help="Output format: yaml, json"),
     ] = "yaml",
+    show_secrets: Annotated[
+        bool,
+        typer.Option(
+            "--show-secrets",
+            help="Print raw secret values. Avoid using this in logs or issue reports.",
+        ),
+    ] = False,
 ) -> None:
     """Show all configuration (alias for 'gobbler config get').
 
@@ -98,11 +123,12 @@ def show_config(
     from gobbler_core.config import get_config
 
     config = get_config()
+    data = config.data if show_secrets else redact_value(config.data)
 
     if output_format == "json":
-        typer.echo(json.dumps(config.data, indent=2, default=str))
+        typer.echo(json.dumps(data, indent=2, default=str))
     else:
-        typer.echo(yaml.dump(config.data, default_flow_style=False))
+        typer.echo(yaml.dump(data, default_flow_style=False))
 
 
 @app.command("init")
