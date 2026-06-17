@@ -305,8 +305,10 @@ class Worker:
             job_id: The job ID to complete.
             result: Result data dictionary.
         """
-        self.manager.complete_job(job_id, result)
-        logger.info("Job %s completed successfully", job_id)
+        if self.manager.complete_job(job_id, result):
+            logger.info("Job %s completed successfully", job_id)
+        else:
+            logger.info("Job %s completion skipped because status changed", job_id)
 
     def _fail_job(self, job_id: str, error: str) -> None:
         """Mark a job as failed with error message.
@@ -315,8 +317,10 @@ class Worker:
             job_id: The job ID to fail.
             error: Error message describing the failure.
         """
-        self.manager.fail_job(job_id, error)
-        logger.error("Job %s failed: %s", job_id, error)
+        if self.manager.fail_job(job_id, error):
+            logger.error("Job %s failed: %s", job_id, error)
+        else:
+            logger.info("Job %s failure skipped because status changed", job_id)
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""

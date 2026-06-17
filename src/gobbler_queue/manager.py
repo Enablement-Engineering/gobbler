@@ -320,13 +320,14 @@ class JobManager:
             """
             UPDATE jobs
             SET status = ?, result_json = ?, progress = 100, completed_at = ?
-            WHERE id = ?
+            WHERE id = ? AND status != ?
             """,
             (
                 JobStatus.COMPLETED.value,
                 json.dumps(result),
                 datetime.now(UTC).isoformat(),
                 job_id,
+                JobStatus.CANCELLED.value,
             ),
         )
         return cursor.rowcount > 0
@@ -345,13 +346,14 @@ class JobManager:
             """
             UPDATE jobs
             SET status = ?, error = ?, completed_at = ?
-            WHERE id = ?
+            WHERE id = ? AND status != ?
             """,
             (
                 JobStatus.FAILED.value,
                 error,
                 datetime.now(UTC).isoformat(),
                 job_id,
+                JobStatus.CANCELLED.value,
             ),
         )
         return cursor.rowcount > 0
@@ -368,34 +370,49 @@ class JobManager:
         Returns:
             True if the job was cancelled, False if not found.
         """
-        # First, get the job to check if it's running
-        job = self.get_job(job_id)
-        if job is None:
-            return False
+        signal_pid: int | None = None
+        cancelled = False
 
-        # If job is already in terminal state, nothing to do
-        if job.is_terminal:
-            return False
+        with self.database.connect() as conn:
+            # Take a write lock before reading state so a pending job cannot be
+            # claimed by a worker between the read and cancellation update.
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT status, worker_pid FROM jobs WHERE id = ?",
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                return False
 
-        # If running with a worker, try to terminate it
-        if job.status == JobStatus.RUNNING and job.worker_pid is not None:
+            status = JobStatus(row["status"])
+            if status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+                return False
+
+            cursor = conn.execute(
+                """
+                UPDATE jobs
+                SET status = ?, completed_at = ?, worker_pid = NULL
+                WHERE id = ? AND status IN (?, ?)
+                """,
+                (
+                    JobStatus.CANCELLED.value,
+                    datetime.now(UTC).isoformat(),
+                    job_id,
+                    JobStatus.PENDING.value,
+                    JobStatus.RUNNING.value,
+                ),
+            )
+            cancelled = cursor.rowcount > 0
+            if cancelled and status == JobStatus.RUNNING and row["worker_pid"] is not None:
+                signal_pid = int(row["worker_pid"])
+
+        # Signal after committing cancellation so worker result writes cannot
+        # race back over the terminal status.
+        if signal_pid is not None:
             with contextlib.suppress(OSError, ProcessLookupError):
-                os.kill(job.worker_pid, signal.SIGTERM)
+                os.kill(signal_pid, signal.SIGTERM)
 
-        # Update status to cancelled
-        cursor = self.database.execute(
-            """
-            UPDATE jobs
-            SET status = ?, completed_at = ?
-            WHERE id = ?
-            """,
-            (
-                JobStatus.CANCELLED.value,
-                datetime.now(UTC).isoformat(),
-                job_id,
-            ),
-        )
-        return cursor.rowcount > 0
+        return cancelled
 
     def clear_jobs(
         self,
