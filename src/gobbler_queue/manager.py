@@ -201,26 +201,28 @@ class JobManager:
         return cursor.rowcount > 0
 
     def start_job(self, job_id: str, worker_pid: int) -> bool:
-        """Mark a job as running with the worker's process ID.
+        """Claim a pending job and mark it as running with the worker's process ID.
 
         Args:
             job_id: The unique identifier of the job.
             worker_pid: Process ID of the worker handling this job.
 
         Returns:
-            True if the job was updated, False if not found.
+            True if the pending job was claimed, False if it was not found or
+            already claimed.
         """
         cursor = self.database.execute(
             """
             UPDATE jobs
             SET status = ?, started_at = ?, worker_pid = ?
-            WHERE id = ?
+            WHERE id = ? AND status = ?
             """,
             (
                 JobStatus.RUNNING.value,
                 datetime.now(UTC).isoformat(),
                 worker_pid,
                 job_id,
+                JobStatus.PENDING.value,
             ),
         )
         return cursor.rowcount > 0

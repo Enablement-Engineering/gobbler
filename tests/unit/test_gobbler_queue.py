@@ -1076,6 +1076,28 @@ class TestJobManagerStartJob:
         result = job_manager.start_job("nonexistent", worker_pid=12345)
         assert result is False
 
+    def test_start_job_does_not_reclaim_running_job(self, tmp_path):
+        """Test stale pending reads cannot overwrite an existing worker claim."""
+        db_path = tmp_path / "jobs.db"
+        first_manager = JobManager(database=Database(db_path=db_path))
+        second_manager = JobManager(database=Database(db_path=db_path))
+        try:
+            job = first_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+            stale_pending_job = first_manager.get_pending_jobs(limit=1)[0]
+
+            first_claim = second_manager.start_job(job.id, worker_pid=111)
+            second_claim = first_manager.start_job(stale_pending_job.id, worker_pid=222)
+
+            retrieved = first_manager.get_job(job.id)
+            assert first_claim is True
+            assert second_claim is False
+            assert retrieved is not None
+            assert retrieved.status == JobStatus.RUNNING
+            assert retrieved.worker_pid == 111
+        finally:
+            first_manager.close()
+            second_manager.close()
+
 
 class TestJobManagerCompleteJob:
     """Test JobManager.complete_job()."""
