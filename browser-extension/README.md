@@ -37,7 +37,7 @@ Or just create any PNG files and name them appropriately.
 Make sure the Gobbler relay is running:
 
 ```bash
-cd /Users/dylanisaac/Projects/gobbler
+cd gobbler
 uv run gobbler relay start
 ```
 
