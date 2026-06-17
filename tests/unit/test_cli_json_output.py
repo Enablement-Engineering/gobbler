@@ -451,6 +451,7 @@ class TestBatchWebpagesWithMock:
         complete_msg = next((line for line in lines if line.get("type") == "batch_complete"), None)
         assert complete_msg is not None
         assert complete_msg["success"] is True
+        assert result.exit_code == 0
 
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
     def test_batch_item_success_message(
@@ -526,6 +527,50 @@ class TestBatchWebpagesWithMock:
         assert error_msg is not None
         assert error_msg["url"] == "https://failing-url.test"
         assert "error" in error_msg
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_json_all_items_fail_exits_nonzero(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that a failed JSON batch summary exits non-zero."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://failing-url.test/1\nhttps://failing-url.test/2\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_error(*args, **kwargs):
+            msg = "Connection failed"
+            raise RuntimeError(msg)
+
+        mock_convert.side_effect = mock_async_error
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        error_messages = [line for line in lines if line.get("type") == "item_error"]
+        complete_msg = next((line for line in lines if line.get("type") == "batch_complete"), None)
+
+        assert result.exit_code == 1
+        assert len(error_messages) == 2
+        assert complete_msg is not None
+        assert complete_msg["success"] is False
+        assert complete_msg["summary"]["total"] == 2
+        assert complete_msg["summary"]["successful"] == 0
+        assert complete_msg["summary"]["failed"] == 2
+        assert complete_msg["summary"]["skipped"] == 0
 
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
     def test_batch_item_skipped_message(

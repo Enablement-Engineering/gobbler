@@ -1153,6 +1153,8 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                     },
                 }
             )
+            if failed > 0:
+                raise typer.Exit(1)
         else:
             # Normal progress bar mode
             progress = create_progress()
