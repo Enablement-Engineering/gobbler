@@ -70,6 +70,49 @@ def test_collect_doctor_report_shape_and_next_actions(monkeypatch, tmp_path: Pat
     assert any("Docker daemon" in action for action in report["next_actions"])
 
 
+def test_ready_services_do_not_recommend_docker_install(monkeypatch, tmp_path: Path) -> None:
+    """Healthy document/webpage services should not produce Docker remediation."""
+    config = make_config(
+        tmp_path,
+        {
+            "providers": {
+                "youtube": {"default": "youtube-transcript-api"},
+                "transcription": {"default": "whisper-local", "whisper-local": {"model": "tiny"}},
+            },
+            "services": {
+                "docling": {"host": "remote-docling.example", "port": 5001},
+                "crawl4ai": {"host": "remote-crawl.example", "port": 11235},
+            },
+        },
+    )
+    monkeypatch.setattr(doctor, "get_config", lambda: config)
+    monkeypatch.setattr(
+        doctor,
+        "get_ffmpeg_status",
+        lambda: {"available": True, "path": "/usr/bin/ffmpeg"},
+    )
+    monkeypatch.setattr(
+        doctor,
+        "get_docker_status",
+        lambda: {"available": False, "path": None, "daemon_available": False},
+    )
+
+    def service_ready(_url: str) -> tuple[bool, None]:
+        return True, None
+
+    monkeypatch.setattr(doctor, "_check_service_health", service_ready)
+
+    report = doctor.collect_doctor_report()
+
+    assert report["status"] == "ready"
+    assert report["services"]["document"]["status"] == "ready"
+    assert report["services"]["webpage"]["status"] == "ready"
+    assert not any("Docker" in action for action in report["next_actions"])
+    assert report["next_actions"] == [
+        "Gobbler is ready. Run a conversion command such as `gobbler youtube URL`."
+    ]
+
+
 def test_collect_doctor_report_redacts_config_secrets(monkeypatch, tmp_path: Path) -> None:
     """Doctor JSON redacts config secrets while preserving config shape."""
     config = make_config(

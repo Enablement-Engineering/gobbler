@@ -189,10 +189,16 @@ def collect_doctor_report() -> dict[str, Any]:
     docker = get_docker_status()
     services, next_actions = _collect_services(config, ffmpeg)
 
-    if docker["available"] and not docker.get("daemon_available"):
-        next_actions.append("Start the Docker daemon before using document or webpage conversion.")
-    elif not docker["available"]:
-        next_actions.append("Install Docker before using document or webpage conversion.")
+    service_backed_unavailable = any(
+        services[name]["status"] != "ready" for name in ("document", "webpage")
+    )
+    if service_backed_unavailable:
+        if docker["available"] and not docker.get("daemon_available"):
+            next_actions.append(
+                "Start the Docker daemon before using document or webpage conversion."
+            )
+        elif not docker["available"]:
+            next_actions.append("Install Docker before using document or webpage conversion.")
 
     unavailable = [name for name, data in services.items() if data["status"] != "ready"]
     status = "ready" if not unavailable else "degraded"
