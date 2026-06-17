@@ -15,7 +15,9 @@ keywords = [
     "web-scraping",
     "youtube",
     "whisper",
+    "ai-agents",
     "claude",
+    "cli",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -54,7 +56,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/Enablement-Engineering/gobbler"
-Documentation = "https://github.com/Enablement-Engineering/gobbler#readme"
+Documentation = "https://enablement-engineering.github.io/gobbler/"
 Repository = "https://github.com/Enablement-Engineering/gobbler"
 Issues = "https://github.com/Enablement-Engineering/gobbler/issues"
 

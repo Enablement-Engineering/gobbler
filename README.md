@@ -8,8 +8,12 @@
 
 Gobbler transforms any content—YouTube videos, web pages, documents, audio files, even live browser sessions—into clean, structured markdown that AI systems can immediately reason about.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/Enablement-Engineering/gobbler/actions/workflows/test.yml/badge.svg)](https://github.com/Enablement-Engineering/gobbler/actions/workflows/test.yml)
+[![Security](https://github.com/Enablement-Engineering/gobbler/actions/workflows/security.yml/badge.svg)](https://github.com/Enablement-Engineering/gobbler/actions/workflows/security.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://enablement-engineering.github.io/gobbler/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Status: Active Beta](https://img.shields.io/badge/status-active%20beta-brightgreen.svg)](ROADMAP.md)
 
 ## The Problem
 
@@ -67,9 +71,20 @@ gobbler audio interview.mp3 --model small -o interview.md
 
 📖 **[Full Documentation](https://Enablement-Engineering.github.io/gobbler/)**
 
+## Project Status
+
+Gobbler is an **active beta** project focused on reliable, agent-friendly content conversion. The supported automation surface is intentionally CLI-first:
+
+- **Primary interface:** `gobbler` CLI for humans, scripts, and AI agents.
+- **Agent experience:** markdown Skills and setup docs teach agents the same commands a human can run and verify.
+- **Browser support:** optional local extension for authenticated browser sessions and supported AI chat surfaces.
+- **Not supported:** MCP server integration was removed in v0.2.0 to reduce duplicate maintenance and keep the public interface reliable.
+
+See the [roadmap](ROADMAP.md), [security policy](SECURITY.md), and [agent usage guide](https://enablement-engineering.github.io/gobbler/agents/) for current direction.
+
 ## CLI-First, Skills-Ready
 
-Gobbler's primary interface is the `gobbler` CLI. AI agents use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI.
+Gobbler's primary interface is the `gobbler` CLI. AI agents use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI. For Hermes/OpenClaw-style agents, start with the [agent usage guide](https://enablement-engineering.github.io/gobbler/agents/).
 
 ### 1. CLI
 
@@ -317,6 +332,7 @@ Key pages:
 - [Quick Start](https://Enablement-Engineering.github.io/gobbler/QUICK_START/) - Get running in 5 minutes
 - [CLI Reference](https://Enablement-Engineering.github.io/gobbler/cli/) - All commands and options
 - [Skills Guide](https://Enablement-Engineering.github.io/gobbler/SKILLS/) - Using skills with AI agents
+- [Agent Usage](https://Enablement-Engineering.github.io/gobbler/agents/) - Hermes/OpenClaw-friendly CLI patterns
 - [Browser Extension](https://Enablement-Engineering.github.io/gobbler/browser-extension/) - Setup and usage
 - [Configuration](https://Enablement-Engineering.github.io/gobbler/configuration/) - Customize Gobbler
 

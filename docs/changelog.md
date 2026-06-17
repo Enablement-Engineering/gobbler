@@ -4,50 +4,31 @@ icon: material/history
 
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
-For the complete changelog, see [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md) in the repository root.
+## [0.2.0] - 2026-06-16
 
-## [0.2.0] - Latest
+### Changed
 
-### Added
-- MkDocs documentation site
-- Visual architecture diagrams
-- Improved Quick Start guide
+- Reframed Gobbler as a CLI-first, Skills-ready content conversion tool.
+- Moved reusable configuration and webpage-selector logic into core modules.
+- Updated CI, Dependabot, pre-commit, and PR templates for the CLI-first architecture.
+- Added public project hygiene docs: security policy, roadmap, and agent usage guide.
+
+### Removed
+
+- Removed the MCP server package, FastMCP dependency, and `gobbler-mcp` console script.
+- Removed MCP-specific docs, examples, tests, and hidden command files.
 
 ## [0.1.0] - 2025-12-05
 
 ### Added
 
-**Browser Extension Integration**
-
-- Bidirectional Chrome/Edge communication via WebSocket
-- Tab group security model
-- Live page extraction and browser automation
-
-**Batch Processing**
-
-- YouTube playlist batch transcription
-- Directory-based audio/video transcription
-- Directory-based document conversion
-- Real-time progress tracking
-
-**Content Conversion**
-
-- YouTube transcript extraction
-- Video downloads with quality selection
-- Web scraping with JavaScript rendering
-- Document conversion (PDF, DOCX, PPTX, XLSX)
-- Audio/video transcription with Whisper
-
-**Background Queue**
-
-- Redis + RQ-based job queue
-- Auto-queue for long-running tasks
-- Job status tracking
-
-**Developer Experience**
-
-- Comprehensive test suite
-- GitHub Actions CI/CD
-- Detailed documentation
+- Browser extension integration with tab-group scoping.
+- Batch processing for YouTube playlists, webpages, documents, and audio/video directories.
+- YouTube transcript extraction and video downloads.
+- Web scraping through Crawl4AI.
+- Document conversion through Docling.
+- Audio/video transcription through Whisper.
+- Redis/RQ background queue support.
+- CLI-first markdown output with YAML frontmatter.

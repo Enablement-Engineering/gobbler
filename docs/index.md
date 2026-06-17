@@ -31,6 +31,14 @@ gobbler webpage "https://docs.example.com" -o docs.md
 
 ---
 
+## Project Status
+
+Gobbler is an **active beta**, CLI-first content conversion tool for AI workflows. The supported automation path is the `gobbler` CLI plus markdown Skills for agents; MCP support was removed in v0.2.0 to keep the public interface simpler and more reliable.
+
+[:octicons-arrow-right-24: Agent usage guide](agents.md) · [:octicons-arrow-right-24: Roadmap](https://github.com/Enablement-Engineering/gobbler/blob/main/ROADMAP.md) · [:octicons-arrow-right-24: Security policy](https://github.com/Enablement-Engineering/gobbler/blob/main/SECURITY.md)
+
+---
+
 ## Install in 60 Seconds
 
 ```bash
@@ -153,5 +161,11 @@ Content here, ready for AI consumption...
     Extract authenticated content
 
     [:octicons-arrow-right-24: Browser Extension](browser-extension.md)
+
+-   :material-robot:{ .lg .middle } **Agent Usage**
+
+    Hermes/OpenClaw-friendly CLI patterns
+
+    [:octicons-arrow-right-24: Agent Usage](agents.md)
 
 </div>
