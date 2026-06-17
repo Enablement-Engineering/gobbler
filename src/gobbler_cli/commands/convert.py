@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 from gobbler_cli.output import (
     OutputFormat,
+    add_json_contract,
     format_json_error,
     format_json_success,
     print_error,
@@ -59,6 +60,46 @@ def _safe_error_diagnostics(error: Exception) -> dict[str, Any] | None:
         return None
     redacted = redact_value(diagnostics)
     return redacted if isinstance(redacted, dict) else None
+
+
+def _write_missing_input_error(message: str, error_code: str, output_format: OutputFormat) -> None:
+    """Write a missing input error in the requested output format."""
+    if output_format == OutputFormat.JSON:
+        write_json_result(format_json_error(message, error_code))
+    else:
+        print_error(message)
+
+
+def _write_skip_result(output: Path, source: str, output_format: OutputFormat) -> None:
+    """Write an idempotent skip result in the requested output format."""
+    if output_format == OutputFormat.JSON:
+        write_json_result(
+            add_json_contract(
+                {
+                    "success": True,
+                    "skipped": True,
+                    "reason": "output_exists",
+                    "output": str(output),
+                    "source": source,
+                }
+            )
+        )
+    else:
+        print_warning(f"Skipped: {output} already exists")
+
+
+def _write_provider_not_found_error(
+    error: Exception,
+    error_code: str,
+    source: str,
+    output_format: OutputFormat,
+) -> None:
+    """Write a provider lookup failure in the requested output format."""
+    error_text = _safe_error_text(error)
+    if output_format == OutputFormat.JSON:
+        write_json_result(format_json_error(error_text, error_code, source=source))
+    else:
+        print_error(error_text)
 
 
 @app.command()
@@ -113,7 +154,11 @@ def youtube(
     if url is None or url == "-":
         actual_url = _read_stdin_url()
         if not actual_url:
-            print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
+            _write_missing_input_error(
+                "No URL provided. Provide a URL as argument or pipe from stdin.",
+                "YOUTUBE_MISSING_URL",
+                output_format,
+            )
             raise typer.Exit(1)
 
     asyncio.run(
@@ -199,17 +244,7 @@ async def _convert_youtube(
     try:
         # Check if output exists and should skip
         if skip_if_exists and output and output.exists():
-            if output_format == OutputFormat.JSON:
-                json_result = {
-                    "success": True,
-                    "skipped": True,
-                    "reason": "output_exists",
-                    "output": str(output),
-                    "source": url,
-                }
-                write_json_result(json_result)
-            else:
-                print_warning(f"Skipped: {output} already exists")
+            _write_skip_result(output, url, output_format)
             return
 
         # Import here to avoid circular imports and defer heavy imports
@@ -325,17 +360,7 @@ async def _convert_audio(
     try:
         # Check if output exists and should skip
         if skip_if_exists and output and output.exists():
-            if output_format == OutputFormat.JSON:
-                json_result = {
-                    "success": True,
-                    "skipped": True,
-                    "reason": "output_exists",
-                    "output": str(output),
-                    "source": source,
-                }
-                write_json_result(json_result)
-            else:
-                print_warning(f"Skipped: {output} already exists")
+            _write_skip_result(output, source, output_format)
             return
 
         # Validate file exists
@@ -357,7 +382,12 @@ async def _convert_audio(
                     ProviderRegistry.create("transcription", provider_name, model=model),
                 )
             except ProviderNotFoundError as e:
-                print_error(str(e))
+                _write_provider_not_found_error(
+                    e,
+                    "AUDIO_PROVIDER_NOT_FOUND",
+                    source,
+                    output_format,
+                )
                 raise typer.Exit(1) from None
 
         progress_context = (
@@ -381,12 +411,15 @@ async def _convert_audio(
             write_output(result, output, output_format)
             if output:
                 print_success("Audio file transcribed successfully")
+    except typer.Exit:
+        raise
     except Exception as e:
+        error_text = _safe_error_text(e)
         if output_format == OutputFormat.JSON:
-            json_result = format_json_error(str(e), "AUDIO_CONVERSION_ERROR", source=source)
+            json_result = format_json_error(error_text, "AUDIO_CONVERSION_ERROR", source=source)
             write_json_result(json_result)
         else:
-            print_error(f"Failed to transcribe audio: {e}")
+            print_error(f"Failed to transcribe audio: {error_text}")
         raise typer.Exit(1) from None
 
 
@@ -447,17 +480,7 @@ async def _convert_document(
     try:
         # Check if output exists and should skip
         if skip_if_exists and output and output.exists():
-            if output_format == OutputFormat.JSON:
-                json_result = {
-                    "success": True,
-                    "skipped": True,
-                    "reason": "output_exists",
-                    "output": str(output),
-                    "source": source,
-                }
-                write_json_result(json_result)
-            else:
-                print_warning(f"Skipped: {output} already exists")
+            _write_skip_result(output, source, output_format)
             return
 
         # Validate file exists
@@ -480,7 +503,12 @@ async def _convert_document(
                     ProviderRegistry.create("document", provider_name),
                 )
             except ProviderNotFoundError as e:
-                print_error(str(e))
+                _write_provider_not_found_error(
+                    e,
+                    "DOCUMENT_PROVIDER_NOT_FOUND",
+                    source,
+                    output_format,
+                )
                 raise typer.Exit(1) from None
         else:
             # Use default provider which reads config (including service URL)
@@ -505,12 +533,15 @@ async def _convert_document(
             write_output(result, output, output_format)
             if output:
                 print_success("Document converted successfully")
+    except typer.Exit:
+        raise
     except Exception as e:
+        error_text = _safe_error_text(e)
         if output_format == OutputFormat.JSON:
-            json_result = format_json_error(str(e), "DOCUMENT_CONVERSION_ERROR", source=source)
+            json_result = format_json_error(error_text, "DOCUMENT_CONVERSION_ERROR", source=source)
             write_json_result(json_result)
         else:
-            print_error(f"Failed to convert document: {e}")
+            print_error(f"Failed to convert document: {error_text}")
         raise typer.Exit(1) from None
 
 
@@ -578,7 +609,11 @@ def webpage(
     if url is None or url == "-":
         actual_url = _read_stdin_url()
         if not actual_url:
-            print_error("No URL provided. Provide a URL as argument or pipe from stdin.")
+            _write_missing_input_error(
+                "No URL provided. Provide a URL as argument or pipe from stdin.",
+                "WEBPAGE_MISSING_URL",
+                output_format,
+            )
             raise typer.Exit(1)
     if verbose:
         import logging
@@ -617,17 +652,7 @@ async def _convert_webpage(
     try:
         # Check if output exists and should skip
         if skip_if_exists and output and output.exists():
-            if output_format == OutputFormat.JSON:
-                json_result = {
-                    "success": True,
-                    "skipped": True,
-                    "reason": "output_exists",
-                    "output": str(output),
-                    "source": url,
-                }
-                write_json_result(json_result)
-            else:
-                print_warning(f"Skipped: {output} already exists")
+            _write_skip_result(output, url, output_format)
             return
 
         # Use selector-based conversion if selector is provided or clean mode
@@ -670,7 +695,12 @@ async def _convert_webpage(
                         ProviderRegistry.create("webpage", provider_name),
                     )
                 except ProviderNotFoundError as e:
-                    print_error(str(e))
+                    _write_provider_not_found_error(
+                        e,
+                        "WEBPAGE_PROVIDER_NOT_FOUND",
+                        url,
+                        output_format,
+                    )
                     raise typer.Exit(1) from None
             else:
                 # Use default provider which reads config (including proxy)
@@ -697,6 +727,8 @@ async def _convert_webpage(
             write_output(result, output, output_format)
             if output:
                 print_success("Web page converted successfully")
+    except typer.Exit:
+        raise
     except Exception as e:
         error_text = _safe_error_text(e)
         diagnostics = _safe_error_diagnostics(e)

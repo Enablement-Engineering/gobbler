@@ -10,6 +10,7 @@ from typing import Any
 from typer.testing import CliRunner
 
 from gobbler_cli.commands import doctor
+from gobbler_cli.output import JSON_SCHEMA_VERSION
 from gobbler_core.config import Config
 from gobbler_core.utils.redaction import REDACTED
 
@@ -53,6 +54,7 @@ def test_collect_doctor_report_shape_and_next_actions(monkeypatch, tmp_path: Pat
 
     report = doctor.collect_doctor_report()
 
+    assert report["schema_version"] == JSON_SCHEMA_VERSION
     assert report["status"] == "degraded"
     assert report["can_use"] is True
     assert report["version"]
@@ -275,6 +277,7 @@ def test_doctor_json_command_outputs_valid_json(monkeypatch, tmp_path: Path) -> 
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
+    assert payload["schema_version"] == JSON_SCHEMA_VERSION
     assert payload["status"] == "degraded"
     assert payload["services"]["document"]["fix"]
     assert payload["next_actions"]

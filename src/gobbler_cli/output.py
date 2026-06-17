@@ -14,6 +14,8 @@ from rich.table import Table
 console = Console()
 error_console = Console(stderr=True)
 
+JSON_SCHEMA_VERSION = 1
+
 
 class OutputFormat(StrEnum):
     """Supported output formats."""
@@ -21,6 +23,11 @@ class OutputFormat(StrEnum):
     MARKDOWN = "markdown"
     JSON = "json"
     TABLE = "table"
+
+
+def add_json_contract(data: dict[str, Any]) -> dict[str, Any]:
+    """Return data with the current CLI JSON schema marker."""
+    return {**data, "schema_version": JSON_SCHEMA_VERSION}
 
 
 def write_output(
@@ -75,11 +82,13 @@ def format_json_success(
     Returns:
         Standardized JSON response dict
     """
-    response: dict[str, Any] = {
-        "success": True,
-        "markdown": markdown,
-        "metadata": metadata,
-    }
+    response: dict[str, Any] = add_json_contract(
+        {
+            "success": True,
+            "markdown": markdown,
+            "metadata": metadata,
+        }
+    )
     if source:
         response["metadata"]["source"] = source
     return response
@@ -102,11 +111,13 @@ def format_json_error(
     Returns:
         Standardized JSON error response dict
     """
-    response: dict[str, Any] = {
-        "success": False,
-        "error": error,
-        "error_code": error_code,
-    }
+    response: dict[str, Any] = add_json_contract(
+        {
+            "success": False,
+            "error": error,
+            "error_code": error_code,
+        }
+    )
     if source:
         response["source"] = source
 

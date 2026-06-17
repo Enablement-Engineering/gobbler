@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from gobbler_cli.commands import status as status_commands
+from gobbler_cli.output import JSON_SCHEMA_VERSION
 from gobbler_core.config import Config
 from gobbler_core.utils.redaction import REDACTED, redact_value
 
@@ -67,6 +68,7 @@ def test_status_separates_webpage_health_from_probe_failure(monkeypatch, tmp_pat
     redacted = redact_value(status_data)
     dumped = json.dumps(redacted)
 
+    assert status_data["schema_version"] == JSON_SCHEMA_VERSION
     assert status_data["status"] == "degraded"
     assert webpage["status"] == "degraded"
     assert webpage["service_health"]["status"] == "ready"

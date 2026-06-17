@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 from gobbler_cli.commands import batch, convert, daemon, jobs
 from gobbler_cli.main import app
 from gobbler_cli.output import (
+    JSON_SCHEMA_VERSION,
     OutputFormat,
     format_json_error,
     format_json_success,
@@ -82,6 +83,7 @@ class TestFormatJsonSuccess:
         result = format_json_success(markdown, sample_metadata)
 
         assert result["success"] is True
+        assert result["schema_version"] == JSON_SCHEMA_VERSION
         assert result["markdown"] == markdown
         assert "metadata" in result
         assert result["metadata"]["title"] == "Test Video"
@@ -147,6 +149,7 @@ class TestFormatJsonError:
         result = format_json_error(error_msg)
 
         assert result["success"] is False
+        assert result["schema_version"] == JSON_SCHEMA_VERSION
         assert result["error"] == error_msg
         assert result["error_code"] == "CONVERSION_ERROR"
 
@@ -310,6 +313,7 @@ class TestAudioJsonFileNotFound:
         output = json.loads(result.output.strip())
 
         assert output["success"] is False
+        assert output["schema_version"] == JSON_SCHEMA_VERSION
         assert output["error_code"] == "AUDIO_CONVERSION_ERROR"
         assert "not found" in output["error"].lower() or "File not found" in output["error"]
 
@@ -331,7 +335,73 @@ class TestDocumentJsonFileNotFound:
         output = json.loads(result.output.strip())
 
         assert output["success"] is False
+        assert output["schema_version"] == JSON_SCHEMA_VERSION
         assert output["error_code"] == "DOCUMENT_CONVERSION_ERROR"
+
+
+class TestConvertJsonErrorStdoutPurity:
+    """Tests that conversion JSON error paths emit parseable JSON to stdout."""
+
+    def test_youtube_json_missing_url_outputs_json(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test missing YouTube URL in JSON mode returns a JSON error object."""
+        result = runner.invoke(cli_app, ["convert", "youtube", "--format", "json"], input="")
+
+        payload = json.loads(result.output)
+
+        assert result.exit_code == 1
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is False
+        assert payload["error_code"] == "YOUTUBE_MISSING_URL"
+
+    def test_webpage_json_missing_url_outputs_json(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test missing webpage URL in JSON mode returns a JSON error object."""
+        result = runner.invoke(cli_app, ["convert", "webpage", "--format", "json"], input="")
+
+        payload = json.loads(result.output)
+
+        assert result.exit_code == 1
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is False
+        assert payload["error_code"] == "WEBPAGE_MISSING_URL"
+
+    def test_audio_json_unknown_provider_outputs_json(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test unknown audio provider in JSON mode returns a clean JSON error."""
+        audio_file = tmp_path / "meeting.mp3"
+        audio_file.write_bytes(b"audio")
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "convert",
+                "audio",
+                str(audio_file),
+                "--provider",
+                "missing-provider",
+                "--format",
+                "json",
+            ],
+        )
+
+        payload = json.loads(result.output)
+
+        assert result.exit_code == 1
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
+        assert payload["success"] is False
+        assert payload["error_code"] == "AUDIO_PROVIDER_NOT_FOUND"
+        assert "missing-provider" in payload["error"]
 
 
 class TestConvertJsonStdoutPurity:
@@ -370,6 +440,7 @@ class TestConvertJsonStdoutPurity:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
         assert payload["markdown"] == "# Transcript"
         assert "Converting YouTube video" not in result.output
 
@@ -403,6 +474,7 @@ class TestConvertJsonStdoutPurity:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
         assert payload["metadata"]["source"] == str(audio_file)
         assert "Transcribing audio file" not in result.output
 
@@ -443,6 +515,7 @@ class TestConvertJsonStdoutPurity:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
         assert payload["metadata"]["source"] == str(document_file)
         assert "Converting document" not in result.output
 
@@ -480,6 +553,7 @@ class TestConvertJsonStdoutPurity:
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["success"] is True
+        assert payload["schema_version"] == JSON_SCHEMA_VERSION
         assert payload["metadata"]["source"] == "https://example.com"
         assert "Converting web page" not in result.output
 
@@ -517,6 +591,7 @@ class TestBatchWebpagesJsonNoUrls:
         )
 
         output = json.loads(result.output.strip())
+        assert output["schema_version"] == JSON_SCHEMA_VERSION
         assert output["success"] is False
         assert output["error_code"] == "NO_URLS_FOUND"
 
@@ -550,8 +625,55 @@ class TestBatchDirectoryJsonError:
         error_line = next((line for line in lines if line.get("success") is False), None)
 
         assert error_line is not None
+        assert error_line["schema_version"] == JSON_SCHEMA_VERSION
         assert error_line["success"] is False
         assert error_line["error_code"] == "DIRECTORY_NOT_FOUND"
+
+    @patch("gobbler_core.converters.audio.convert_audio_to_markdown")
+    def test_batch_directory_json_item_failure_exits_nonzero(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test directory JSON batch completion counts failures and exits nonzero."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "meeting.mp3").write_bytes(b"audio")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_error(*args, **kwargs):
+            msg = "transcription failed"
+            raise RuntimeError(msg)
+
+        mock_convert.side_effect = mock_async_error
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "directory",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--type",
+                "audio",
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        complete_msg = next((line for line in lines if line.get("type") == "batch_complete"), None)
+
+        assert result.exit_code == 1
+        assert all(line["schema_version"] == JSON_SCHEMA_VERSION for line in lines)
+        assert complete_msg is not None
+        assert complete_msg["success"] is False
+        assert complete_msg["summary"]["total"] == 1
+        assert complete_msg["summary"]["successful"] == 0
+        assert complete_msg["summary"]["failed"] == 1
+        assert complete_msg["summary"]["skipped"] == 0
 
 
 class TestBatchWebpagesWithMock:
@@ -592,6 +714,7 @@ class TestBatchWebpagesWithMock:
         )
 
         lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        assert all(line["schema_version"] == JSON_SCHEMA_VERSION for line in lines)
 
         # Check for proper JSON line structure
         start_msg = next((line for line in lines if line.get("type") == "batch_start"), None)
@@ -601,6 +724,8 @@ class TestBatchWebpagesWithMock:
         complete_msg = next((line for line in lines if line.get("type") == "batch_complete"), None)
         assert complete_msg is not None
         assert complete_msg["success"] is True
+        assert complete_msg["summary"]["successful"] == 2
+        assert complete_msg["summary"]["failed"] == 0
         assert result.exit_code == 0
 
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
@@ -717,6 +842,7 @@ class TestBatchWebpagesWithMock:
         assert len(error_messages) == 2
         assert complete_msg is not None
         assert complete_msg["success"] is False
+        assert complete_msg["schema_version"] == JSON_SCHEMA_VERSION
         assert complete_msg["summary"]["total"] == 2
         assert complete_msg["summary"]["successful"] == 0
         assert complete_msg["summary"]["failed"] == 2
@@ -794,6 +920,7 @@ class TestBatchWebpagesWithMock:
 
         assert complete_msg is not None
         assert complete_msg["success"] is True
+        assert complete_msg["schema_version"] == JSON_SCHEMA_VERSION
         assert complete_msg["summary"]["total"] == 2
         assert complete_msg["summary"]["successful"] == 2
         assert complete_msg["summary"]["failed"] == 0
