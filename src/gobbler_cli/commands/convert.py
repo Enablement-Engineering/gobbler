@@ -244,11 +244,15 @@ async def _convert_youtube(
             if output:
                 print_success("YouTube video converted successfully")
     except Exception as e:
+        error_text = _safe_error_text(e)
+        diagnostics = _safe_error_diagnostics(e)
         if output_format == OutputFormat.JSON:
-            json_result = format_json_error(str(e), "YOUTUBE_CONVERSION_ERROR", source=url)
+            json_result = format_json_error(error_text, "YOUTUBE_CONVERSION_ERROR", source=url)
+            if diagnostics:
+                json_result["diagnostics"] = diagnostics
             write_json_result(json_result)
         else:
-            print_error(f"Failed to convert YouTube video: {e}")
+            print_error(f"Failed to convert YouTube video: {error_text}")
         raise typer.Exit(1) from None
 
 

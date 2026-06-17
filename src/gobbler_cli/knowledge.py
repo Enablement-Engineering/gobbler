@@ -125,10 +125,16 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
     # YouTube errors
     # ===================
     ErrorSolution(
-        keywords=["ip blocked", "youtube", "rate limit", "too many"],
+        keywords=["ip blocked", "youtube", "rate limit", "too many", "429", "timedtext"],
         title="YouTube rate limiting / IP blocked",
-        description="YouTube is blocking requests from your IP due to too many requests.",
-        fix="Configure a Webshare proxy in ~/.config/gobbler/config.yml or wait 10-15 minutes",
+        description=(
+            "YouTube is temporarily rejecting timedtext transcript requests from this client."
+        ),
+        fix=(
+            "Wait 10-15 minutes and retry; try --language auto or another caption language; "
+            "configure a documented YouTube proxy or set TRANSCRIPTAPI_KEY to enable the "
+            "TranscriptAPI fallback; or use another transcript source."
+        ),
         verify="gobbler status --json | grep -A5 proxy",
         error_codes=["YOUTUBE_CONVERSION_ERROR"],
     ),

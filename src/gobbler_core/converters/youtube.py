@@ -4,13 +4,17 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable
+from typing import NoReturn
 
 import yt_dlp
 
 from gobbler_core.providers.youtube import (
     TranscriptProvider,
+    YouTubeTranscriptError,
     create_provider,
     create_proxy_config,
+    create_youtube_rate_limit_error,
+    is_youtube_rate_limit_error,
 )
 from gobbler_core.utils.frontmatter import count_words, create_youtube_frontmatter
 
@@ -130,6 +134,62 @@ def _simplify_transcript_error(error_msg: str, video_id: str) -> str:
     return ""
 
 
+def _provider_diagnostic_name(provider: TranscriptProvider) -> str:
+    """Return a stable provider name for diagnostics."""
+    provider_type = type(provider).__name__
+    provider_names = {
+        "AutoFallbackProvider": "auto",
+        "TranscriptAPIProvider": "transcriptapi",
+        "YouTubeTranscriptAPIProvider": "youtube-transcript-api",
+    }
+    return provider_names.get(provider_type, provider_type)
+
+
+def _provider_has_proxy(provider: TranscriptProvider) -> bool:
+    """Return True when the active YouTube provider has proxy configuration."""
+    proxy_config = getattr(provider, "proxy_config", None)
+    if proxy_config is not None:
+        return True
+
+    free_provider = getattr(provider, "free_provider", None)
+    return getattr(free_provider, "proxy_config", None) is not None
+
+
+def _provider_has_fallback(provider: TranscriptProvider) -> bool:
+    """Return True when the active YouTube provider has a configured fallback provider."""
+    return getattr(provider, "paid_provider", None) is not None
+
+
+def _raise_clean_transcript_error(
+    error: Exception,
+    *,
+    video_id: str,
+    language: str,
+    provider: TranscriptProvider,
+    active_logger: logging.Logger,
+) -> NoReturn:
+    """Raise a clean transcript error for users and agents."""
+    if isinstance(error, YouTubeTranscriptError):
+        raise error
+
+    error_msg = str(error)
+    if is_youtube_rate_limit_error(error_msg):
+        raise create_youtube_rate_limit_error(
+            video_id=video_id,
+            language=language,
+            provider=_provider_diagnostic_name(provider),
+            proxy_configured=_provider_has_proxy(provider),
+            fallback_configured=_provider_has_fallback(provider),
+        ) from error
+
+    clean_msg = _simplify_transcript_error(error_msg, video_id)
+    if clean_msg:
+        raise RuntimeError(clean_msg) from error
+
+    active_logger.debug("Full error: %s", error_msg)
+    raise error
+
+
 async def convert_youtube_to_markdown(
     video_url: str,
     include_timestamps: bool = False,
@@ -200,14 +260,13 @@ async def convert_youtube_to_markdown(
         msg = f"YouTube conversion timed out after {timeout}s"
         raise RuntimeError(msg) from e
     except Exception as e:
-        # Simplify noisy error messages from youtube-transcript-api
-        error_msg = str(e)
-        clean_msg = _simplify_transcript_error(error_msg, video_id)
-        if clean_msg:
-            raise RuntimeError(clean_msg) from e
-        # For other errors, just pass through but log the full error
-        active_logger.debug("Full error: %s", error_msg)
-        raise
+        _raise_clean_transcript_error(
+            e,
+            video_id=video_id,
+            language=language,
+            provider=provider,
+            active_logger=active_logger,
+        )
 
     # Merge metadata (prefer yt-dlp, fall back to provider)
     for key in ["title", "channel", "thumbnail"]:

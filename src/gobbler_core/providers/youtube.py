@@ -44,11 +44,13 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
+
+from gobbler_core.utils.redaction import redact_value
 
 from .proxy import get_youtube_proxy_config
 
@@ -56,6 +58,42 @@ if TYPE_CHECKING:
     from gobbler_core.config import Config
 
 logger = logging.getLogger(__name__)
+
+
+YOUTUBE_RATE_LIMIT_NEXT_ACTIONS = [
+    "Wait 10-15 minutes and retry the same command.",
+    "Try a different video or caption language, for example `--language auto`.",
+    (
+        "Configure a documented YouTube proxy or set TRANSCRIPTAPI_KEY to enable the "
+        "TranscriptAPI fallback."
+    ),
+    "Use another transcript source if one is available.",
+]
+
+TRANSCRIPTAPI_RATE_LIMIT_NEXT_ACTIONS = [
+    "Wait and retry after the rate-limit window.",
+    "Check TranscriptAPI quota, billing, and provider status.",
+    "Try a different video or caption language if the transcript is available elsewhere.",
+    "Use another transcript source if one is available.",
+]
+
+
+@dataclass
+class YouTubeTranscriptError(RuntimeError):
+    """Sanitized YouTube transcript failure with machine-readable diagnostics."""
+
+    message: str
+    diagnostics: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        """Initialize RuntimeError with redacted diagnostics."""
+        sanitized_diagnostics = redact_value(self.diagnostics)
+        self.diagnostics = (
+            cast("dict[str, Any]", sanitized_diagnostics)
+            if isinstance(sanitized_diagnostics, dict)
+            else {}
+        )
+        super().__init__(self.message)
 
 
 @dataclass
@@ -74,6 +112,96 @@ class TranscriptResult:
     segments: list[TranscriptSegment]
     language: str
     metadata: dict[str, Any]
+
+
+def is_youtube_rate_limit_error(error_text: str) -> bool:
+    """Return True when an upstream YouTube transcript error is rate-limit shaped."""
+    lowered = error_text.lower()
+    status_code_shaped = (
+        "http 429" in lowered
+        or "status 429" in lowered
+        or "status_code=429" in lowered
+        or "status_code: 429" in lowered
+        or " 429 too many requests" in lowered
+        or "429 too many requests" in lowered
+        or "too many 429" in lowered
+        or "429 error responses" in lowered
+    )
+    return status_code_shaped or any(
+        indicator in lowered
+        for indicator in (
+            "too many requests",
+            "rate limit",
+            "ratelimit",
+            "rate-limit",
+        )
+    )
+
+
+def _parse_retry_after_seconds(retry_after: str | None) -> int | None:
+    """Parse a Retry-After header when it is expressed as seconds."""
+    if retry_after is None:
+        return None
+
+    try:
+        return int(retry_after)
+    except ValueError:
+        return None
+
+
+def _format_next_actions(next_actions: list[str]) -> str:
+    """Format next actions as a compact sentence for CLI output."""
+    return " ".join(f"{index}. {action}" for index, action in enumerate(next_actions, start=1))
+
+
+def create_youtube_rate_limit_error(
+    *,
+    video_id: str,
+    language: str,
+    provider: str,
+    proxy_configured: bool = False,
+    fallback_configured: bool = False,
+    retry_after_seconds: int | None = None,
+) -> YouTubeTranscriptError:
+    """Create an actionable YouTube transcript rate-limit error."""
+    diagnostics: dict[str, Any] = {
+        "provider": provider,
+        "error_type": "rate_limited",
+        "status_code": 429,
+        "video_id": video_id,
+        "language": language,
+        "proxy_configured": proxy_configured,
+        "fallback_configured": fallback_configured,
+    }
+
+    if retry_after_seconds is not None:
+        diagnostics["retry_after_seconds"] = retry_after_seconds
+
+    if provider == "transcriptapi":
+        next_actions = TRANSCRIPTAPI_RATE_LIMIT_NEXT_ACTIONS
+        retry_text = (
+            f" Retry after {retry_after_seconds}s."
+            if retry_after_seconds is not None
+            else " Retry after the provider rate-limit window."
+        )
+        message = (
+            f"TranscriptAPI rate limited the YouTube transcript request for video {video_id}."
+            f"{retry_text} Next actions: {_format_next_actions(next_actions)}"
+        )
+    else:
+        next_actions = YOUTUBE_RATE_LIMIT_NEXT_ACTIONS
+        if fallback_configured:
+            fallback_text = "The configured fallback was not able to complete the request."
+        else:
+            fallback_text = "No transcript fallback completed for this request."
+        message = (
+            f"YouTube transcript fetch was rate limited (HTTP 429) for video {video_id}. "
+            "YouTube temporarily rejected the timedtext transcript request. "
+            f"{fallback_text} Next actions: {_format_next_actions(next_actions)}"
+        )
+
+    diagnostics["next_actions"] = next_actions
+    return YouTubeTranscriptError(message=message, diagnostics=diagnostics)
 
 
 class TranscriptProvider(ABC):
@@ -119,21 +247,32 @@ class YouTubeTranscriptAPIProvider(TranscriptProvider):
         else:
             api = YouTubeTranscriptApi()
 
-        if language == "auto":
-            transcript_list = api.list(video_id)
-            try:
-                transcript = transcript_list.find_generated_transcript(["en"])
-            except Exception:
-                transcript = transcript_list.find_transcript(
-                    ["en", "es", "de", "fr", "pt", "ja", "ko", "zh"]
-                )
-            transcript_data = transcript.fetch()
-            detected_language = transcript.language_code
-        else:
-            transcript_list = api.list(video_id)
-            transcript = transcript_list.find_transcript([language])
-            transcript_data = transcript.fetch()
-            detected_language = language
+        try:
+            if language == "auto":
+                transcript_list = api.list(video_id)
+                try:
+                    transcript = transcript_list.find_generated_transcript(["en"])
+                except Exception:
+                    transcript = transcript_list.find_transcript(
+                        ["en", "es", "de", "fr", "pt", "ja", "ko", "zh"]
+                    )
+                transcript_data = transcript.fetch()
+                detected_language = transcript.language_code
+            else:
+                transcript_list = api.list(video_id)
+                transcript = transcript_list.find_transcript([language])
+                transcript_data = transcript.fetch()
+                detected_language = language
+        except Exception as e:
+            if is_youtube_rate_limit_error(str(e)):
+                raise create_youtube_rate_limit_error(
+                    video_id=video_id,
+                    language=language,
+                    provider="youtube-transcript-api",
+                    proxy_configured=self.proxy_config is not None,
+                    fallback_configured=False,
+                ) from e
+            raise
 
         segments = [
             TranscriptSegment(
@@ -167,7 +306,7 @@ class TranscriptAPIProvider(TranscriptProvider):
     def fetch(
         self,
         video_id: str,
-        language: str = "auto",  # noqa: ARG002
+        language: str = "auto",
     ) -> TranscriptResult:
         """Fetch transcript using TranscriptAPI.com."""
         headers = {
@@ -198,9 +337,17 @@ class TranscriptAPIProvider(TranscriptProvider):
                 msg = "TranscriptAPI: Transcript not available for this video"
                 raise RuntimeError(msg)
             if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                retry_after = response.headers.get("Retry-After", "60")
-                msg = f"TranscriptAPI: Rate limited. Retry after {retry_after}s"
-                raise RuntimeError(msg)
+                retry_after_seconds = _parse_retry_after_seconds(
+                    response.headers.get("Retry-After")
+                )
+                raise create_youtube_rate_limit_error(
+                    video_id=video_id,
+                    language=language,
+                    provider="transcriptapi",
+                    proxy_configured=False,
+                    fallback_configured=False,
+                    retry_after_seconds=retry_after_seconds,
+                )
             if response.status_code != httpx.codes.OK:
                 msg = f"TranscriptAPI error: {response.status_code} {response.text}"
                 raise RuntimeError(msg)
@@ -259,10 +406,12 @@ class AutoFallbackProvider(TranscriptProvider):
             return self.free_provider.fetch(video_id, language)
         except Exception as e:
             error_msg = str(e)
-            if "IpBlocked" in error_msg or "blocked" in error_msg.lower() or "429" in error_msg:
-                logger.warning(
-                    "Free API blocked (%s), falling back to TranscriptAPI.com", error_msg
-                )
+            if (
+                "IpBlocked" in error_msg
+                or "blocked" in error_msg.lower()
+                or is_youtube_rate_limit_error(error_msg)
+            ):
+                logger.warning("Free YouTube transcript API blocked; using TranscriptAPI fallback")
                 return self.paid_provider.fetch(video_id, language)
             raise
 
