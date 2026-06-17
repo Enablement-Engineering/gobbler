@@ -5,11 +5,12 @@ operations including creation, status updates, progress tracking, and cleanup.
 """
 
 import contextlib
+import errno
 import json
 import os
 import signal
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -226,6 +227,84 @@ class JobManager:
             ),
         )
         return cursor.rowcount > 0
+
+    def recover_stale_running_jobs(
+        self,
+        stale_after: timedelta,
+        *,
+        now: datetime | None = None,
+        is_pid_alive: Callable[[int], bool] | None = None,
+    ) -> int:
+        """Requeue stale running jobs whose worker process is gone.
+
+        A running job is recovered only when it has both a started_at timestamp
+        and worker_pid, has been running for at least stale_after, and the
+        worker PID is no longer alive. Recovery does not signal any process; it
+        only moves the job back to pending and clears the running-worker fields.
+
+        Args:
+            stale_after: Minimum running duration before a job can be recovered.
+            now: Optional current time for deterministic age checks.
+            is_pid_alive: Optional process liveness checker for deterministic or
+                platform-specific checks.
+
+        Returns:
+            Number of jobs requeued from running to pending.
+
+        Raises:
+            ValueError: If stale_after is not positive.
+        """
+        if stale_after <= timedelta(0):
+            msg = "stale_after must be positive"
+            raise ValueError(msg)
+
+        current_time = self._normalize_timestamp(now or datetime.now(UTC))
+        pid_is_alive = is_pid_alive or self._is_process_alive
+
+        rows = self.database.fetch_all(
+            """
+            SELECT * FROM jobs
+            WHERE status = ?
+              AND started_at IS NOT NULL
+              AND worker_pid IS NOT NULL
+            ORDER BY started_at ASC
+            """,
+            (JobStatus.RUNNING.value,),
+        )
+
+        recovered = 0
+        for row in rows:
+            job = self._row_to_job(row)
+            if job.started_at is None or job.worker_pid is None:
+                continue
+
+            started_at = self._normalize_timestamp(job.started_at)
+            if current_time - started_at < stale_after:
+                continue
+
+            if pid_is_alive(job.worker_pid):
+                continue
+
+            cursor = self.database.execute(
+                """
+                UPDATE jobs
+                SET status = ?, started_at = NULL, worker_pid = NULL
+                WHERE id = ?
+                  AND status = ?
+                  AND started_at = ?
+                  AND worker_pid = ?
+                """,
+                (
+                    JobStatus.PENDING.value,
+                    job.id,
+                    JobStatus.RUNNING.value,
+                    row["started_at"],
+                    row["worker_pid"],
+                ),
+            )
+            recovered += cursor.rowcount
+
+        return recovered
 
     def complete_job(self, job_id: str, result: dict[str, Any]) -> bool:
         """Mark a job as completed with its result.
@@ -465,6 +544,13 @@ class JobManager:
         return datetime.fromisoformat(value)
 
     @staticmethod
+    def _normalize_timestamp(value: datetime) -> datetime:
+        """Return a timezone-aware UTC datetime."""
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+    @staticmethod
     def _parse_argv_json(value: str) -> list[str]:
         """Parse stored argv JSON into a list of strings."""
         raw_argv = json.loads(value)
@@ -480,6 +566,27 @@ class JobManager:
             argv.append(arg)
 
         return argv
+
+    @staticmethod
+    def _is_process_alive(pid: int) -> bool:
+        """Check whether a PID appears to be alive without sending a signal."""
+        if pid <= 0:
+            return False
+
+        alive = True
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            alive = False
+        except PermissionError:
+            alive = True
+        except OSError as exc:
+            if exc.errno == errno.ESRCH:
+                alive = False
+            elif exc.errno == errno.EPERM:
+                alive = True
+
+        return alive
 
     def close(self) -> None:
         """Close the database connection."""

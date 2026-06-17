@@ -12,6 +12,7 @@ import shlex
 import signal
 import subprocess
 import time
+from datetime import timedelta
 from typing import TYPE_CHECKING, Optional
 
 from .models import Job
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Maximum job execution time (1 hour)
 MAX_JOB_TIMEOUT = 3600
+STALE_RUNNING_JOB_TIMEOUT = timedelta(seconds=MAX_JOB_TIMEOUT * 2)
 
 # Progress line pattern: PROGRESS:<percent>:<message>
 PROGRESS_PATTERN = re.compile(r"^PROGRESS:(\d+):(.*)$")
@@ -166,6 +168,10 @@ class Worker:
         Returns:
             The claimed Job, or None if no pending jobs.
         """
+        recovered = self.manager.recover_stale_running_jobs(stale_after=STALE_RUNNING_JOB_TIMEOUT)
+        if recovered:
+            logger.warning("Requeued %d stale running job(s)", recovered)
+
         # Get pending jobs (oldest first)
         pending_jobs = self.manager.get_pending_jobs(limit=1)
         if not pending_jobs:

@@ -8,6 +8,7 @@ Tests cover:
 # ruff: noqa: DTZ001, S108
 
 import json
+import os
 import shlex
 import threading
 import time
@@ -1097,6 +1098,134 @@ class TestJobManagerStartJob:
         finally:
             first_manager.close()
             second_manager.close()
+
+
+class TestJobManagerRecoverStaleRunningJobs:
+    """Test JobManager.recover_stale_running_jobs()."""
+
+    @staticmethod
+    def _set_running_job_start(
+        job_manager: JobManager,
+        job_id: str,
+        started_at: datetime,
+        worker_pid: int,
+    ) -> None:
+        """Set deterministic running-job fields for recovery tests."""
+        job_manager.database.execute(
+            """
+            UPDATE jobs
+            SET status = ?, started_at = ?, worker_pid = ?
+            WHERE id = ?
+            """,
+            (
+                JobStatus.RUNNING.value,
+                started_at.isoformat(),
+                worker_pid,
+                job_id,
+            ),
+        )
+
+    def test_requeues_stale_running_job_with_dead_worker_pid(self, job_manager):
+        """Test stale running job recovery when the worker PID is gone."""
+        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        self._set_running_job_start(
+            job_manager,
+            job.id,
+            now - timedelta(hours=2),
+            worker_pid=99999,
+        )
+
+        recovered = job_manager.recover_stale_running_jobs(
+            stale_after=timedelta(hours=1),
+            now=now,
+            is_pid_alive=lambda _pid: False,
+        )
+
+        retrieved = job_manager.get_job(job.id)
+        pending_jobs = job_manager.get_pending_jobs()
+        assert recovered == 1
+        assert retrieved is not None
+        assert retrieved.status == JobStatus.PENDING
+        assert retrieved.started_at is None
+        assert retrieved.worker_pid is None
+        assert [pending_job.id for pending_job in pending_jobs] == [job.id]
+
+    def test_does_not_recover_stale_running_job_with_alive_worker_pid(self, job_manager):
+        """Test stale running jobs stay running when their worker PID is alive."""
+        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        self._set_running_job_start(
+            job_manager,
+            job.id,
+            now - timedelta(hours=2),
+            worker_pid=12345,
+        )
+        pid_checker = Mock(return_value=True)
+
+        recovered = job_manager.recover_stale_running_jobs(
+            stale_after=timedelta(hours=1),
+            now=now,
+            is_pid_alive=pid_checker,
+        )
+
+        retrieved = job_manager.get_job(job.id)
+        assert recovered == 0
+        pid_checker.assert_called_once_with(12345)
+        assert retrieved is not None
+        assert retrieved.status == JobStatus.RUNNING
+        assert retrieved.started_at == now - timedelta(hours=2)
+        assert retrieved.worker_pid == 12345
+
+    def test_does_not_recover_running_job_with_current_process_pid(self, job_manager):
+        """Test the default PID checker preserves a running current-process job."""
+        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        worker_pid = os.getpid()
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        self._set_running_job_start(
+            job_manager,
+            job.id,
+            now - timedelta(hours=2),
+            worker_pid=worker_pid,
+        )
+
+        recovered = job_manager.recover_stale_running_jobs(
+            stale_after=timedelta(hours=1),
+            now=now,
+        )
+
+        retrieved = job_manager.get_job(job.id)
+        assert recovered == 0
+        assert retrieved is not None
+        assert retrieved.status == JobStatus.RUNNING
+        assert retrieved.started_at == now - timedelta(hours=2)
+        assert retrieved.worker_pid == worker_pid
+
+    def test_does_not_recover_recent_running_job_with_dead_worker_pid(self, job_manager):
+        """Test recent running jobs stay running even when the worker PID is gone."""
+        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        job = job_manager.create_job(job_type=JobType.YOUTUBE, command="test")
+        self._set_running_job_start(
+            job_manager,
+            job.id,
+            now - timedelta(minutes=10),
+            worker_pid=99999,
+        )
+        pid_checker = Mock(return_value=False)
+
+        recovered = job_manager.recover_stale_running_jobs(
+            stale_after=timedelta(hours=1),
+            now=now,
+            is_pid_alive=pid_checker,
+        )
+
+        retrieved = job_manager.get_job(job.id)
+        assert recovered == 0
+        pid_checker.assert_not_called()
+        assert retrieved is not None
+        assert retrieved.status == JobStatus.RUNNING
+        assert retrieved.started_at == now - timedelta(minutes=10)
+        assert retrieved.worker_pid == 99999
 
 
 class TestJobManagerCompleteJob:
