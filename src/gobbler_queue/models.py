@@ -5,7 +5,9 @@ including job status, types, and the Job dataclass with serialization support.
 """
 
 import json
+import shlex
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -44,7 +46,8 @@ class Job:
         id: Unique identifier for the job (UUID).
         job_type: The type of conversion job.
         status: Current status of the job.
-        command: Full CLI command to execute.
+        command: Display/legacy CLI command string.
+        argv: Structured command arguments to execute, when available.
         args: Serialized arguments for the job.
         progress: Progress percentage (0-100).
         progress_message: Human-readable progress message.
@@ -69,29 +72,40 @@ class Job:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     worker_pid: int | None = None
+    argv: list[str] | None = None
 
     @classmethod
     def create(
         cls,
         job_type: JobType,
-        command: str,
+        command: str | None = None,
         args: dict[str, Any] | None = None,
+        argv: Sequence[str] | None = None,
     ) -> "Job":
         """Create a new job with a generated UUID.
 
         Args:
             job_type: The type of conversion job.
-            command: Full CLI command to execute.
+            command: Display/legacy CLI command string.
             args: Optional arguments for the job.
+            argv: Optional structured command arguments to execute.
 
         Returns:
             A new Job instance with pending status.
+
+        Raises:
+            ValueError: If neither command nor argv is provided, or argv is empty.
+            TypeError: If argv is not a sequence of strings.
         """
+        normalized_argv = _normalize_argv(argv)
+        resolved_command = _resolve_command(command, normalized_argv)
+
         return cls(
             id=str(uuid.uuid4()),
             job_type=job_type,
             status=JobStatus.PENDING,
-            command=command,
+            command=resolved_command,
+            argv=normalized_argv,
             args=args or {},
         )
 
@@ -131,6 +145,7 @@ class Job:
             "job_type": self.job_type.value,
             "status": self.status.value,
             "command": self.command,
+            "argv": self.argv,
             "args": self.args,
             "progress": self.progress,
             "progress_message": self.progress_message,
@@ -152,11 +167,18 @@ class Job:
         Returns:
             A Job instance.
         """
+        argv = _normalize_argv(data.get("argv"))
+        command = data.get("command")
+        if command is not None and not isinstance(command, str):
+            msg = "command must be a string"
+            raise TypeError(msg)
+
         return cls(
             id=data["id"],
             job_type=JobType(data["job_type"]),
             status=JobStatus(data["status"]),
-            command=data["command"],
+            command=_resolve_command(command, argv),
+            argv=argv,
             args=data.get("args", {}),
             progress=data.get("progress", 0),
             progress_message=data.get("progress_message", ""),
@@ -268,3 +290,35 @@ def _parse_datetime(value: str | None) -> datetime | None:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(value)
+
+
+def _normalize_argv(argv: object) -> list[str] | None:
+    """Return argv as a list of strings, or None when absent."""
+    if argv is None:
+        return None
+    if isinstance(argv, str) or not isinstance(argv, Sequence):
+        msg = "argv must be a sequence of strings"
+        raise TypeError(msg)
+
+    normalized: list[str] = []
+    for arg in argv:
+        if not isinstance(arg, str):
+            msg = "argv must be a sequence of strings"
+            raise TypeError(msg)
+        normalized.append(arg)
+
+    if not normalized:
+        msg = "argv must contain at least one argument"
+        raise ValueError(msg)
+
+    return normalized
+
+
+def _resolve_command(command: str | None, argv: list[str] | None) -> str:
+    """Return a command string, deriving one from argv when needed."""
+    if command is not None:
+        return command
+    if argv is None:
+        msg = "command or argv is required"
+        raise ValueError(msg)
+    return shlex.join(argv)

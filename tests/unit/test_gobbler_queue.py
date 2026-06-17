@@ -8,17 +8,21 @@ Tests cover:
 # ruff: noqa: DTZ001, S108
 
 import json
+import shlex
 import threading
 import time
 from datetime import UTC, datetime, timedelta
+from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
+from gobbler_queue.cli_integration import queue_job
 from gobbler_queue.database import Database
 from gobbler_queue.manager import JobManager
 from gobbler_queue.models import Job, JobStatus, JobSummary, JobType
+from gobbler_queue.worker import Worker, _command_args
 
 # =============================================================================
 # Model Tests
@@ -93,6 +97,24 @@ class TestJob:
         )
 
         assert job.args == {}
+
+    def test_create_job_with_argv_derives_display_command(self):
+        """Test Job.create() stores structured argv and deterministic command text."""
+        argv = [
+            "gobbler",
+            "webpage",
+            'https://example.com/a path?q="x y"',
+            "--output-dir",
+            "/tmp/output dir",
+            "--selector",
+            'main article[data-title="A B"]',
+            "--no-skip-existing",
+        ]
+
+        job = Job.create(job_type=JobType.WEBPAGE, argv=argv)
+
+        assert job.argv == argv
+        assert job.command == shlex.join(argv)
 
     def test_job_is_terminal_pending(self):
         """Test is_terminal for pending job."""
@@ -298,6 +320,13 @@ class TestJob:
             job_type=JobType.BATCH_YOUTUBE,
             status=JobStatus.COMPLETED,
             command="gobbler batch-youtube playlist.txt",
+            argv=[
+                "gobbler",
+                "batch-youtube",
+                "playlist with spaces.txt",
+                "--output-dir",
+                "/tmp/out dir",
+            ],
             args={"playlist": "playlist.txt", "output_dir": "/tmp"},
             progress=100,
             progress_message="All done",
@@ -315,6 +344,7 @@ class TestJob:
         assert restored.job_type == original.job_type
         assert restored.status == original.status
         assert restored.command == original.command
+        assert restored.argv == original.argv
         assert restored.args == original.args
         assert restored.progress == original.progress
         assert restored.progress_message == original.progress_message
@@ -471,6 +501,47 @@ class TestDatabase:
         with db.connect() as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM jobs")
             assert cursor.fetchone()[0] == 0
+
+    def test_initialize_adds_argv_json_to_legacy_jobs_table(self, tmp_path):
+        """Test initialization migrates a pre-argv jobs table without losing rows."""
+        db_path = tmp_path / "legacy.db"
+        db = Database(db_path=db_path)
+
+        with db.connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE jobs (
+                    id TEXT PRIMARY KEY,
+                    job_type TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    command TEXT NOT NULL,
+                    args_json TEXT,
+                    progress INTEGER DEFAULT 0,
+                    progress_message TEXT,
+                    result_json TEXT,
+                    error TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    started_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    worker_pid INTEGER
+                )
+                """
+            )
+            conn.execute(
+                "INSERT INTO jobs (id, job_type, status, command) VALUES (?, ?, ?, ?)",
+                ("legacy-id", "webpage", "pending", "gobbler webpage 'https://example.com/a b'"),
+            )
+
+        manager = JobManager(database=db)
+
+        with db.connect() as conn:
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+
+        retrieved = manager.get_job("legacy-id")
+        assert "argv_json" in columns
+        assert retrieved is not None
+        assert retrieved.command == "gobbler webpage 'https://example.com/a b'"
+        assert retrieved.argv is None
 
     def test_wal_mode_enabled(self, tmp_path):
         """Test that WAL mode is enabled."""
@@ -680,6 +751,32 @@ class TestJobManagerCreate:
         )
 
         assert job.args == args
+
+    def test_create_job_with_argv_persisted(self, job_manager):
+        """Test creating a job with structured argv stores JSON list data."""
+        argv = [
+            "gobbler",
+            "document",
+            "/tmp/source file.pdf",
+            "--output-dir",
+            "/tmp/output dir",
+            "--title",
+            'A "quoted" title',
+        ]
+
+        job = job_manager.create_job(job_type=JobType.DOCUMENT, argv=argv)
+        retrieved = job_manager.get_job(job.id)
+        row = job_manager.database.fetch_one(
+            "SELECT command, argv_json FROM jobs WHERE id = ?",
+            (job.id,),
+        )
+
+        assert retrieved is not None
+        assert retrieved.command == shlex.join(argv)
+        assert retrieved.argv == argv
+        assert row is not None
+        assert row["command"] == shlex.join(argv)
+        assert json.loads(row["argv_json"]) == argv
 
     def test_create_job_persisted(self, job_manager):
         """Test that created job is persisted to database."""
@@ -1317,3 +1414,125 @@ class TestJobManagerEdgeCases:
 
         retrieved = job_manager.get_job(job.id)
         assert retrieved.result == {}
+
+
+class TestQueueJobHelper:
+    """Test CLI queue integration helpers."""
+
+    def test_queue_job_preserves_structured_command(self):
+        """Test queue_job stores argv separately from display command text."""
+        argv = [
+            "gobbler",
+            "webpage",
+            "https://example.com/path with spaces",
+            "--output-dir",
+            "/tmp/output dir",
+        ]
+        manager = Mock()
+        manager.create_job.return_value = Mock(id="job-id")
+
+        with patch("gobbler_queue.cli_integration.JobManager", return_value=manager):
+            job_id = queue_job("webpage", argv, {"url": argv[2]})
+
+        assert job_id == "job-id"
+        manager.create_job.assert_called_once_with(
+            job_type=JobType.WEBPAGE,
+            command=shlex.join(argv),
+            args={"url": argv[2]},
+            argv=argv,
+        )
+
+
+class FakeProcess:
+    """Minimal process double for Worker._execute_job tests."""
+
+    def __init__(self, stdout: str = "completed\n", stderr: str = "", returncode: int = 0):
+        self.stdout = StringIO(stdout)
+        self.stderr = StringIO(stderr)
+        self.returncode = returncode
+
+    def poll(self):
+        """Return immediately completed status."""
+        return self.returncode
+
+    def kill(self):
+        """Record-compatible kill method."""
+
+    def wait(self, timeout=None):
+        """Return the configured status code."""
+        return self.returncode
+
+
+class TestWorkerCommandArgs:
+    """Test worker command argv resolution."""
+
+    def test_command_args_prefers_structured_argv(self):
+        """Test structured argv is used without parsing command text."""
+        argv = [
+            "gobbler",
+            "webpage",
+            'https://example.com/a path?q="x y"',
+            "--output-dir",
+            "/tmp/output dir",
+            "--selector",
+            'main article[data-title="A B"]',
+        ]
+        job = Job(
+            id="argv-job",
+            job_type=JobType.WEBPAGE,
+            status=JobStatus.RUNNING,
+            command="this legacy string should not be parsed",
+            argv=argv,
+        )
+
+        assert _command_args(job) == argv
+
+    def test_command_args_falls_back_to_legacy_command_string(self):
+        """Test legacy command strings still split with shell-like quoting."""
+        job = Job(
+            id="legacy-job",
+            job_type=JobType.WEBPAGE,
+            status=JobStatus.RUNNING,
+            command=(
+                "gobbler webpage 'https://example.com/a path?q=\"x y\"' "
+                "--output-dir '/tmp/output dir'"
+            ),
+        )
+
+        assert _command_args(job) == [
+            "gobbler",
+            "webpage",
+            'https://example.com/a path?q="x y"',
+            "--output-dir",
+            "/tmp/output dir",
+        ]
+
+    def test_execute_job_passes_structured_argv_to_popen(self):
+        """Test the subprocess boundary receives structured argv exactly."""
+        argv = [
+            "gobbler",
+            "document",
+            "/tmp/source file.pdf",
+            "--output-dir",
+            "/tmp/output dir",
+            "--title",
+            'A "quoted" title',
+        ]
+        job = Job(
+            id="execute-job",
+            job_type=JobType.DOCUMENT,
+            status=JobStatus.RUNNING,
+            command=shlex.join(argv),
+            argv=argv,
+        )
+        manager = Mock()
+        worker = Worker(manager=manager)
+
+        with patch("subprocess.Popen", return_value=FakeProcess()) as mock_popen:
+            worker._execute_job(job)
+
+        popen_args, popen_kwargs = mock_popen.call_args
+        assert popen_args[0] == argv
+        assert "shell" not in popen_kwargs
+        manager.complete_job.assert_called_once()
+        manager.fail_job.assert_not_called()

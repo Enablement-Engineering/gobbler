@@ -9,6 +9,7 @@ import json
 import os
 import signal
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -39,33 +40,36 @@ class JobManager:
     def create_job(
         self,
         job_type: JobType,
-        command: str,
+        command: str | None = None,
         args: dict[str, Any] | None = None,
+        argv: Sequence[str] | None = None,
     ) -> Job:
         """Create a new job in pending status.
 
         Args:
             job_type: The type of conversion job.
-            command: Full CLI command to execute.
+            command: Display/legacy CLI command string.
             args: Optional arguments for the job.
+            argv: Optional structured command arguments to execute.
 
         Returns:
             The newly created Job instance.
         """
-        job = Job.create(job_type=job_type, command=command, args=args)
+        job = Job.create(job_type=job_type, command=command, args=args, argv=argv)
 
         self.database.execute(
             """
             INSERT INTO jobs (
-                id, job_type, status, command, args_json,
+                id, job_type, status, command, argv_json, args_json,
                 progress, progress_message, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job.id,
                 job.job_type.value,
                 job.status.value,
                 job.command,
+                json.dumps(job.argv) if job.argv is not None else None,
                 json.dumps(job.args) if job.args else None,
                 job.progress,
                 job.progress_message,
@@ -416,6 +420,11 @@ class JobManager:
         if row["args_json"]:
             args = json.loads(row["args_json"])
 
+        argv = None
+        row_keys = set(row.keys())
+        if "argv_json" in row_keys and row["argv_json"]:
+            argv = self._parse_argv_json(row["argv_json"])
+
         result = None
         if row["result_json"]:
             result = json.loads(row["result_json"])
@@ -425,6 +434,7 @@ class JobManager:
             job_type=JobType(row["job_type"]),
             status=JobStatus(row["status"]),
             command=row["command"],
+            argv=argv,
             args=args,
             progress=row["progress"] or 0,
             progress_message=row["progress_message"] or "",
@@ -451,6 +461,23 @@ class JobManager:
         if isinstance(value, datetime):
             return value
         return datetime.fromisoformat(value)
+
+    @staticmethod
+    def _parse_argv_json(value: str) -> list[str]:
+        """Parse stored argv JSON into a list of strings."""
+        raw_argv = json.loads(value)
+        if not isinstance(raw_argv, list):
+            msg = "Stored argv_json must be a JSON array"
+            raise TypeError(msg)
+
+        argv: list[str] = []
+        for arg in raw_argv:
+            if not isinstance(arg, str):
+                msg = "Stored argv_json must contain only strings"
+                raise TypeError(msg)
+            argv.append(arg)
+
+        return argv
 
     def close(self) -> None:
         """Close the database connection."""

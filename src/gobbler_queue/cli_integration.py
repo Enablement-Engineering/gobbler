@@ -7,11 +7,13 @@ daemon management.
 
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .manager import JobManager
 from .models import Job, JobSummary, JobType
@@ -20,7 +22,7 @@ from .models import Job, JobSummary, JobType
 WORKER_PID_FILE = Path.home() / ".cache" / "gobbler" / "worker.pid"
 
 
-def queue_job(job_type: str, command: list[str], args: dict) -> str:
+def queue_job(job_type: str, command: list[str], args: dict[str, Any]) -> str:
     """Create a job and return its ID.
 
     Args:
@@ -49,11 +51,11 @@ def queue_job(job_type: str, command: list[str], args: dict) -> str:
         msg = f"Invalid job type '{job_type}'. Valid types: {', '.join(valid_types)}"
         raise ValueError(msg) from err
 
-    # Join command list into string
-    command_str = " ".join(command)
+    command_argv = list(command)
+    command_str = shlex.join(command_argv)
 
     manager = JobManager()
-    job = manager.create_job(job_type=jtype, command=command_str, args=args)
+    job = manager.create_job(job_type=jtype, command=command_str, args=args, argv=command_argv)
 
     return job.id
 
@@ -142,6 +144,8 @@ def format_job_detail(job: Job) -> str:  # noqa: C901, PLR0912
 
     # Command
     lines.append(f"Command:  {job.command}")
+    if job.argv is not None:
+        lines.append(f"Argv:     {json.dumps(job.argv)}")
 
     # Arguments (if any)
     if job.args:

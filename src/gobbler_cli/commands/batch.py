@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shlex
 import sys
 from pathlib import Path
 from typing import Annotated, Any
@@ -869,8 +870,7 @@ def _queue_batch_webpages(
         print_error("No valid URLs found in input")
         raise typer.Exit(1)
 
-    # Build command for the worker to execute
-    # Store URLs in args since they come from stdin/file
+    # Store URLs in args since queued input can come from stdin.
     args = {
         "urls": urls,
         "output_dir": str(output_dir),
@@ -880,15 +880,23 @@ def _queue_batch_webpages(
         "skip_existing": skip_existing,
     }
 
-    # Build a representative command string
-    command = (
-        f"gobbler batch webpages --output-dir {output_dir} "
-        f"--concurrency {concurrency} --timeout {timeout}"
-    )
+    argv = [
+        "gobbler",
+        "batch",
+        "webpages",
+        "--output-dir",
+        str(output_dir),
+        "--concurrency",
+        str(concurrency),
+        "--timeout",
+        str(timeout),
+    ]
     if selector:
-        command += f" --selector {selector}"
+        argv.extend(["--selector", selector])
     if not skip_existing:
-        command += " --no-skip-existing"
+        argv.append("--no-skip-existing")
+
+    command = shlex.join(argv)
 
     try:
         manager = JobManager()
@@ -896,6 +904,7 @@ def _queue_batch_webpages(
             job_type=JobType.BATCH_WEBPAGE,
             command=command,
             args=args,
+            argv=argv,
         )
         print_success(f"Queued batch webpage job: {job.id}")
         print_info(f"Processing {len(urls)} URLs")
