@@ -13,7 +13,6 @@ Gobbler transforms any content—YouTube videos, web pages, documents, audio fil
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://enablement-engineering.github.io/gobbler/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
-[![Status: Active Beta](https://img.shields.io/badge/status-active%20beta-brightgreen.svg)](ROADMAP.md)
 
 ## The Problem
 
@@ -79,11 +78,11 @@ Gobbler is an **active beta** project focused on reliable, agent-friendly conten
 - **Agent experience:** markdown Skills and setup docs teach agents the same commands a human can run and verify.
 - **Browser support:** optional local extension for authenticated browser sessions and supported AI chat surfaces.
 
-See the [roadmap](ROADMAP.md), [security policy](SECURITY.md), and [Hermes/OpenClaw/agent usage guide](https://enablement-engineering.github.io/gobbler/agents/) for current direction.
+See the [security policy](SECURITY.md) and [agent usage guide](https://enablement-engineering.github.io/gobbler/agents/) for the supported automation workflow.
 
 ## CLI-First, Skills-Ready
 
-Gobbler's primary interface is the `gobbler` CLI. Hermes, OpenClaw, and other agents use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI. For agent-specific workflows, start with the [Hermes/OpenClaw/agent usage guide](https://enablement-engineering.github.io/gobbler/agents/).
+Gobbler's primary interface is the `gobbler` CLI. Agents use Skills to learn those same commands, and the browser extension adds authenticated browser-session access through the CLI. For agent workflows, start with the [agent usage guide](https://enablement-engineering.github.io/gobbler/agents/).
 
 ### 1. CLI
 
@@ -95,61 +94,36 @@ gobbler webpage URL              # Web pages (JS-rendered)
 gobbler batch youtube-playlist URL  # Batch processing
 ```
 
-### 2. Skills (For AI Agents)
+### 2. Skills (For CLI-Capable AI Agents)
 
-Skills are markdown instruction files (`SKILL.md`) that teach AI agents how to use the `gobbler` CLI. Compatible with:
+Skills are markdown instruction files (`SKILL.md`) that teach AI agents how to use the `gobbler` CLI. The language in this repo is intentionally platform-neutral: a Gobbler skill is for any AI agent that can read skill files, run shell commands, and inspect output files.
 
-- **[OpenClaw](https://openclaw.ai)** - Personal AI assistant platform
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** - Anthropic's coding agent
-- **[Cursor](https://cursor.sh)** / **[Windsurf](https://codeium.com/windsurf)** - AI-powered IDEs
-- **Any agent** that supports skill/tool discovery via markdown
-
-```
+```text
 skills/
-├── gobbler-youtube/     # 📺 YouTube transcription
-├── gobbler-audio/       # 🎙️ Audio/video transcription  
-├── gobbler-document/    # 📄 Document conversion (PDF, DOCX, PPTX, XLSX)
-├── gobbler-webpage/     # 🌐 Web scraping with JS rendering
-├── gobbler-browser/     # 🔌 Browser automation + AI chat integrations
-├── gobbler-setup/       # 🔧 Installation and troubleshooting
-└── gobbler-utils/       # 📦 Batch processing utilities
+├── gobbler/          # 🦃 Convert/extract/transcribe/archive to markdown
+│   └── references/   # YouTube, audio, document, webpage, and batch details
+├── gobbler-browser/  # 🔌 Browser automation + AI chat integrations
+└── gobbler-setup/    # 🔧 Installation and troubleshooting
 ```
 
-Each skill includes **OpenClaw-compatible metadata** for automatic dependency checking:
+The main `gobbler` skill covers normal content-to-markdown conversion. Detailed recipes live in `skills/gobbler/references/`, so agents can load YouTube, audio, document, webpage, or batch specifics only when needed.
 
-```yaml
-metadata:
-  openclaw:
-    emoji: 📺
-    requires:
-      bins: [gobbler]  # CLI tools that must be installed
-    install:
-      - id: gobbler
-        kind: script
-        label: Install Gobbler
-        script: |
-          git clone https://github.com/Enablement-Engineering/gobbler.git
-          cd gobbler && uv sync && uv tool install .
-```
+**Install skills with the open skills installer:**
 
-**Usage with OpenClaw:**
 ```bash
-# Copy skills to your OpenClaw workspace
-cp -r skills/* ~/.openclaw/skills/
+# Inspect available Gobbler skills
+npx skills@latest add Enablement-Engineering/gobbler --list
 
-# Or symlink for development
-ln -s $(pwd)/skills/* ~/.openclaw/skills/
+# Interactive install: choose skills and target agent(s)
+npx skills@latest add Enablement-Engineering/gobbler
+
+# Non-interactive example: install the main conversion skill globally
+npx skills@latest add Enablement-Engineering/gobbler --skill gobbler --global --yes
 ```
 
-**Usage with Claude Code:**
-```bash
-# Add skills directory to CLAUDE.md or workspace instructions
-echo "Skills available in ./skills/" >> CLAUDE.md
-```
+The installer copies or symlinks skill files into the selected agent's skill directory. It does **not** install the `gobbler` CLI itself; install Gobbler with `make install` or `uv tool install .` first.
 
-The `gobbler-browser` skill includes integrations for NotebookLM, Claude.ai, ChatGPT, and Gemini (DOM automation - may break with site updates).
-
-Skills use **progressive disclosure**—agents only load skill metadata at startup, then read full CLI instructions when triggered.
+Skills use **progressive disclosure**—agents see lightweight metadata first, then read full CLI instructions or reference files when triggered.
 
 ## Features
 
@@ -331,7 +305,7 @@ Key pages:
 - [Quick Start](https://Enablement-Engineering.github.io/gobbler/QUICK_START/) - Get running in 5 minutes
 - [CLI Reference](https://Enablement-Engineering.github.io/gobbler/cli/) - All commands and options
 - [Skills Guide](https://Enablement-Engineering.github.io/gobbler/SKILLS/) - Using skills with AI agents
-- [Hermes/OpenClaw/Agent Usage](https://Enablement-Engineering.github.io/gobbler/agents/) - CLI-first patterns for Hermes, OpenClaw, and agents
+- [Agent Usage](https://Enablement-Engineering.github.io/gobbler/agents/) - CLI-first patterns for agents
 - [Browser Extension](https://Enablement-Engineering.github.io/gobbler/browser-extension/) - Setup and usage
 - [Configuration](https://Enablement-Engineering.github.io/gobbler/configuration/) - Customize Gobbler
 

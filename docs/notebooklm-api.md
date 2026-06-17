@@ -100,7 +100,6 @@ const PAGE_API_REGISTRY = [
     apiFile: 'page-apis/notebooklm.js',
     enabled: true
   },
-  // Future APIs can be added here
 ];
 ```
 
@@ -775,7 +774,6 @@ NotebookLM uses custom web components (`<chat-message>`) and frequently changing
 **Why Multiple Selectors?**
 
 - NotebookLM's UI has changed multiple times (custom elements, Material Design, etc.)
-- Future-proofing against UI updates
 - Works across different NotebookLM features (chat, sources, audio overview)
 
 ### Selector Maintenance Guide

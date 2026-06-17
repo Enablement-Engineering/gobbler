@@ -114,7 +114,7 @@ gobbler browser exec "
 
 ## Example 9: Form Automation
 
-Fill out a form (use with caution):
+Fill out a form only on pages the user owns or has explicitly authorized. Do not submit forms unless the user asks you to submit them:
 
 ```bash
 gobbler browser exec "
@@ -159,7 +159,7 @@ gobbler browser status
 ## Security Best Practices
 
 1. **Never execute untrusted scripts**
-2. **Be cautious with form automation** - only automate your own forms
+2. **Be cautious with form automation** - only automate pages the user owns or explicitly authorized, and never submit forms unless requested
 3. **Don't store sensitive data** in extracted markdown
 4. **Use HTTPS** when navigating programmatically
 5. **Validate input** before passing to JavaScript execution

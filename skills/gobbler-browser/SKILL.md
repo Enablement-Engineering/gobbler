@@ -24,7 +24,7 @@ Control the browser via the Gobbler CLI and browser extension. Includes integrat
 **Requires**: 
 - Gobbler browser extension installed
 - Target tabs in "Gobbler" tab group
-- Relay server (auto-starts when needed)
+- Relay server running; start it with `gobbler relay start` if status commands report it is not running
 
 > **Note**: AI chat integrations (NotebookLM, Claude, ChatGPT, Gemini) use DOM automation and may break when sites update their UI.
 
@@ -140,7 +140,7 @@ These integrations use browser DOM automation to interact with AI chat services.
 
 1. **Browser extension installed** - Load `browser-extension/` folder in Chrome
 2. **Tab in "Gobbler" group** - Right-click tab → "Add to group" → name it "Gobbler"
-3. **Relay running** - Auto-starts when you run commands
+3. **Relay running** - Start with `gobbler relay start` if `gobbler browser status` reports that the relay is not running
 4. **APIs injected** - Run `gobbler browser inject` after page refresh
 
 ## CRITICAL: One Query at a Time
@@ -407,4 +407,4 @@ You probably sent parallel queries. STOP. Wait for each query to complete before
 
 1. **Browser extension** installed (load `browser-extension/` folder)
 2. **Target tabs** in a tab group named "Gobbler"
-3. **Relay server** running (auto-starts with commands)
+3. **Relay server** running; start with `gobbler relay start` if needed

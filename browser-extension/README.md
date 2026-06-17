@@ -8,7 +8,6 @@ Extract authenticated web content directly from your browser and send it to Gobb
 - ✅ Extract with CSS selectors
 - ✅ Send to Gobbler for markdown conversion
 - ✅ Copy markdown to clipboard
-- 🚧 Send to Claude Code (coming soon)
 
 ## Installation
 
@@ -91,9 +90,9 @@ Display in extension popup
 
 ## Advantages Over Cookie Export
 
-- ✅ Uses your real browser session (no cookie copying)
-- ✅ No bot detection (it's your actual browser)
-- ✅ Works with 2FA, private content, etc.
+- ✅ Uses your real browser session without copying cookies
+- ✅ No cookie export or cookie copying
+- ✅ Can access pages you are already authenticated to when those tabs are intentionally placed in the Gobbler tab group
 - ✅ Simple and fast
 
 ## Development
@@ -121,11 +120,3 @@ The extension consists of:
 - Try using a more specific CSS selector
 - Check if page has loaded completely
 - Some dynamic content may require waiting
-
-## Future Features
-
-- [ ] Batch extraction (multiple tabs)
-- [ ] Auto-extract on page load
-- [ ] Direct integration with Claude Code
-- [ ] Save extractions to files
-- [ ] Custom extraction templates

@@ -18,22 +18,21 @@ Complete guide for installing, configuring, and diagnosing Gobbler.
 
 ## Quick Health Check
 
-Run this first to diagnose issues:
+Run this first to diagnose issues. `status --json` is the preferred agent-readable check:
 
 ```bash
 # Check CLI is installed
 gobbler --version
 
-# Check daemon status
-gobbler daemon status
+# Check core services and configuration
+gobbler status --json
 
-# Check Docker services
+# Check Docker services when document/webpage conversion is degraded
 docker ps --filter "name=gobbler" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # Check individual services
 curl -s http://localhost:5001/health && echo " ← Docling OK"
 curl -s http://localhost:11235/health && echo " ← Crawl4AI OK"
-redis-cli -p 6380 ping && echo " ← Redis OK"
 ```
 
 ---

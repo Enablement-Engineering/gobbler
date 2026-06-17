@@ -91,6 +91,14 @@ gobbler = "gobbler_cli.main:cli"
 # Queue worker
 gobbler-worker = "gobbler_queue.worker:main"
 
+[tool.uv]
+# CI resolves without a checked-in lockfile. Require the Linux runner environment
+# during resolution so uv avoids wheels that are only published for macOS/Windows.
+required-environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

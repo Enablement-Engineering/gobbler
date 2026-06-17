@@ -112,7 +112,7 @@ export YOUTUBE_PROXY=http://user:pass@proxy.example.com:8080
 | Only proxy configured | `YouTubeTranscriptAPIProvider` | Uses free API through proxy |
 | Nothing configured | `YouTubeTranscriptAPIProvider` | Uses free API directly (may get IP blocked) |
 
-For detailed YouTube provider documentation, see [YouTube Transcription](skills/youtube.md#transcript-providers).
+For detailed YouTube provider documentation, see [Provider Configuration](providers.md).
 
 ## Service Configuration
 
