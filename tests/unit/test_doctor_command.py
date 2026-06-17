@@ -45,6 +45,7 @@ def test_collect_doctor_report_shape_and_next_actions(monkeypatch, tmp_path: Pat
         "get_docker_status",
         lambda: {"available": True, "path": "/usr/bin/docker", "daemon_available": False},
     )
+
     def service_down(_url: str) -> tuple[bool, str]:
         return False, "connection refused"
 
@@ -103,6 +104,7 @@ def test_collect_doctor_report_redacts_config_secrets(monkeypatch, tmp_path: Pat
         "get_docker_status",
         lambda: {"available": True, "path": "/usr/bin/docker", "daemon_available": True},
     )
+
     def service_ready(_url: str) -> tuple[bool, None]:
         return True, None
 
@@ -144,6 +146,7 @@ def test_doctor_json_command_outputs_valid_json(monkeypatch, tmp_path: Path) -> 
         "get_docker_status",
         lambda: {"available": False, "path": None, "daemon_available": False},
     )
+
     def service_down(_url: str) -> tuple[bool, str]:
         return False, "connection refused"
 
