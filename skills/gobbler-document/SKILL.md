@@ -9,17 +9,17 @@ metadata:
     install:
       - id: docker
         kind: script
-        label: Install Docker Desktop
+        label: Install Docker runtime
         script: |
-          echo "Install Docker Desktop from https://docker.com/products/docker-desktop"
-          open "https://docker.com/products/docker-desktop"
+          echo "Install Docker Desktop or Colima. On macOS with Homebrew: brew install colima docker docker-compose && colima start --memory 10 --cpu 5"
+          docker info || colima start --memory 10 --cpu 5
       - id: gobbler
         kind: script
         label: Install Gobbler (git clone + uv)
         script: |
           git clone https://github.com/Enablement-Engineering/gobbler.git ~/Projects/gobbler
           cd ~/Projects/gobbler && uv sync && uv tool install .
-          cd ~/Projects/gobbler && docker compose up -d docling
+          cd ~/Projects/gobbler && (docker compose up -d docling || docker-compose up -d docling)
     homepage: https://github.com/Enablement-Engineering/gobbler
 ---
 
@@ -27,7 +27,7 @@ metadata:
 
 Convert documents to markdown using the Docling service.
 
-**Requires**: Docling Docker container running (`docker compose up -d docling`)
+**Requires**: Docling Docker container running (`docker compose up -d docling` or `docker-compose up -d docling`). Docling is configured for up to 8 GB RAM and 4 CPUs; size Colima or Docker Desktop accordingly before starting the service.
 
 ## CLI Reference
 
@@ -116,7 +116,7 @@ Start services before using:
 
 ```bash
 cd /path/to/gobbler
-docker compose up -d docling
+docker compose up -d docling || docker-compose up -d docling
 
 # Check health
 curl http://localhost:5001/health
