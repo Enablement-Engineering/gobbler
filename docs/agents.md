@@ -15,6 +15,8 @@ Gobbler is designed for **CLI-capable AI agents**: agents that can read skill fi
 5. Verify the output file exists, starts with YAML frontmatter, and has a non-empty markdown body.
 6. Summarize the converted content or pass the markdown file to the next workflow step.
 
+When using JSON modes, parse stdout as data. `gobbler doctor --json`, `gobbler status --json`, and conversion commands with `--format json` write one JSON object to stdout without progress text. Batch commands with `--json` write newline-delimited JSON events.
+
 ```bash
 # YouTube transcript, no Docker required
 gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o ./outputs/video.md

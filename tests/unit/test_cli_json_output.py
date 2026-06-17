@@ -334,6 +334,156 @@ class TestDocumentJsonFileNotFound:
         assert output["error_code"] == "DOCUMENT_CONVERSION_ERROR"
 
 
+class TestConvertJsonStdoutPurity:
+    """Tests that conversion JSON modes emit only parseable JSON to stdout."""
+
+    def test_youtube_json_success_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test YouTube JSON success output is not prefixed by progress text."""
+
+        async def fake_convert_youtube_to_markdown(
+            *_args: object,
+            **_kwargs: object,
+        ) -> tuple[str, dict[str, str]]:
+            return "# Transcript", {"title": "Video"}
+
+        monkeypatch.setattr(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            fake_convert_youtube_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "convert",
+                "youtube",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                "--format",
+                "json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        assert payload["markdown"] == "# Transcript"
+        assert "Converting YouTube video" not in result.output
+
+    def test_audio_json_success_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test audio JSON success output is not prefixed by progress text."""
+        audio_file = tmp_path / "meeting.mp3"
+        audio_file.write_bytes(b"audio")
+
+        async def fake_convert_audio_to_markdown(
+            *_args: object,
+            **_kwargs: object,
+        ) -> tuple[str, dict[str, str]]:
+            return "# Transcript", {"title": "Meeting"}
+
+        monkeypatch.setattr(
+            "gobbler_core.converters.audio.convert_audio_to_markdown",
+            fake_convert_audio_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            ["convert", "audio", str(audio_file), "--format", "json"],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        assert payload["metadata"]["source"] == str(audio_file)
+        assert "Transcribing audio file" not in result.output
+
+    def test_document_json_success_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test document JSON success output is not prefixed by progress text."""
+        document_file = tmp_path / "paper.pdf"
+        document_file.write_bytes(b"%PDF-1.4\n")
+
+        async def fake_convert_document_to_markdown(
+            *_args: object,
+            **_kwargs: object,
+        ) -> tuple[str, dict[str, str]]:
+            return "# Paper", {"title": "Paper"}
+
+        def fake_get_default_provider() -> object:
+            return object()
+
+        monkeypatch.setattr(
+            "gobbler_core.providers.document.get_default_provider",
+            fake_get_default_provider,
+        )
+        monkeypatch.setattr(
+            "gobbler_core.converters.document.convert_document_to_markdown",
+            fake_convert_document_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            ["convert", "document", str(document_file), "--format", "json"],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        assert payload["metadata"]["source"] == str(document_file)
+        assert "Converting document" not in result.output
+
+    def test_webpage_json_success_stdout_is_payload_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test webpage JSON success output remains payload-only."""
+
+        async def fake_convert_webpage_to_markdown(
+            *_args: object,
+            **_kwargs: object,
+        ) -> tuple[str, dict[str, str]]:
+            return "# Page", {"title": "Page"}
+
+        def fake_get_default_provider() -> object:
+            return object()
+
+        monkeypatch.setattr(
+            "gobbler_core.providers.webpage.get_default_provider",
+            fake_get_default_provider,
+        )
+        monkeypatch.setattr(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            fake_convert_webpage_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            ["convert", "webpage", "https://example.com", "--format", "json"],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["success"] is True
+        assert payload["metadata"]["source"] == "https://example.com"
+        assert "Converting web page" not in result.output
+
+
 # =============================================================================
 # Tests for batch commands with JSON output
 # =============================================================================
