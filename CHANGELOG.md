@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-19
+
 ### Added
 - Agent-friendly `gobbler doctor --json` diagnostics with redacted config, local tool checks, service status, and next actions.
 - Consolidated `gobbler` skill for convert/extract/transcribe/archive-to-markdown workflows, with detailed references for YouTube, audio, document, webpage, and batch recipes.
@@ -17,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Cleaned up public documentation examples to remove stale local paths and repository references.
+
+### Fixed
+- Prevented `gobbler batch directory` from overwriting outputs when selected inputs share a stem but have different extensions.
 
 ## [0.2.0] - 2026-06-16
 
@@ -88,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Enablement-Engineering/gobbler/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Enablement-Engineering/gobbler/releases/tag/v0.1.0

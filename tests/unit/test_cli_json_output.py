@@ -814,6 +814,209 @@ class TestBatchDirectoryJsonError:
         assert complete_msg["summary"]["failed"] == 1
         assert complete_msg["summary"]["skipped"] == 0
 
+    def test_directory_output_paths_uses_source_extension_for_same_stem_collisions(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Same-stem inputs get unique deterministic markdown output names."""
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+        input_dir.mkdir()
+        files = [
+            input_dir / "report.pdf",
+            input_dir / "report.docx",
+            input_dir / "notes.pdf",
+        ]
+
+        output_paths = batch._directory_output_paths(list(reversed(files)), output_dir)
+
+        assert output_paths[input_dir / "report.pdf"] == output_dir / "report.pdf.md"
+        assert output_paths[input_dir / "report.docx"] == output_dir / "report.docx.md"
+        assert output_paths[input_dir / "notes.pdf"] == output_dir / "notes.md"
+        assert len(set(output_paths.values())) == len(output_paths)
+
+    def test_directory_output_paths_handles_case_variant_collisions(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Case-variant stems get distinct names for case-insensitive filesystems."""
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+        input_dir.mkdir()
+        files = [
+            input_dir / "Report.pdf",
+            input_dir / "report.docx",
+        ]
+
+        output_paths = batch._directory_output_paths(files, output_dir)
+
+        assert output_paths[input_dir / "Report.pdf"] == output_dir / "Report.pdf.md"
+        assert output_paths[input_dir / "report.docx"] == output_dir / "report.docx.md"
+        assert len({path.name.casefold() for path in output_paths.values()}) == len(output_paths)
+
+    def test_batch_directory_dry_run_json_avoids_same_stem_output_collisions(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Dry-run JSON previews the same collision-safe names used for processing."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "report.pdf").write_bytes(b"pdf")
+        (input_dir / "report.docx").write_bytes(b"docx")
+        (input_dir / "notes.pdf").write_bytes(b"pdf")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "directory",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        dry_run_msg = next((line for line in lines if line.get("type") == "dry_run"), None)
+
+        assert result.exit_code == 0
+        assert dry_run_msg is not None
+
+        outputs = {Path(item["output"]).name for item in dry_run_msg["files"]}
+        assert dry_run_msg["would_process"] == 3
+        assert outputs == {"report.pdf.md", "report.docx.md", "notes.md"}
+        assert len(outputs) == len(dry_run_msg["files"])
+
+    def test_batch_directory_dry_run_json_ignores_unknown_files_for_output_collisions(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Unsupported files do not force renamed outputs for supported inputs."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "report.pdf").write_bytes(b"pdf")
+        (input_dir / "report.txt").write_text("sidecar", encoding="utf-8")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "directory",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        dry_run_msg = next((line for line in lines if line.get("type") == "dry_run"), None)
+
+        assert result.exit_code == 0
+        assert dry_run_msg is not None
+        assert {Path(item["output"]).name for item in dry_run_msg["files"]} == {"report.md"}
+        assert {Path(item["output"]).name for item in dry_run_msg["skipped"]} == {"report.md"}
+
+    def test_batch_directory_dry_run_json_checks_existing_collision_safe_output(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Existing-output dry-run skip checks use collision-safe output paths."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "report.pdf").write_bytes(b"pdf")
+        (input_dir / "report.docx").write_bytes(b"docx")
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (output_dir / "report.pdf.md").write_text("existing", encoding="utf-8")
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "directory",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        dry_run_msg = next((line for line in lines if line.get("type") == "dry_run"), None)
+
+        assert result.exit_code == 0
+        assert dry_run_msg is not None
+
+        skipped_outputs = {Path(item["output"]).name for item in dry_run_msg["skipped"]}
+        process_outputs = {Path(item["output"]).name for item in dry_run_msg["files"]}
+        assert skipped_outputs == {"report.pdf.md"}
+        assert process_outputs == {"report.docx.md"}
+
+    @patch("gobbler_core.converters.document.convert_document_to_markdown")
+    def test_batch_directory_processing_writes_collision_safe_outputs(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Actual directory processing writes one unique output per same-stem input."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "report.pdf").write_bytes(b"pdf")
+        (input_dir / "report.docx").write_bytes(b"docx")
+        (input_dir / "report.txt").write_text("sidecar", encoding="utf-8")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_convert(path: str, *args, **kwargs):
+            return (f"# Converted\n\n{Path(path).name}", {"source": path})
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "directory",
+                str(input_dir),
+                "--output",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        success_outputs = {
+            Path(line["output"]).name for line in lines if line.get("type") == "item_success"
+        }
+        skipped = [line for line in lines if line.get("type") == "item_skipped"]
+
+        assert result.exit_code == 0
+        assert success_outputs == {"report.pdf.md", "report.docx.md"}
+        assert skipped == [
+            {
+                "type": "item_skipped",
+                "file": str(input_dir / "report.txt"),
+                "reason": "unknown_type",
+                "schema_version": 1,
+            }
+        ]
+        assert (output_dir / "report.pdf.md").read_text(encoding="utf-8").endswith("report.pdf")
+        assert (output_dir / "report.docx.md").read_text(encoding="utf-8").endswith("report.docx")
+
 
 class TestBatchWebpagesWithMock:
     """Tests for batch webpages with mocked converter."""

@@ -6,6 +6,25 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.1] - 2026-06-19
+
+### Added
+
+- Agent-friendly `gobbler doctor --json` diagnostics with redacted config, local tool checks, service status, and next actions.
+- Consolidated `gobbler` skill for convert/extract/transcribe/archive-to-markdown workflows, with detailed references for YouTube, audio, document, webpage, and batch recipes.
+- Unified public skill language around CLI-capable AI agents and documented `npx skills@latest add Enablement-Engineering/gobbler` as the recommended skill-install path.
+- Agent usage guide for CLI-capable automation workflows.
+- `SECURITY.md` for public project hygiene.
+- README project status, badges, and release-prep trust signals.
+
+### Changed
+
+- Cleaned up public documentation examples to remove stale local paths and repository references.
+
+### Fixed
+
+- Prevented `gobbler batch directory` from overwriting outputs when selected inputs share a stem but have different extensions.
+
 ## [0.2.0] - 2026-06-16
 
 ### Changed
@@ -13,7 +32,6 @@ All notable changes to this project are tracked in the root [CHANGELOG.md](https
 - Reframed Gobbler as a CLI-first, Skills-ready content conversion tool.
 - Moved reusable configuration and webpage-selector logic into core modules.
 - Updated CI, Dependabot, pre-commit, and PR templates for the CLI-first architecture.
-- Added public project hygiene docs: security policy and agent usage guide.
 
 ### Removed
 
