@@ -41,6 +41,7 @@ from aiohttp.web import AppKey
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
+from gobbler_core import __version__
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
 
 logger = logging.getLogger(__name__)
@@ -201,7 +202,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
                     elif message_type == "register":
                         # Extension registered successfully
-                        await ws.send_json({"type": "registered", "server_version": "0.2.0"})
+                        await ws.send_json({"type": "registered", "server_version": __version__})
                         logger.info("Extension registered via WebSocket")
 
                 except json.JSONDecodeError:

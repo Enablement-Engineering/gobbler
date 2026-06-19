@@ -6,6 +6,7 @@ import asyncio
 import json
 import shlex
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -37,6 +38,40 @@ def _batch_summary(total: int, successful: int, failed: int, skipped: int) -> di
         "failed": failed,
         "skipped": skipped,
     }
+
+
+def _directory_output_paths(files: list[Path], output_dir: Path) -> dict[Path, Path]:
+    """Return deterministic output paths for directory batch inputs.
+
+    Files that do not collide keep the historical ``<stem>.md`` name. When two
+    or more selected inputs would use the same output name, include the source
+    extension in the output name, e.g. ``report.pdf.md`` and ``report.docx.md``.
+    """
+    output_names = [f"{file_path.stem}.md" for file_path in files]
+    output_name_counts = Counter(name.casefold() for name in output_names)
+    colliding_names = {name for name, count in output_name_counts.items() if count > 1}
+
+    paths_by_file: dict[Path, Path] = {}
+    used_paths: set[str] = set()
+    for file_path in sorted(files, key=str):
+        output_name = (
+            f"{file_path.name}.md"
+            if f"{file_path.stem}.md".casefold() in colliding_names
+            else f"{file_path.stem}.md"
+        )
+        output_path = output_dir / output_name
+        output_path_key = output_path.as_posix().casefold()
+
+        suffix = 2
+        while output_path_key in used_paths:
+            output_path = output_dir / f"{Path(output_name).stem}-{suffix}.md"
+            output_path_key = output_path.as_posix().casefold()
+            suffix += 1
+
+        paths_by_file[file_path] = output_path
+        used_paths.add(output_path_key)
+
+    return paths_by_file
 
 
 def _scan_existing_video_ids(directory: Path) -> set[str]:
@@ -527,13 +562,20 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 print_info(f"No files matching pattern '{pattern}' found in {input_dir}")
             return
 
+        convertible_files = [
+            file_path
+            for file_path in files
+            if (file_type or _detect_file_type(file_path)) in ("audio", "document")
+        ]
+        output_paths = _directory_output_paths(convertible_files, output_dir)
+
         # Handle dry run
         if dry_run:
             would_process = []
             would_skip = []
             for file_path in files:
                 detected_type = file_type or _detect_file_type(file_path)
-                output_path = output_dir / f"{file_path.stem}.md"
+                output_path = output_paths.get(file_path, output_dir / f"{file_path.stem}.md")
                 if output_path.exists():
                     would_skip.append(
                         {"file": str(file_path), "output": str(output_path), "type": detected_type}
@@ -630,12 +672,12 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 # Determine file type
                 detected_type = file_type or _detect_file_type(file_path)
 
-                # Generate output filename
-                output_path = output_dir / f"{file_path.stem}.md"
-
                 # Skip unknown types
                 if detected_type not in ("audio", "document"):
                     return (file_path, True, "skipped_unknown", None)
+
+                # Generate output filename
+                output_path = output_paths[file_path]
 
                 try:
                     # Convert based on type
