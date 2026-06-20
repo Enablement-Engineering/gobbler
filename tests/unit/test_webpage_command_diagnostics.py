@@ -116,3 +116,192 @@ async def test_webpage_json_error_includes_sanitized_diagnostics(capsys) -> None
     assert payload["diagnostics"]["proxy_url"] == f"http://{REDACTED}@proxy.example:8080"
     assert "proxy-user" not in dumped
     assert "proxy-pass" not in dumped
+
+
+@pytest.mark.asyncio
+async def test_webpage_invalid_url_rejected_before_provider_lookup(capsys) -> None:
+    """Malformed webpage URLs fail locally before provider lookup or conversion."""
+    with (
+        patch("gobbler_core.providers.webpage.get_default_provider") as get_provider,
+        patch("gobbler_core.converters.webpage.convert_webpage_to_markdown") as convert_page,
+        pytest.raises(typer.Exit) as exc_info,
+    ):
+        await convert._convert_webpage(
+            url="not-a-url",
+            output=None,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.MARKDOWN,
+        )
+
+    captured = capsys.readouterr()
+
+    assert exc_info.value.exit_code == 1
+    assert "Invalid webpage URL" in captured.err
+    get_provider.assert_not_called()
+    convert_page.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_webpage_invalid_url_json_has_stable_error_code(capsys) -> None:
+    """Malformed webpage URLs produce the stable JSON invalid-input error code."""
+    with (
+        patch("gobbler_core.providers.webpage.get_default_provider") as get_provider,
+        patch("gobbler_core.converters.webpage.convert_webpage_to_markdown") as convert_page,
+        pytest.raises(typer.Exit) as exc_info,
+    ):
+        await convert._convert_webpage(
+            url="not-a-url",
+            output=None,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exc_info.value.exit_code == 1
+    assert payload["success"] is False
+    assert payload["error_code"] == "WEBPAGE_INVALID_URL"
+    assert payload["source"] == "not-a-url"
+    assert "Invalid webpage URL" in payload["error"]
+    assert payload["suggestion"] == "Provide a URL like https://example.com."
+    get_provider.assert_not_called()
+    convert_page.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "malformed_url",
+    [
+        "http://[::1",
+        "https://example.com:bad",
+        "https://example.com:99999",
+        "http://exa mple.com",
+    ],
+)
+@pytest.mark.asyncio
+async def test_webpage_malformed_absolute_url_json_has_stable_error_code(
+    malformed_url: str,
+    capsys,
+) -> None:
+    """Parser-error malformed absolute URLs fail locally with stable JSON code."""
+    with (
+        patch("gobbler_core.providers.webpage.get_default_provider") as get_provider,
+        patch("gobbler_core.converters.webpage.convert_webpage_to_markdown") as convert_page,
+        pytest.raises(typer.Exit) as exc_info,
+    ):
+        await convert._convert_webpage(
+            url=malformed_url,
+            output=None,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exc_info.value.exit_code == 1
+    assert payload["success"] is False
+    assert payload["error_code"] == "WEBPAGE_INVALID_URL"
+    assert payload["source"] == malformed_url
+    assert "Invalid webpage URL" in payload["error"]
+    assert payload["suggestion"] == "Provide a URL like https://example.com."
+    get_provider.assert_not_called()
+    convert_page.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_webpage_skip_if_exists_precedes_url_validation(tmp_path: Path, capsys) -> None:
+    """Existing output keeps idempotent skip behavior even for an invalid source URL."""
+    output = tmp_path / "existing.md"
+    output.write_text("already converted", encoding="utf-8")
+
+    with (
+        patch("gobbler_core.providers.webpage.get_default_provider") as get_provider,
+        patch("gobbler_core.converters.webpage.convert_webpage_to_markdown") as convert_page,
+    ):
+        await convert._convert_webpage(
+            url="not-a-url",
+            output=output,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+            skip_if_exists=True,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["success"] is True
+    assert payload["skipped"] is True
+    assert payload["reason"] == "output_exists"
+    assert payload["source"] == "not-a-url"
+    get_provider.assert_not_called()
+    convert_page.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_webpage_invalid_url_clean_mode_does_not_call_selector_converter(capsys) -> None:
+    """Invalid clean-mode URLs fail before selector conversion imports or dispatch."""
+    with (
+        patch(
+            "gobbler_core.converters.webpage_selector.convert_webpage_with_selector"
+        ) as convert_with_selector,
+        pytest.raises(typer.Exit) as exc_info,
+    ):
+        await convert._convert_webpage(
+            url="https://example.com:bad",
+            output=None,
+            css_selector=None,
+            clean=True,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.MARKDOWN,
+        )
+
+    captured = capsys.readouterr()
+
+    assert exc_info.value.exit_code == 1
+    assert "Invalid webpage URL" in captured.err
+    convert_with_selector.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_webpage_valid_http_url_dispatches_conversion(capsys) -> None:
+    """Absolute http:// webpage URLs continue through the conversion path."""
+    captured_url = ""
+
+    async def convert_page(*_args: Any, **kwargs: Any) -> tuple[str, dict[str, Any]]:
+        nonlocal captured_url
+        captured_url = str(kwargs["url"])
+        return "# Page", {"title": "Page"}
+
+    with (
+        patch("gobbler_cli.commands.convert.ProgressTracker", _NoopProgress),
+        patch("gobbler_core.providers.webpage.get_default_provider", return_value=object()),
+        patch(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            side_effect=convert_page,
+        ),
+    ):
+        await convert._convert_webpage(
+            url="http://example.com",
+            output=None,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert captured_url == "http://example.com"
+    assert payload["success"] is True

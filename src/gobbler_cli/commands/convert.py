@@ -6,6 +6,7 @@ import asyncio
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
+from urllib.parse import urlparse
 
 import typer
 
@@ -29,6 +30,11 @@ from gobbler_cli.progress import ProgressTracker
 from gobbler_core.utils.redaction import redact_value
 
 YOUTUBE_TIMEOUT_DEFAULT = 120
+WEBPAGE_INVALID_URL_MESSAGE = "Invalid webpage URL: expected an absolute http:// or https:// URL."
+WEBPAGE_INVALID_URL_CODE = "WEBPAGE_INVALID_URL"
+WEBPAGE_INVALID_URL_SUGGESTION = "Provide a URL like https://example.com."
+ASCII_CONTROL_CODEPOINT_LIMIT = 32
+ASCII_DELETE_CODEPOINT = 127
 
 app = typer.Typer(help="Convert individual content items to markdown")
 
@@ -100,6 +106,71 @@ def _write_provider_not_found_error(
         write_json_result(format_json_error(error_text, error_code, source=source))
     else:
         print_error(error_text)
+
+
+def _is_valid_webpage_url(url: str) -> bool:
+    """Return whether a single webpage URL is an absolute HTTP(S) URL.
+
+    Args:
+        url: User-provided webpage URL.
+
+    Returns:
+        True when the URL has an http/https scheme and hostname.
+    """
+    if any(
+        char.isspace()
+        or ord(char) < ASCII_CONTROL_CODEPOINT_LIMIT
+        or ord(char) == ASCII_DELETE_CODEPOINT
+        for char in url
+    ):
+        return False
+
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        # Accessing .port forces urllib.parse to validate malformed or out-of-range ports.
+        _ = parsed.port
+    except ValueError:
+        return False
+
+    return parsed.scheme in {"http", "https"} and bool(hostname)
+
+
+def _write_invalid_webpage_url_error(url: str, output_format: OutputFormat) -> None:
+    """Write an invalid webpage URL error in the requested output format.
+
+    Args:
+        url: User-provided webpage URL.
+        output_format: Requested CLI output format.
+    """
+    if output_format == OutputFormat.JSON:
+        write_json_result(
+            format_json_error(
+                WEBPAGE_INVALID_URL_MESSAGE,
+                WEBPAGE_INVALID_URL_CODE,
+                source=url,
+                suggestion=WEBPAGE_INVALID_URL_SUGGESTION,
+            )
+        )
+    else:
+        print_error(WEBPAGE_INVALID_URL_MESSAGE)
+
+
+def _validate_webpage_url(url: str, output_format: OutputFormat) -> None:
+    """Reject invalid single webpage command URLs with CLI output.
+
+    Args:
+        url: User-provided webpage URL.
+        output_format: Requested CLI output format.
+
+    Raises:
+        typer.Exit: If the URL is not an absolute http:// or https:// URL.
+    """
+    if _is_valid_webpage_url(url):
+        return
+
+    _write_invalid_webpage_url_error(url, output_format)
+    raise typer.Exit(1)
 
 
 @app.command()
@@ -654,6 +725,8 @@ async def _convert_webpage(
         if skip_if_exists and output and output.exists():
             _write_skip_result(output, url, output_format)
             return
+
+        _validate_webpage_url(url, output_format)
 
         # Use selector-based conversion if selector is provided or clean mode
         if css_selector or clean:

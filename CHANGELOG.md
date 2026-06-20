@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-20
+
+### Fixed
+- Rejected malformed or schemeless `gobbler webpage` URLs locally before dispatching to the webpage provider.
+- Added a stable `WEBPAGE_INVALID_URL` JSON error code for invalid single-webpage inputs.
+
 ## [0.2.1] - 2026-06-19
 
 ### Added
@@ -93,7 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Enablement-Engineering/gobbler/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Enablement-Engineering/gobbler/releases/tag/v0.1.0

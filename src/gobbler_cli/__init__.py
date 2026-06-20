@@ -14,6 +14,6 @@ The CLI supports both direct mode (using converters directly) and API mode
 (communicating with the gobbler daemon).
 """
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = ["__version__"]

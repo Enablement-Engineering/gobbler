@@ -6,6 +6,13 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.2] - 2026-06-20
+
+### Fixed
+
+- Rejected malformed or schemeless `gobbler webpage` URLs locally before dispatching to the webpage provider.
+- Added a stable `WEBPAGE_INVALID_URL` JSON error code for invalid single-webpage inputs.
+
 ## [0.2.1] - 2026-06-19
 
 ### Added
