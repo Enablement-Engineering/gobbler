@@ -838,6 +838,13 @@ def webpages(
         str | None,
         typer.Option("--selector", "-s", help="CSS selector to extract specific content"),
     ] = None,
+    use_proxy: Annotated[
+        bool,
+        typer.Option(
+            "--proxy/--no-proxy",
+            help="Use configured Crawl4AI webpage proxy settings",
+        ),
+    ] = True,
     skip_existing: Annotated[
         bool,
         typer.Option(
@@ -866,6 +873,7 @@ def webpages(
         gobbler batch webpages urls.txt -o ./output
         cat urls.txt | gobbler batch webpages -o ./output
         gobbler batch webpages urls.txt -o ./out --concurrency 5 --timeout 60
+        gobbler batch webpages urls.txt -o ./out --no-proxy
         gobbler batch webpages urls.txt -o ./out --queue
         gobbler batch webpages urls.txt -o ./out --json
         gobbler batch webpages urls.txt -o ./out --dry-run
@@ -877,6 +885,7 @@ def webpages(
             concurrency=concurrency,
             timeout=timeout,
             selector=selector,
+            use_proxy=use_proxy,
             skip_existing=skip_existing,
         )
     else:
@@ -887,6 +896,7 @@ def webpages(
                 concurrency=concurrency,
                 timeout=timeout,
                 selector=selector,
+                use_proxy=use_proxy,
                 skip_existing=skip_existing,
                 json_output=json_output,
                 dry_run=dry_run,
@@ -900,6 +910,7 @@ def _queue_batch_webpages(
     concurrency: int,
     timeout: int,
     selector: str | None,
+    use_proxy: bool,
     skip_existing: bool,
 ) -> None:
     """Queue the batch webpages job for background processing."""
@@ -919,6 +930,7 @@ def _queue_batch_webpages(
         "concurrency": concurrency,
         "timeout": timeout,
         "selector": selector,
+        "use_proxy": use_proxy,
         "skip_existing": skip_existing,
     }
 
@@ -935,6 +947,8 @@ def _queue_batch_webpages(
     ]
     if selector:
         argv.extend(["--selector", selector])
+    if not use_proxy:
+        argv.append("--no-proxy")
     if not skip_existing:
         argv.append("--no-skip-existing")
 
@@ -1038,6 +1052,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
     timeout: int,
     selector: str | None,  # noqa: ARG001 - Reserved for future CSS selector support
     skip_existing: bool,
+    use_proxy: bool = True,
     json_output: bool = False,
     dry_run: bool = False,
 ) -> None:
@@ -1157,6 +1172,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                     markdown_content, metadata = await convert_webpage_to_markdown(
                         url=url,
                         timeout=timeout,
+                        use_proxy=use_proxy,
                     )
 
                     # Write output

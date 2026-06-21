@@ -1021,6 +1021,121 @@ class TestBatchDirectoryJsonError:
 class TestBatchWebpagesWithMock:
     """Tests for batch webpages with mocked converter."""
 
+    def test_batch_webpages_help_lists_proxy_option(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Test that batch webpages exposes the proxy toggle in help output."""
+        result = runner.invoke(cli_app, ["batch", "webpages", "--help"])
+
+        assert result.exit_code == 0
+        assert "--proxy" in result.output
+        assert "--no-proxy" in result.output
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_defaults_to_proxy_enabled(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that batch webpages defaults to use_proxy=True."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_convert(*args, **kwargs):
+            return ("# Content", {"title": "Example"})
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert mock_convert.call_args.kwargs["use_proxy"] is True
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_no_proxy_passes_proxy_disabled(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that --no-proxy passes use_proxy=False to webpage conversion."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\n")
+        output_dir = tmp_path / "output"
+
+        async def mock_async_convert(*args, **kwargs):
+            return ("# Content", {"title": "Example"})
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+                "--no-proxy",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert mock_convert.call_args.kwargs["use_proxy"] is False
+
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_preserves_no_proxy(
+        self,
+        mock_job_manager: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Test that queued batch webpage jobs preserve --no-proxy in args and argv."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\n")
+        output_dir = tmp_path / "output"
+        mock_job = MagicMock()
+        mock_job.id = "job-123"
+        mock_manager = mock_job_manager.return_value
+        mock_manager.create_job.return_value = mock_job
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--queue",
+                "--no-proxy",
+            ],
+        )
+
+        assert result.exit_code == 0
+        create_job_kwargs = mock_manager.create_job.call_args.kwargs
+        assert create_job_kwargs["args"]["use_proxy"] is False
+        assert "--no-proxy" in create_job_kwargs["argv"]
+        assert "--no-proxy" in create_job_kwargs["command"]
+
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
     def test_batch_webpages_json_lines(
         self,
