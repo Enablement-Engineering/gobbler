@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,11 @@ def cli_app():
         app.add_typer(jobs.app, name="jobs", help="Job management")
 
     return app
+
+
+def _plain_cli_output(output: str) -> str:
+    """Return CLI output with ANSI escape codes removed for portable assertions."""
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", output)
 
 
 @pytest.fixture
@@ -1030,8 +1036,9 @@ class TestBatchWebpagesWithMock:
         result = runner.invoke(cli_app, ["batch", "webpages", "--help"])
 
         assert result.exit_code == 0
-        assert "--proxy" in result.output
-        assert "--no-proxy" in result.output
+        plain_output = _plain_cli_output(result.output)
+        assert "--proxy" in plain_output
+        assert "--no-proxy" in plain_output
 
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
     def test_batch_webpages_defaults_to_proxy_enabled(
