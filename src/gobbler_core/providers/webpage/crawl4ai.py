@@ -9,16 +9,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import shlex
 from dataclasses import dataclass
 from typing import Any, cast
-from urllib.parse import unquote, urlparse, urlunparse
+from urllib.parse import unquote, urlparse, urlsplit, urlunparse, urlunsplit
 
 import httpx
 
 from gobbler_core.providers.registry import ProviderRegistry
 from gobbler_core.providers.webpage.base import WebPageProvider, WebPageResult
 from gobbler_core.utils.http_client import RetryableHTTPClient
-from gobbler_core.utils.redaction import REDACTED, redact_value
+from gobbler_core.utils.redaction import REDACTED, redact_url_userinfo, redact_value
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,7 @@ def _build_diagnostic_error(
     stage: str,
     proxy_configured: bool,
     service_url: str,
+    source_url: str | None = None,
     endpoint: str = "unknown",
     status_code: int | None = None,
     response_body: str | None = None,
@@ -156,6 +158,7 @@ def _build_diagnostic_error(
     response_keys: list[str] | None = None,
 ) -> Crawl4AIConversionError:
     """Create a sanitized Crawl4AIConversionError."""
+    suggested_command: str | None = None
     advice = (
         "Crawl4AI /health only confirms the service is reachable; inspect the "
         "Crawl4AI container logs and proxy settings for /crawl failures."
@@ -165,6 +168,15 @@ def _build_diagnostic_error(
             "A proxy is configured for Crawl4AI; verify proxy credentials, network "
             "reachability, and Crawl4AI container logs."
         )
+        if source_url:
+            suggested_command = _suggest_no_proxy_command(source_url)
+            advice = (
+                "A proxy is configured for Crawl4AI; retry the single-page CLI "
+                f"without the proxy to isolate degraded proxy paths: {suggested_command}. "
+                "Also verify proxy credentials, network reachability, and Crawl4AI "
+                "container logs."
+            )
+            message = f"{message} Retry with --no-proxy to isolate proxy-path failures."
 
     diagnostics: dict[str, Any] = {
         "provider": "crawl4ai",
@@ -174,6 +186,8 @@ def _build_diagnostic_error(
         "proxy_configured": proxy_configured,
         "advice": advice,
     }
+    if suggested_command is not None:
+        diagnostics["suggested_command_fragment"] = suggested_command
     if status_code is not None:
         diagnostics["status_code"] = status_code
     if response_body:
@@ -186,6 +200,22 @@ def _build_diagnostic_error(
     return Crawl4AIConversionError(message=message, diagnostics=diagnostics)
 
 
+def _suggest_no_proxy_command(source_url: str) -> str:
+    """Return a shell-safe single-page retry command for proxy diagnostics."""
+    safe_url = _redact_retry_url(source_url)
+    return f"gobbler webpage {shlex.quote(safe_url)} --no-proxy"
+
+
+def _redact_retry_url(source_url: str) -> str:
+    """Return a URL origin safe to embed in proxy retry guidance."""
+    try:
+        parts = urlsplit(source_url)
+    except ValueError:
+        return redact_url_userinfo(source_url)
+    retry_url = urlunsplit((parts.scheme, parts.netloc, "/", "", ""))
+    return redact_url_userinfo(retry_url)
+
+
 def _raise_for_crawl4ai_status(
     response: httpx.Response,
     *,
@@ -193,12 +223,15 @@ def _raise_for_crawl4ai_status(
     service_url: str,
     api_token: str | None,
     proxy_url: str | None,
+    source_url: str | None = None,
 ) -> None:
     """Raise a sanitized diagnostic error for non-success Crawl4AI responses."""
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         sensitive = _sensitive_fragments(api_token=api_token, proxy_url=proxy_url)
+        if source_url:
+            sensitive.extend([source_url, redact_url_userinfo(source_url)])
         endpoint = _endpoint_path(exc.response)
         body = _response_body_snippet(exc.response, sensitive)
         message = (
@@ -212,6 +245,7 @@ def _raise_for_crawl4ai_status(
             stage=stage,
             endpoint=endpoint,
             service_url=service_url,
+            source_url=source_url,
             proxy_configured=proxy_url is not None,
             status_code=exc.response.status_code,
             response_body=body,
@@ -609,6 +643,7 @@ class Crawl4AIProvider(WebPageProvider):
         )
         headers = {"Authorization": f"Bearer {self.api_token}"}
         sensitive = _sensitive_fragments(api_token=self.api_token, proxy_url=self.proxy_url)
+        sensitive.extend([url, redact_url_userinfo(url)])
 
         try:
             async with RetryableHTTPClient(timeout=float(timeout)) as client:
@@ -624,6 +659,7 @@ class Crawl4AIProvider(WebPageProvider):
                     service_url=self.service_url,
                     api_token=self.api_token,
                     proxy_url=self.proxy_url,
+                    source_url=url,
                 )
                 task_data = response.json()
 
@@ -642,6 +678,7 @@ class Crawl4AIProvider(WebPageProvider):
                             stage="crawl_result",
                             endpoint="/crawl",
                             service_url=self.service_url,
+                            source_url=url,
                             proxy_configured=self.proxy_url is not None,
                             response_error=_extract_response_error(task_data, sensitive),
                             response_keys=sorted(str(key) for key in task_data),
@@ -650,7 +687,13 @@ class Crawl4AIProvider(WebPageProvider):
                 elif task_data.get("task_id"):
                     # Old API (v0.3.x) - poll for completion
                     task_id = task_data["task_id"]
-                    result = await self._poll_for_completion(client, task_id, headers, timeout)
+                    result = await self._poll_for_completion(
+                        client,
+                        task_id,
+                        headers,
+                        timeout,
+                        source_url=url,
+                    )
                 else:
                     raise _build_diagnostic_error(
                         message=(
@@ -660,6 +703,7 @@ class Crawl4AIProvider(WebPageProvider):
                         stage="crawl_start",
                         endpoint="/crawl",
                         service_url=self.service_url,
+                        source_url=url,
                         proxy_configured=self.proxy_url is not None,
                         response_error=_extract_response_error(task_data, sensitive),
                         response_keys=sorted(str(key) for key in task_data),
@@ -704,6 +748,7 @@ class Crawl4AIProvider(WebPageProvider):
                 service_url=self.service_url,
                 api_token=self.api_token,
                 proxy_url=self.proxy_url,
+                source_url=url,
             )
             raise
         except RuntimeError:
@@ -721,6 +766,7 @@ class Crawl4AIProvider(WebPageProvider):
         task_id: str,
         headers: dict[str, str],
         timeout: int,
+        source_url: str | None = None,
     ) -> dict[str, Any]:
         """Poll Crawl4AI for task completion.
 
@@ -729,6 +775,7 @@ class Crawl4AIProvider(WebPageProvider):
             task_id: Task ID to poll
             headers: HTTP headers
             timeout: Maximum wait time in seconds
+            source_url: Original page URL for actionable retry diagnostics
 
         Returns:
             First result from completed task
@@ -754,6 +801,7 @@ class Crawl4AIProvider(WebPageProvider):
                 service_url=self.service_url,
                 api_token=self.api_token,
                 proxy_url=self.proxy_url,
+                source_url=source_url,
             )
             task_status = response.json()
 
@@ -766,6 +814,8 @@ class Crawl4AIProvider(WebPageProvider):
                         api_token=self.api_token,
                         proxy_url=self.proxy_url,
                     )
+                    if source_url:
+                        sensitive.extend([source_url, redact_url_userinfo(source_url)])
                     raise _build_diagnostic_error(
                         message=(
                             "Crawl4AI task completed but returned no results. "
@@ -774,6 +824,7 @@ class Crawl4AIProvider(WebPageProvider):
                         stage="task_result",
                         endpoint=f"/task/{task_id}",
                         service_url=self.service_url,
+                        source_url=source_url,
                         proxy_configured=self.proxy_url is not None,
                         response_error=_extract_response_error(task_status, sensitive),
                         response_keys=sorted(str(key) for key in task_status),
@@ -786,6 +837,8 @@ class Crawl4AIProvider(WebPageProvider):
                     api_token=self.api_token,
                     proxy_url=self.proxy_url,
                 )
+                if source_url:
+                    sensitive.extend([source_url, redact_url_userinfo(source_url)])
                 raise _build_diagnostic_error(
                     message=(
                         "Crawl4AI task failed during webpage conversion. "
@@ -794,6 +847,7 @@ class Crawl4AIProvider(WebPageProvider):
                     stage="task_result",
                     endpoint=f"/task/{task_id}",
                     service_url=self.service_url,
+                    source_url=source_url,
                     proxy_configured=self.proxy_url is not None,
                     response_error=_redact_text(str(error), sensitive),
                     response_keys=sorted(str(key) for key in task_status),

@@ -13,6 +13,7 @@ from gobbler_core.providers.webpage.crawl4ai import (
     Crawl4AIConversionError,
     Crawl4AIProvider,
     _build_crawl_request,
+    _build_diagnostic_error,
     _parse_proxy_url,
     _sensitive_fragments,
     check_crawl4ai_conversion_probe,
@@ -83,6 +84,71 @@ def test_safe_proxy_url_masks_authenticated_shorthand() -> None:
     assert provider._safe_proxy_url(provider.proxy_url or "") == "proxy.example:8080:***:***"
 
 
+def test_proxy_diagnostic_suggests_no_proxy_command_without_proxy_secrets() -> None:
+    """Proxy-configured conversion diagnostics suggest a safe --no-proxy retry."""
+    error = _build_diagnostic_error(
+        message="Crawl4AI /crawl returned HTTP 500 during crawl_start.",
+        stage="crawl_start",
+        endpoint="/crawl",
+        service_url="http://crawl.local",
+        source_url="https://example.com/?a=1&token=secret-token",
+        proxy_configured=True,
+        status_code=500,
+    )
+
+    dumped = json.dumps({"message": str(error), "diagnostics": error.diagnostics})
+
+    assert "--no-proxy" in str(error)
+    assert error.diagnostics["suggested_command_fragment"] == (
+        "gobbler webpage https://example.com/ --no-proxy"
+    )
+    assert "degraded proxy paths" in error.diagnostics["advice"]
+    assert "secret-token" not in dumped
+
+
+def test_proxy_diagnostic_redacts_userinfo_and_all_query_values() -> None:
+    """Retry guidance redacts URL userinfo and query values together."""
+    error = _build_diagnostic_error(
+        message="Crawl4AI /crawl returned HTTP 500 during crawl_start.",
+        stage="crawl_start",
+        endpoint="/crawl",
+        service_url="http://crawl.local",
+        source_url="https://user:pass@example.com/path?session=abc123&q=private#access_token=frag-secret",
+        proxy_configured=True,
+        status_code=500,
+    )
+
+    dumped = json.dumps({"message": str(error), "diagnostics": error.diagnostics})
+
+    assert error.diagnostics["suggested_command_fragment"] == (
+        "gobbler webpage 'https://[REDACTED]@example.com/' --no-proxy"
+    )
+    assert "user:pass" not in dumped
+    assert "abc123" not in dumped
+    assert "private" not in dumped
+    assert "frag-secret" not in dumped
+
+
+def test_non_proxy_diagnostic_keeps_generic_service_log_advice() -> None:
+    """Direct Crawl4AI failures keep generic service/log advice."""
+    error = _build_diagnostic_error(
+        message="Crawl4AI /crawl returned HTTP 500 during crawl_start.",
+        stage="crawl_start",
+        endpoint="/crawl",
+        service_url="http://crawl.local",
+        source_url="https://example.com",
+        proxy_configured=False,
+        status_code=500,
+    )
+
+    assert "--no-proxy" not in str(error)
+    assert "suggested_command_fragment" not in error.diagnostics
+    assert error.diagnostics["advice"] == (
+        "Crawl4AI /health only confirms the service is reachable; inspect the "
+        "Crawl4AI container logs and proxy settings for /crawl failures."
+    )
+
+
 @pytest.mark.asyncio
 async def test_fetch_http_error_includes_sanitized_diagnostics() -> None:
     """Crawl4AI HTTP failures include endpoint details without leaking proxy secrets."""
@@ -109,18 +175,66 @@ async def test_fetch_http_error_includes_sanitized_diagnostics() -> None:
         )
 
         with pytest.raises(Crawl4AIConversionError) as exc_info:
-            await provider.fetch("https://example.com")
+            await provider.fetch("https://example.com/?a=1&token=url-token")
 
     error = exc_info.value
     dumped = json.dumps({"message": str(error), "diagnostics": error.diagnostics})
 
     assert "Crawl4AI /crawl returned HTTP 500" in str(error)
+    assert "--no-proxy" in str(error)
     assert error.diagnostics["status_code"] == 500
     assert error.diagnostics["proxy_configured"] is True
+    assert error.diagnostics["suggested_command_fragment"] == (
+        "gobbler webpage https://example.com/ --no-proxy"
+    )
     assert REDACTED in dumped
+    assert "url-token" not in dumped
     assert "proxy-user" not in dumped
     assert "proxy-pass" not in dumped
     assert api_token not in dumped
+
+
+@pytest.mark.asyncio
+async def test_task_failure_diagnostic_redacts_source_url_query() -> None:
+    """Task-polling errors redact source URL query values in diagnostics."""
+    source_url = "https://user:pass@example.com/?session=abc123&token=url-token"
+    start_response = httpx.Response(
+        200,
+        request=httpx.Request("POST", "http://crawl.local/crawl"),
+        json={"task_id": "task-1"},
+    )
+    failed_response = httpx.Response(
+        200,
+        request=httpx.Request("GET", "http://crawl.local/task/task-1"),
+        json={"status": "failed", "error": f"failed fetching {source_url}"},
+    )
+
+    with (
+        patch("gobbler_core.providers.webpage.crawl4ai.asyncio.sleep", new=AsyncMock()),
+        patch("gobbler_core.providers.webpage.crawl4ai.RetryableHTTPClient") as mock_client,
+    ):
+        client_instance = AsyncMock()
+        mock_client.return_value.__aenter__.return_value = client_instance
+        client_instance.post = AsyncMock(return_value=start_response)
+        client_instance.get = AsyncMock(return_value=failed_response)
+
+        provider = Crawl4AIProvider(
+            service_url="http://crawl.local",
+            proxy_url="http://proxy-user:proxy-pass@proxy.example:8080",
+        )
+
+        with pytest.raises(Crawl4AIConversionError) as exc_info:
+            await provider.fetch(source_url)
+
+    dumped = json.dumps({"message": str(exc_info.value), "diagnostics": exc_info.value.diagnostics})
+
+    assert "--no-proxy" in dumped
+    assert "session=abc123" not in dumped
+    assert "url-token" not in dumped
+    assert "user:pass" not in dumped
+    assert "proxy-user" not in dumped
+    assert "proxy-pass" not in dumped
+    assert REDACTED in dumped
 
 
 def test_conversion_probe_reports_crawl_failure_without_secrets(httpx_mock) -> None:
