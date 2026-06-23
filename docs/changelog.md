@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.5] - 2026-06-23
+
+### Fixed
+
+- Suppressed internal retry-client traceback logging for final handled HTTP status failures while preserving retry warnings and unexpected-error tracebacks.
+
 ## [0.2.4] - 2026-06-22
 
 ### Fixed

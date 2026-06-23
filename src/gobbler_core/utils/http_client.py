@@ -69,6 +69,7 @@ class RetryableHTTPClient:
             raise RuntimeError(msg)
 
         last_error: Exception | None = None
+        final_response: httpx.Response | None = None
 
         for attempt in range(self.max_retries):
             try:
@@ -86,7 +87,8 @@ class RetryableHTTPClient:
                             self.max_retries,
                         )
                         continue
-                    response.raise_for_status()
+                    final_response = response
+                    break
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
@@ -107,6 +109,9 @@ class RetryableHTTPClient:
 
             else:
                 return response
+
+        if final_response is not None:
+            final_response.raise_for_status()
 
         # Should not reach here, but just in case
         if last_error:
@@ -132,6 +137,7 @@ class RetryableHTTPClient:
             raise RuntimeError(msg)
 
         last_error: Exception | None = None
+        final_response: httpx.Response | None = None
 
         for attempt in range(self.max_retries):
             try:
@@ -147,7 +153,8 @@ class RetryableHTTPClient:
                             self.max_retries,
                         )
                         continue
-                    response.raise_for_status()
+                    final_response = response
+                    break
 
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
@@ -168,6 +175,9 @@ class RetryableHTTPClient:
 
             else:
                 return response
+
+        if final_response is not None:
+            final_response.raise_for_status()
 
         # Should not reach here, but just in case
         if last_error:
