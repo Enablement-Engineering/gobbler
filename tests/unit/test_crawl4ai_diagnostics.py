@@ -106,6 +106,38 @@ def test_proxy_diagnostic_suggests_no_proxy_command_without_proxy_secrets() -> N
     assert "secret-token" not in dumped
 
 
+@pytest.mark.parametrize(
+    "source_url",
+    [
+        "https://127.0.0.1:9/nope",
+        "http://localhost:8000/nope",
+        "http://app.localhost/nope",
+        "http://[::1]:8000/nope",
+    ],
+)
+def test_proxy_diagnostic_omits_no_proxy_guidance_for_loopback_urls(
+    source_url: str,
+) -> None:
+    """Proxy-configured localhost/loopback failures are not proxy-path candidates."""
+    error = _build_diagnostic_error(
+        message="Crawl4AI /crawl returned HTTP 500 during crawl_start.",
+        stage="crawl_start",
+        endpoint="/crawl",
+        service_url="http://crawl.local",
+        source_url=source_url,
+        proxy_configured=True,
+        status_code=500,
+    )
+
+    assert "--no-proxy" not in str(error)
+    assert "proxy-path failures" not in str(error)
+    assert "suggested_command_fragment" not in error.diagnostics
+    assert error.diagnostics["advice"] == (
+        "A proxy is configured for Crawl4AI; verify proxy credentials, network "
+        "reachability, and Crawl4AI container logs."
+    )
+
+
 def test_proxy_diagnostic_redacts_userinfo_and_all_query_values() -> None:
     """Retry guidance redacts URL userinfo and query values together."""
     error = _build_diagnostic_error(
