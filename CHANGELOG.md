@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-06-24
+
+### Fixed
+- Refined Crawl4AI proxy diagnostics so localhost and loopback navigation failures do not suggest `--no-proxy`, while public proxy-path failures keep sanitized retry guidance.
+
 ## [0.2.5] - 2026-06-23
 
 ### Fixed
@@ -114,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.2...v0.2.3

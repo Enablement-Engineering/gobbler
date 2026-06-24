@@ -7,6 +7,7 @@ and markdown conversion with JavaScript rendering support.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import re
 import shlex
@@ -163,12 +164,13 @@ def _build_diagnostic_error(
         "Crawl4AI /health only confirms the service is reachable; inspect the "
         "Crawl4AI container logs and proxy settings for /crawl failures."
     )
+    proxy_retry_candidate = proxy_configured and not _is_loopback_source_url(source_url)
     if proxy_configured:
         advice = (
             "A proxy is configured for Crawl4AI; verify proxy credentials, network "
             "reachability, and Crawl4AI container logs."
         )
-        if source_url:
+        if proxy_retry_candidate and source_url:
             suggested_command = _suggest_no_proxy_command(source_url)
             advice = (
                 "A proxy is configured for Crawl4AI; retry the single-page CLI "
@@ -198,6 +200,25 @@ def _build_diagnostic_error(
         diagnostics["response_keys"] = response_keys
 
     return Crawl4AIConversionError(message=message, diagnostics=diagnostics)
+
+
+def _is_loopback_source_url(source_url: str | None) -> bool:
+    """Return True when a source URL targets localhost/loopback navigation."""
+    if not source_url:
+        return False
+    try:
+        hostname = urlsplit(source_url).hostname
+    except ValueError:
+        return False
+    if not hostname:
+        return False
+    normalized_hostname = hostname.rstrip(".").lower()
+    if normalized_hostname == "localhost" or normalized_hostname.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(normalized_hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _suggest_no_proxy_command(source_url: str) -> str:
