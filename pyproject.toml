@@ -1,6 +1,6 @@
 [project]
 name = "gobbler"
-version = "0.2.6"
+version = "0.2.7"
 description = "Universal content conversion fabric - convert YouTube, web, documents, audio/video to markdown via CLI and skills"
 authors = [
     {name = "Dylan Isaac", email = "dylan@enablement.engineering"}

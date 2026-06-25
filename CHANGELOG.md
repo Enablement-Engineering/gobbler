@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-06-25
+
+### Added
+- Added YouTube fallback readiness diagnostics to `gobbler status`, including fallback provider, trigger conditions, and whether `TRANSCRIPTAPI_KEY` is visible to the running process.
+
 ## [0.2.6] - 2026-06-24
 
 ### Fixed
@@ -119,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.3...v0.2.4
