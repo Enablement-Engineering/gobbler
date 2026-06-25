@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Annotated, Any
 
 import typer
@@ -75,6 +76,64 @@ def _webpage_conversion_probe(crawl4ai_url: str, config_data: dict[str, Any]) ->
     )
 
 
+def _normalize_fallback_conditions(raw_conditions: Any) -> list[str]:
+    """Return fallback conditions as a stable list of strings."""
+    if raw_conditions is None:
+        return []
+    if isinstance(raw_conditions, str):
+        return [raw_conditions]
+    if isinstance(raw_conditions, list):
+        return [str(condition) for condition in raw_conditions]
+    return [str(raw_conditions)]
+
+
+def _youtube_readiness(config: Any) -> dict[str, Any]:
+    """Return YouTube provider and fallback readiness diagnostics.
+
+    The free YouTube transcript provider does not require a local service, so the
+    service remains ready even when the optional TranscriptAPI fallback is not ready.
+    These fields make fallback/key visibility explicit for rate-limit diagnostics.
+    """
+    youtube_provider = config.get("providers.youtube.default", "youtube-transcript-api")
+    transcriptapi_env_present = bool(os.environ.get("TRANSCRIPTAPI_KEY"))
+    fallback = config.get_provider_fallback("youtube", youtube_provider)
+    if fallback is None and (
+        youtube_provider == "auto"
+        or (youtube_provider == "youtube-transcript-api" and transcriptapi_env_present)
+    ):
+        fallback = {"provider": "transcriptapi", "on": ["ip_blocked", "rate_limited"]}
+    fallback_configured = fallback is not None
+    fallback_provider = fallback.get("provider") if fallback_configured else None
+    fallback_conditions = _normalize_fallback_conditions(
+        fallback.get("on") if fallback_configured else None
+    )
+
+    if fallback_provider == "transcriptapi" and transcriptapi_env_present:
+        fallback_readiness = "ready"
+        note = "TranscriptAPI fallback is configured and TRANSCRIPTAPI_KEY is visible."
+    elif fallback_provider == "transcriptapi":
+        fallback_readiness = "missing_api_key"
+        note = "TranscriptAPI fallback is configured but TRANSCRIPTAPI_KEY is not visible."
+    elif fallback_configured:
+        fallback_readiness = "configured"
+        note = f"Fallback provider {fallback_provider} is configured."
+    else:
+        fallback_readiness = "not_configured"
+        note = "No transcript fallback configured; free provider may still work."
+
+    return {
+        "status": "ready",
+        "provider": youtube_provider,
+        "note": "No external local service required",
+        "fallback_configured": fallback_configured,
+        "fallback_provider": fallback_provider,
+        "fallback_conditions": fallback_conditions,
+        "transcriptapi_env_present": transcriptapi_env_present,
+        "fallback_readiness": fallback_readiness,
+        "fallback_note": note,
+    }
+
+
 def get_service_status() -> dict[str, Any]:
     """Get status of all Gobbler services.
 
@@ -88,13 +147,8 @@ def get_service_status() -> dict[str, Any]:
     services: dict[str, Any] = {}
     overall_status = "ready"
 
-    # YouTube - always available (no external service needed)
-    youtube_provider = config.get("providers.youtube.default", "youtube-transcript-api")
-    services["youtube"] = {
-        "status": "ready",
-        "provider": youtube_provider,
-        "note": "No external service required",
-    }
+    # YouTube - always available (no external local service needed)
+    services["youtube"] = _youtube_readiness(config)
 
     # Audio - whisper-local is always available
     audio_provider = config.get("providers.transcription.default", "whisper-local")
@@ -206,7 +260,7 @@ def get_service_status() -> dict[str, Any]:
 
 
 @app.callback(invoke_without_command=True)
-def status(  # noqa: C901, PLR0912
+def status(  # noqa: C901, PLR0912, PLR0915
     ctx: typer.Context,
     json_output: Annotated[
         bool,
@@ -284,6 +338,13 @@ def status(  # noqa: C901, PLR0912
         if name == "webpage" and verbose and info.get("conversion_probe"):
             probe = info["conversion_probe"]
             console.print(f"       [dim]/crawl probe: {probe.get('status')}[/dim]")
+        if name == "youtube" and verbose:
+            fallback_provider = info.get("fallback_provider") or "not configured"
+            fallback_state = info.get("fallback_readiness", "unknown")
+            key_text = "env visible" if info.get("transcriptapi_env_present") else "env not visible"
+            console.print(
+                f"       [dim]Fallback: {fallback_provider} ({fallback_state}, {key_text})[/dim]"
+            )
 
     console.print()
 
