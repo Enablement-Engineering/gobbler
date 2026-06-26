@@ -12,7 +12,12 @@ import yaml
 
 from gobbler_cli.commands import config as config_commands, status as status_commands
 from gobbler_core.config import Config
-from gobbler_core.utils.redaction import REDACTED, redact_url_userinfo, redact_value
+from gobbler_core.utils.redaction import (
+    REDACTED,
+    neutralize_github_mentions,
+    redact_url_userinfo,
+    redact_value,
+)
 
 RAW_PASSWORD = "super-secret-password"  # noqa: S105
 RAW_TOKEN = "fake-token-value"  # noqa: S105
@@ -91,6 +96,27 @@ def test_redact_url_userinfo_preserves_url_without_credentials() -> None:
         redact_url_userinfo("https://example.com/path?token=fake-token-value&ok=1")
         == f"https://example.com/path?token={REDACTED}&ok=1"
     )
+
+
+def test_neutralize_github_mentions_breaks_notification_triggers() -> None:
+    output = neutralize_github_mentions(
+        "S/O @Ph4seOn3 for the edit. Thanks @octocat! cc @Enablement-Engineering"
+    )
+
+    assert "@Ph4seOn3" not in output
+    assert "@octocat" not in output
+    assert "@Enablement-Engineering" not in output
+    assert "@\u200bPh4seOn3" in output
+    assert "@\u200boctocat" in output
+    assert "@\u200bEnablement-Engineering" in output
+
+
+def test_neutralize_github_mentions_preserves_emails_and_urls() -> None:
+    output = neutralize_github_mentions(
+        "Contact user@example.com or fetch https://user:pass@example.com/@docs"
+    )
+
+    assert output == "Contact user@example.com or fetch https://user:pass@example.com/@docs"
 
 
 def test_config_show_redacts_yaml_by_default(monkeypatch, tmp_path, capsys) -> None:

@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from gobbler_core.config import get_config
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
 from gobbler_core.utils.http_client import RetryableHTTPClient
+from gobbler_core.utils.redaction import neutralize_github_mentions
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
                 url,
                 word_count,
             )
-            return frontmatter + markdown_content, metadata
+            return neutralize_github_mentions(frontmatter + markdown_content), metadata
 
     except Exception:
         logger.exception("Failed to convert web page %s", url)

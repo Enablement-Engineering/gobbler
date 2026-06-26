@@ -32,6 +32,7 @@ from faster_whisper import WhisperModel
 
 from gobbler_core.utils.file_handler import get_file_extension, validate_input_path
 from gobbler_core.utils.frontmatter import count_words, create_audio_frontmatter
+from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
     from gobbler_core.providers.transcription import TranscriptionProvider, TranscriptionResult
@@ -387,7 +388,9 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
         formatted_transcript = transcript_text
 
     # Build markdown content
-    markdown = frontmatter + "# Audio Transcript\n\n" + formatted_transcript
+    markdown = neutralize_github_mentions(
+        frontmatter + "# Audio Transcript\n\n" + formatted_transcript
+    )
 
     # Track conversion size if callback provided
     if metrics_callback is not None:

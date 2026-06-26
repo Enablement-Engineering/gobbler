@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from gobbler_core.utils.redaction import neutralize_github_mentions
+
 
 def _escape_yaml_string(value: str) -> str:
     """Escape a string for safe YAML output.
@@ -55,7 +57,7 @@ def create_frontmatter(metadata: dict[str, Any]) -> str:
     for key, value in metadata.items():
         # Format value based on type
         if isinstance(value, str):
-            formatted_value = _escape_yaml_string(value)
+            formatted_value = _escape_yaml_string(neutralize_github_mentions(value))
             lines.append(f"{key}: {formatted_value}")
         elif isinstance(value, (int, float, bool)):
             lines.append(f"{key}: {value}")

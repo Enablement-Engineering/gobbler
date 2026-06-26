@@ -138,7 +138,7 @@ def test_background_command_contract_matches_relay_client_helpers() -> None:
     assert "command_id: command_id" in background
     assert "result: result" in background
     assert "type: 'register'" in background
-    assert "extension_version: '0.2.8'" in background
+    assert "extension_version: '0.2.9'" in background
     assert "type: 'ping'" in background
     assert "message.type === 'pong'" in background
 
