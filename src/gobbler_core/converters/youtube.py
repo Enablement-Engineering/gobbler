@@ -8,11 +8,11 @@ from typing import NoReturn
 
 import yt_dlp
 
+from gobbler_core.config import get_config
 from gobbler_core.providers.youtube import (
     TranscriptProvider,
     YouTubeTranscriptError,
-    create_provider,
-    create_proxy_config,
+    create_provider_from_config,
     create_youtube_rate_limit_error,
     is_youtube_rate_limit_error,
 )
@@ -240,10 +240,9 @@ async def convert_youtube_to_markdown(
         },
     )
 
-    # Use provided provider or create one with proxy/fallback support from environment
+    # Use provided provider or create one from the loaded Gobbler configuration.
     if provider is None:
-        proxy_config = create_proxy_config()
-        provider = create_provider(provider_name="auto", proxy_config=proxy_config)
+        provider = create_provider_from_config(get_config())
 
     def _sync_fetch():
         video_metadata = get_video_metadata(video_url)

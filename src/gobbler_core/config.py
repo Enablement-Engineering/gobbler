@@ -271,6 +271,14 @@ class Config:
         if fallback is None:
             return None
 
+        if (
+            isinstance(fallback, dict)
+            and "provider" in fallback
+            and "on" not in fallback
+            and True in fallback
+        ):
+            fallback = {**fallback, "on": fallback[True]}
+
         if not isinstance(fallback, dict) or "provider" not in fallback or "on" not in fallback:
             return None
 
