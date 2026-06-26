@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.8] - 2026-06-26
+
+### Fixed
+
+- Made `gobbler youtube` construct its default transcript provider from the loaded Gobbler config so configured YouTube provider and fallback readiness match runtime conversion behavior.
+
 ## [0.2.7] - 2026-06-25
 
 ### Added

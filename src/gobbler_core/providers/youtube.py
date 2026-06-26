@@ -559,13 +559,26 @@ def create_provider_from_config(config: Config) -> TranscriptProvider:
     # Get API key from environment
     api_key = os.environ.get("TRANSCRIPTAPI_KEY")
 
-    # Check for fallback configuration
+    # Check for fallback configuration. Preserve legacy/default behavior by
+    # applying the same implicit TranscriptAPI fallback advertised by status.py:
+    # - provider=auto can fall back to TranscriptAPI when a key is available
+    # - default youtube-transcript-api falls back when TRANSCRIPTAPI_KEY is present
     fallback = config.get_provider_fallback("youtube", provider_name)
+    if fallback is None and (
+        provider_name == "auto" or (provider_name == "youtube-transcript-api" and api_key)
+    ):
+        fallback = {"provider": "transcriptapi", "on": ["ip_blocked", "rate_limited"]}
 
     # If fallback is configured and we have an API key, set up auto-fallback
     if fallback and api_key:
         fallback_provider = fallback.get("provider")
-        fallback_conditions = fallback.get("on", [])
+        raw_fallback_conditions = fallback.get("on", [])
+        if isinstance(raw_fallback_conditions, list):
+            fallback_conditions = [str(condition) for condition in raw_fallback_conditions]
+        elif raw_fallback_conditions is None:
+            fallback_conditions = []
+        else:
+            fallback_conditions = [str(raw_fallback_conditions)]
 
         # Check if fallback conditions include IP blocking
         ip_block_conditions = {"ip_blocked", "rate_limited", "429"}

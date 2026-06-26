@@ -10,6 +10,7 @@ from youtube_transcript_api import (
     TranscriptsDisabled,
 )
 
+from gobbler_core.config import Config
 from gobbler_core.converters.youtube import (
     convert_youtube_to_markdown,
     extract_video_id,
@@ -17,12 +18,14 @@ from gobbler_core.converters.youtube import (
     get_video_metadata,
 )
 from gobbler_core.providers.youtube import (
+    AutoFallbackProvider,
     TranscriptAPIProvider,
     TranscriptProvider,
     TranscriptResult,
     TranscriptSegment,
     YouTubeTranscriptAPIProvider,
     YouTubeTranscriptError,
+    create_provider_from_config,
     is_youtube_rate_limit_error,
 )
 
@@ -237,8 +240,248 @@ class TestYouTubeProviderRateLimits:
         assert "secret-token" not in dumped
 
 
+class TestYouTubeProviderConfigFactory:
+    """Test config-driven YouTube provider construction."""
+
+    def test_default_config_with_transcriptapi_key_uses_auto_fallback(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Default provider preserves legacy AutoFallbackProvider behavior with a key."""
+        config = Config(config_path=tmp_path / "missing.yml")
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, AutoFallbackProvider)
+
+    def test_default_config_without_transcriptapi_key_uses_free_provider(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Default provider without a key remains the free YouTube provider."""
+        config = Config(config_path=tmp_path / "missing.yml")
+        monkeypatch.delenv("TRANSCRIPTAPI_KEY", raising=False)
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, YouTubeTranscriptAPIProvider)
+
+    def test_explicit_transcriptapi_provider_remains_paid_provider(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Explicit transcriptapi selection creates TranscriptAPIProvider, not fallback."""
+        config_path = tmp_path / "config.yml"
+        config_path.write_text(
+            "providers:\n  youtube:\n    default: transcriptapi\n    transcriptapi: {}\n"
+        )
+        config = Config(config_path=config_path)
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, TranscriptAPIProvider)
+
+    def test_auto_provider_with_transcriptapi_key_uses_auto_fallback(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Config provider=auto uses the implicit TranscriptAPI fallback path."""
+        config_path = tmp_path / "config.yml"
+        config_path.write_text("providers:\n  youtube:\n    default: auto\n    auto: {}\n")
+        config = Config(config_path=config_path)
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, AutoFallbackProvider)
+
+    def test_explicit_scalar_fallback_condition_uses_auto_fallback(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Explicit scalar fallback conditions are treated as one condition."""
+        config_path = tmp_path / "config.yml"
+        config_path.write_text(
+            "providers:\n"
+            "  youtube:\n"
+            "    default: youtube-transcript-api\n"
+            "    youtube-transcript-api:\n"
+            "      fallback:\n"
+            "        provider: transcriptapi\n"
+            '        "on": rate_limited\n'
+        )
+        config = Config(config_path=config_path)
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, AutoFallbackProvider)
+
+    def test_explicit_numeric_fallback_condition_uses_auto_fallback(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Explicit numeric 429 fallback conditions are normalized to strings."""
+        config_path = tmp_path / "config.yml"
+        config_path.write_text(
+            "providers:\n"
+            "  youtube:\n"
+            "    default: youtube-transcript-api\n"
+            "    youtube-transcript-api:\n"
+            "      fallback:\n"
+            "        provider: transcriptapi\n"
+            '        "on": [429]\n'
+        )
+        config = Config(config_path=config_path)
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, AutoFallbackProvider)
+
+    def test_unquoted_yaml_on_fallback_key_uses_auto_fallback(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """YAML 1.1 boolean parsing of unquoted on is tolerated for docs examples."""
+        config_path = tmp_path / "config.yml"
+        config_path.write_text(
+            "providers:\n"
+            "  youtube:\n"
+            "    default: youtube-transcript-api\n"
+            "    youtube-transcript-api:\n"
+            "      fallback:\n"
+            "        provider: transcriptapi\n"
+            "        on: rate_limited\n"
+        )
+        config = Config(config_path=config_path)
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+
+        with patch("gobbler_core.providers.youtube.get_youtube_proxy_config", return_value=None):
+            provider = create_provider_from_config(config)
+
+        assert isinstance(provider, AutoFallbackProvider)
+
+
 class TestYouTubeConversion:
     """Test full YouTube to markdown conversion."""
+
+    @pytest.mark.asyncio
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    @patch("gobbler_core.converters.youtube.create_provider_from_config")
+    @patch("gobbler_core.converters.youtube.get_config")
+    async def test_convert_youtube_default_provider_uses_config_factory(
+        self,
+        mock_get_config,
+        mock_create_provider_from_config,
+        mock_metadata,
+    ):
+        """Test default conversion builds the provider from loaded config."""
+        mock_metadata.return_value = {
+            "title": "Test Video",
+            "channel": "Test Channel",
+            "thumbnail": None,
+            "description": None,
+        }
+        mock_config = MagicMock()
+        mock_get_config.return_value = mock_config
+        mock_provider = create_mock_provider(
+            [{"text": "Configured provider transcript", "start": 0.0, "duration": 1.0}]
+        )
+        mock_create_provider_from_config.return_value = mock_provider
+
+        markdown, metadata = await convert_youtube_to_markdown(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ"
+        )
+
+        mock_get_config.assert_called_once_with()
+        mock_create_provider_from_config.assert_called_once_with(mock_config)
+        mock_provider.fetch.assert_called_once_with("dQw4w9WgXcQ", "auto")
+        assert "Configured provider transcript" in markdown
+        assert metadata["video_id"] == "dQw4w9WgXcQ"
+
+    @pytest.mark.asyncio
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    @patch("gobbler_core.converters.youtube.create_provider_from_config")
+    @patch("gobbler_core.converters.youtube.get_config")
+    async def test_convert_youtube_injected_provider_bypasses_config_factory(
+        self,
+        mock_get_config,
+        mock_create_provider_from_config,
+        mock_metadata,
+    ):
+        """Test explicitly injected providers bypass config-based construction."""
+        mock_metadata.return_value = {
+            "title": "Test Video",
+            "channel": "Test Channel",
+            "thumbnail": None,
+            "description": None,
+        }
+        mock_provider = create_mock_provider(
+            [{"text": "Injected provider transcript", "start": 0.0, "duration": 1.0}]
+        )
+
+        markdown, _ = await convert_youtube_to_markdown(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            provider=mock_provider,
+        )
+
+        mock_get_config.assert_not_called()
+        mock_create_provider_from_config.assert_not_called()
+        mock_provider.fetch.assert_called_once_with("dQw4w9WgXcQ", "auto")
+        assert "Injected provider transcript" in markdown
+
+    @pytest.mark.asyncio
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
+    @patch("gobbler_core.providers.youtube.TranscriptAPIProvider.fetch")
+    async def test_convert_youtube_configured_transcriptapi_provider_is_used(
+        self,
+        mock_transcriptapi_fetch,
+        mock_metadata,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Test config selecting transcriptapi uses TranscriptAPIProvider."""
+        config_path = tmp_path / "config.yml"
+        config_path.write_text(
+            "providers:\n  youtube:\n    default: transcriptapi\n    transcriptapi: {}\n"
+        )
+        config = Config(config_path=config_path)
+        monkeypatch.setenv("TRANSCRIPTAPI_KEY", "test-api-key")
+        mock_metadata.return_value = {
+            "title": "Test Video",
+            "channel": "Test Channel",
+            "thumbnail": None,
+            "description": None,
+        }
+        mock_transcriptapi_fetch.return_value = TranscriptResult(
+            segments=[TranscriptSegment(text="Paid provider transcript", start=0.0, duration=1.0)],
+            language="en",
+            metadata={},
+        )
+
+        with patch("gobbler_core.converters.youtube.get_config", return_value=config):
+            markdown, _ = await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ"
+            )
+
+        mock_transcriptapi_fetch.assert_called_once_with("dQw4w9WgXcQ", "auto")
+        assert "Paid provider transcript" in markdown
 
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.youtube.get_video_metadata")
