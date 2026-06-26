@@ -17,6 +17,7 @@ from gobbler_core.providers.youtube import (
     is_youtube_rate_limit_error,
 )
 from gobbler_core.utils.frontmatter import count_words, create_youtube_frontmatter
+from gobbler_core.utils.redaction import neutralize_github_mentions
 
 YOUTUBE_CONVERSION_TIMEOUT_DEFAULT = 120
 
@@ -303,8 +304,10 @@ async def convert_youtube_to_markdown(
         description=video_metadata.get("description"),
     )
 
-    # Combine into markdown
-    markdown = frontmatter + "# Video Transcript\n\n" + transcript_text
+    # Combine into markdown. Neutralize GitHub mentions so raw third-party
+    # transcript/metadata output can be pasted into public issues without
+    # notifying unrelated accounts.
+    markdown = neutralize_github_mentions(frontmatter + "# Video Transcript\n\n" + transcript_text)
 
     # Track conversion size if callback provided
     if metrics_callback is not None:

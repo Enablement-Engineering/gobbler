@@ -92,11 +92,24 @@ Here""",
 
         result = create_frontmatter(metadata)
 
-        # Should parse correctly
+        # Should parse correctly and neutralize public GitHub mention triggers.
         yaml_content = "\n".join(result.strip().split("\n")[1:-1])
         parsed = yaml.safe_load(yaml_content)
         assert '""Speaker: Test Person' in parsed["description"]
+        assert "#hashtag @\u200bmention" in parsed["description"]
         assert "Multiple\nLines\nHere" in parsed["description"]
+
+    def test_create_frontmatter_neutralizes_github_mentions(self):
+        """Test frontmatter cannot accidentally trigger GitHub notifications."""
+        result = create_frontmatter(
+            {"description": "S/O @Ph4seOn3 for the edit; email user@example.com"}
+        )
+
+        yaml_content = "\n".join(result.strip().split("\n")[1:-1])
+        parsed = yaml.safe_load(yaml_content)
+        assert "@Ph4seOn3" not in parsed["description"]
+        assert "@\u200bPh4seOn3" in parsed["description"]
+        assert "user@example.com" in parsed["description"]
 
     def test_create_frontmatter_with_different_types(self):
         """Test frontmatter with different value types."""

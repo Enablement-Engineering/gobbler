@@ -27,6 +27,7 @@ import aiofiles
 from gobbler_core.utils.file_handler import get_file_extension, validate_input_path
 from gobbler_core.utils.frontmatter import count_words, create_document_frontmatter
 from gobbler_core.utils.http_client import RetryableHTTPClient
+from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
     from gobbler_core.providers.document import DocumentProvider
@@ -161,7 +162,7 @@ async def convert_document_to_markdown(
     )
 
     # Combine frontmatter and markdown
-    full_markdown = frontmatter + markdown_content
+    full_markdown = neutralize_github_mentions(frontmatter + markdown_content)
 
     # Track conversion size via callback if provided
     if metrics_callback is not None:

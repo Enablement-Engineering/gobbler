@@ -32,6 +32,9 @@ _SECRET_KEY_PARTS = (
 # paired credentials. Mask them in known credential-bearing contexts.
 _USERNAME_PARENT_KEYS = {"proxy", "proxies", "proxy_services", "webshare", "static"}
 _EMBEDDED_URL_WITH_USERINFO = re.compile(r"(?P<url>https?://[^\s<>'\")]+@[^\s<>'\")]+)")
+_GITHUB_MENTION = re.compile(
+    r"(?<![A-Za-z0-9_./-])@(?P<login>[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)(?![A-Za-z0-9_.-])"
+)
 
 
 def is_sensitive_key(key: str, parent_keys: tuple[str, ...] = ()) -> bool:
@@ -123,3 +126,18 @@ def redact_value(value: Any, parent_keys: tuple[str, ...] = ()) -> Any:
         return _redact_string(value)
 
     return value
+
+
+def neutralize_github_mentions(value: str) -> str:
+    """Prevent GitHub notification side effects from public markdown output.
+
+    Gobbler converts third-party content that can contain GitHub handles in
+    descriptions, transcripts, or scraped pages. If that raw markdown is pasted
+    into a public GitHub issue or PR, bare ``@login`` text triggers a mention
+    notification. Insert a zero-width space after the at-sign so the rendered
+    text remains readable while GitHub does not treat it as an active mention.
+
+    Email addresses and URL/userinfo fragments are intentionally left alone by
+    the surrounding-character guards in the regex.
+    """
+    return _GITHUB_MENTION.sub("@\u200b\\g<login>", value)

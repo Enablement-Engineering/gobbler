@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.9] - 2026-06-26
+
+### Fixed
+
+- Neutralized GitHub-style `@login` mentions in generated markdown/frontmatter output so pasted third-party transcripts, descriptions, pages, documents, or audio transcripts do not notify unrelated GitHub users.
+
 ## [0.2.8] - 2026-06-26
 
 ### Fixed

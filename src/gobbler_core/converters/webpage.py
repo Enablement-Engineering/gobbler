@@ -27,6 +27,7 @@ import httpx
 
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
 from gobbler_core.utils.http_client import RetryableHTTPClient
+from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
     from gobbler_core.providers.webpage import WebPageProvider
@@ -201,7 +202,7 @@ async def convert_webpage_to_markdown(
         word_count=word_count,
         conversion_time_ms=conversion_time_ms,
     )
-    full_markdown = frontmatter + markdown_content
+    full_markdown = neutralize_github_mentions(frontmatter + markdown_content)
 
     if metrics_callback:
         metrics_callback("webpage", len(full_markdown))

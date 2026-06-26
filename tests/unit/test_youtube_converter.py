@@ -525,6 +525,37 @@ class TestYouTubeConversion:
 
     @pytest.mark.asyncio
     @patch("gobbler_core.converters.youtube.get_video_metadata")
+    async def test_convert_youtube_neutralizes_public_github_mentions(self, mock_metadata):
+        """Test YouTube output cannot trigger GitHub mentions when pasted publicly."""
+        mock_metadata.return_value = {
+            "title": "Test Video",
+            "channel": "Test Channel",
+            "thumbnail": None,
+            "description": "S/O @Ph4seOn3 for the edit. Contact user@example.com",
+        }
+        mock_provider = create_mock_provider(
+            [
+                {
+                    "text": "Transcript thanks @octocat for reviewing.",
+                    "start": 0.0,
+                    "duration": 1.0,
+                }
+            ]
+        )
+
+        markdown, _ = await convert_youtube_to_markdown(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            provider=mock_provider,
+        )
+
+        assert "@Ph4seOn3" not in markdown
+        assert "@octocat" not in markdown
+        assert "@\u200bPh4seOn3" in markdown
+        assert "@\u200boctocat" in markdown
+        assert "user@example.com" in markdown
+
+    @pytest.mark.asyncio
+    @patch("gobbler_core.converters.youtube.get_video_metadata")
     async def test_convert_youtube_with_timestamps(self, mock_metadata):
         """Test YouTube conversion with timestamps enabled."""
         mock_metadata.return_value = {

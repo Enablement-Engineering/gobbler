@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-06-26
+
+### Fixed
+- Neutralized GitHub-style `@login` mentions in generated markdown/frontmatter output so pasted third-party transcripts, descriptions, pages, documents, or audio transcripts do not notify unrelated GitHub users.
+
 ## [0.2.8] - 2026-06-26
 
 ### Fixed
@@ -129,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.5...v0.2.6
