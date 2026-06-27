@@ -407,6 +407,7 @@ def check_crawl4ai_conversion_probe(  # noqa: PLR0911
                 service_url=service_url,
                 api_token=api_token,
                 proxy_url=proxy_url,
+                source_url=probe_url,
             )
             data = response.json()
     except Crawl4AIConversionError as exc:
@@ -516,6 +517,7 @@ def check_crawl4ai_conversion_probe(  # noqa: PLR0911
         endpoint="/crawl",
         service_url=service_url,
         proxy_configured=proxy_url is not None,
+        source_url=probe_url,
         response_error=response_error,
         response_keys=response_keys,
     )
