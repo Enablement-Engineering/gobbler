@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.10] - 2026-06-27
+
+### Fixed
+
+- Added sanitized `--no-proxy` retry guidance to proxy-configured Crawl4AI status/readiness probe failures for public URLs.
+
 ## [0.2.9] - 2026-06-26
 
 ### Fixed

@@ -296,10 +296,95 @@ def test_conversion_probe_reports_crawl_failure_without_secrets(httpx_mock) -> N
     assert result["stage"] == "crawl_probe"
     assert result["status_code"] == 500
     assert result["proxy_configured"] is True
+    assert result["suggested_command_fragment"] == (
+        "gobbler webpage https://example.com/ --no-proxy"
+    )
+    assert "--no-proxy" in dumped
     assert REDACTED in dumped
     assert "proxy-user" not in dumped
     assert "proxy-pass" not in dumped
     assert api_token not in dumped
+
+
+def test_conversion_probe_omits_no_proxy_guidance_for_loopback_url(httpx_mock) -> None:
+    """The /crawl probe does not suggest proxy bypass for loopback navigation targets."""
+    httpx_mock.add_response(
+        method="POST",
+        url="http://crawl.local/crawl",
+        status_code=500,
+        json={"error": "net::ERR_UNSAFE_PORT"},
+    )
+
+    result = check_crawl4ai_conversion_probe(
+        "http://crawl.local",
+        proxy_url="http://proxy.example:8080",
+        probe_url="https://127.0.0.1:9/nope",
+        timeout=1,
+    )
+    dumped = json.dumps(result)
+
+    assert result["status"] == "failed"
+    assert result["ok"] is False
+    assert result["proxy_configured"] is True
+    assert "suggested_command_fragment" not in result
+    assert "--no-proxy" not in dumped
+
+
+def test_conversion_probe_without_proxy_keeps_generic_service_advice(httpx_mock) -> None:
+    """The /crawl probe keeps generic advice when no proxy is configured."""
+    httpx_mock.add_response(
+        method="POST",
+        url="http://crawl.local/crawl",
+        status_code=500,
+        json={"error": "crawl failed"},
+    )
+
+    result = check_crawl4ai_conversion_probe(
+        "http://crawl.local",
+        proxy_url=None,
+        probe_url="https://example.com",
+        timeout=1,
+    )
+    dumped = json.dumps(result)
+
+    assert result["status"] == "failed"
+    assert result["ok"] is False
+    assert result["proxy_configured"] is False
+    assert "suggested_command_fragment" not in result
+    assert "--no-proxy" not in dumped
+    assert result["advice"] == (
+        "Crawl4AI /health only confirms the service is reachable; inspect the "
+        "Crawl4AI container logs and proxy settings for /crawl failures."
+    )
+
+
+def test_conversion_probe_unexpected_response_suggests_no_proxy_for_public_url(
+    httpx_mock,
+) -> None:
+    """Unexpected /crawl probe payloads also include public URL proxy guidance."""
+    httpx_mock.add_response(
+        method="POST",
+        url="http://crawl.local/crawl",
+        status_code=200,
+        json={"success": False, "error": "proxy path failed"},
+    )
+
+    result = check_crawl4ai_conversion_probe(
+        "http://crawl.local",
+        proxy_url="http://proxy.example:8080",
+        probe_url="https://example.com/page?token=secret",
+        timeout=1,
+    )
+    dumped = json.dumps(result)
+
+    assert result["status"] == "failed"
+    assert result["ok"] is False
+    assert result["proxy_configured"] is True
+    assert result["suggested_command_fragment"] == (
+        "gobbler webpage https://example.com/ --no-proxy"
+    )
+    assert "--no-proxy" in dumped
+    assert "secret" not in dumped
 
 
 def test_response_snippet_redacts_before_truncating(httpx_mock) -> None:
