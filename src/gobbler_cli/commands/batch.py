@@ -12,6 +12,12 @@ from typing import Annotated, Any
 
 import typer
 
+from gobbler_cli.commands.convert import (
+    WEBPAGE_INVALID_URL_CODE,
+    WEBPAGE_INVALID_URL_MESSAGE,
+    WEBPAGE_INVALID_URL_SUGGESTION,
+    _is_valid_webpage_url,
+)
 from gobbler_cli.knowledge import (
     PREVIEW_ITEM_LIMIT,
     SECONDS_PER_AUDIO_FILE,
@@ -887,6 +893,7 @@ def webpages(
             selector=selector,
             use_proxy=use_proxy,
             skip_existing=skip_existing,
+            json_output=json_output,
         )
     else:
         asyncio.run(
@@ -912,6 +919,7 @@ def _queue_batch_webpages(
     selector: str | None,
     use_proxy: bool,
     skip_existing: bool,
+    json_output: bool,
 ) -> None:
     """Queue the batch webpages job for background processing."""
     from gobbler_queue.manager import JobManager
@@ -922,6 +930,8 @@ def _queue_batch_webpages(
     if not urls:
         print_error("No valid URLs found in input")
         raise typer.Exit(1)
+
+    _validate_batch_webpage_urls(urls, json_output)
 
     # Store URLs in args since queued input can come from stdin.
     args = {
@@ -996,14 +1006,51 @@ def _read_urls(input_file: Path | None) -> list[str]:
             return []
         lines = input_file.read_text(encoding="utf-8").splitlines()
 
-    # Filter out empty lines and comments
+    # Filter out empty lines and comments while preserving surrounding whitespace
+    # on candidate URLs so validation can reject whitespace/control characters.
     urls = []
     for raw_line in lines:
         stripped = raw_line.strip()
         if stripped and not stripped.startswith("#"):
-            urls.append(stripped)
+            urls.append(raw_line)
 
     return urls
+
+
+def _invalid_webpage_urls(urls: list[str]) -> list[str]:
+    """Return batch webpage URLs rejected by single-page webpage validation."""
+    return [url for url in urls if not _is_valid_webpage_url(url)]
+
+
+def _write_invalid_webpage_url_records(invalid_urls: list[str], json_output: bool) -> None:
+    """Write stable invalid-input diagnostics for invalid batch webpage URLs."""
+    if json_output:
+        for url in invalid_urls:
+            _write_json_line(
+                {
+                    "type": "invalid_input",
+                    "success": False,
+                    "error_code": WEBPAGE_INVALID_URL_CODE,
+                    "error": WEBPAGE_INVALID_URL_MESSAGE,
+                    "url": url,
+                    "source": url,
+                    "suggestion": WEBPAGE_INVALID_URL_SUGGESTION,
+                }
+            )
+        return
+
+    for url in invalid_urls:
+        print_error(f"{WEBPAGE_INVALID_URL_MESSAGE} {url}")
+
+
+def _validate_batch_webpage_urls(urls: list[str], json_output: bool) -> None:
+    """Reject invalid batch webpage URLs before dry-run planning or dispatch."""
+    invalid_urls = _invalid_webpage_urls(urls)
+    if not invalid_urls:
+        return
+
+    _write_invalid_webpage_url_records(invalid_urls, json_output)
+    raise typer.Exit(1)
 
 
 def _sanitize_url_to_filename(url: str) -> str:
@@ -1057,8 +1104,6 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
     dry_run: bool = False,
 ) -> None:
     """Async implementation of batch webpage processing."""
-    from gobbler_core.converters.webpage import convert_webpage_to_markdown
-
     try:
         # Read URLs
         urls = _read_urls(input_file)
@@ -1074,6 +1119,8 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
             else:
                 print_error("No valid URLs found in input")
             raise typer.Exit(1)
+
+        _validate_batch_webpage_urls(urls, json_output)
 
         # Handle dry run
         if dry_run:
@@ -1134,6 +1181,8 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
 
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        from gobbler_core.converters.webpage import convert_webpage_to_markdown
 
         if json_output:
             _write_json_line(

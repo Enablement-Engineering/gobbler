@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.11] - 2026-06-28
+
+### Fixed
+
+- Made `gobbler batch webpages` reject malformed, schemeless, unsupported-scheme, whitespace/control-character, and invalid-port URLs locally before dry-run planning or provider dispatch.
+
 ## [0.2.10] - 2026-06-27
 
 ### Fixed
