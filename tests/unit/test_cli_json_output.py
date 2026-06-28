@@ -741,6 +741,165 @@ class TestBatchWebpagesJsonNoUrls:
         assert output["error_code"] == "NO_URLS_FOUND"
 
 
+class TestBatchWebpagesUrlValidation:
+    """Tests for batch webpage local URL validation."""
+
+    @pytest.mark.parametrize(
+        "invalid_url",
+        [
+            "not-a-url",
+            "example.com/page",
+            "ftp://example.com/file",
+            "http://exa mple.com",
+            " https://example.com/leading-space",
+            "https://example.com/control\x00char",
+            "https://example.com:99999",
+        ],
+    )
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_dry_run_rejects_invalid_urls_before_planning(
+        self,
+        mock_convert: MagicMock,
+        invalid_url: str,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Dry-run rejects malformed/unsupported webpage URLs before output planning."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text(f"{invalid_url}\n")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        assert result.exit_code == 1
+        assert len(lines) == 1
+        assert lines[0]["schema_version"] == JSON_SCHEMA_VERSION
+        assert lines[0]["type"] == "invalid_input"
+        assert lines[0]["success"] is False
+        assert lines[0]["error_code"] == "WEBPAGE_INVALID_URL"
+        assert lines[0]["url"] == invalid_url
+        assert "Invalid webpage URL" in lines[0]["error"]
+        assert lines[0]["suggestion"] == "Provide a URL like https://example.com."
+        assert "output" not in lines[0]
+        assert not output_dir.exists()
+        mock_convert.assert_not_called()
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_execution_rejects_invalid_urls_before_dispatch(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Execution rejects invalid webpage URLs before provider dispatch."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com/ok\nftp://example.com/file\n")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        assert result.exit_code == 1
+        assert len(lines) == 1
+        assert lines[0]["type"] == "invalid_input"
+        assert lines[0]["error_code"] == "WEBPAGE_INVALID_URL"
+        assert lines[0]["url"] == "ftp://example.com/file"
+        assert not output_dir.exists()
+        mock_convert.assert_not_called()
+
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_rejects_invalid_urls_without_job(
+        self,
+        mock_job_manager: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Queued batch webpage submission validates URLs before creating a job."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com/ok\nftp://example.com/file\n")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--queue",
+                "--json",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        assert result.exit_code == 1
+        assert len(lines) == 1
+        assert lines[0]["type"] == "invalid_input"
+        assert lines[0]["error_code"] == "WEBPAGE_INVALID_URL"
+        assert lines[0]["url"] == "ftp://example.com/file"
+        mock_job_manager.assert_not_called()
+
+    def test_batch_webpages_dry_run_accepts_http_and_https_urls(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Valid http:// and https:// entries keep existing dry-run behavior."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("http://example.com/one\nhttps://example.com/two\n")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        payload = json.loads(result.output.strip())
+        assert result.exit_code == 0
+        assert payload["type"] == "dry_run"
+        assert payload["total_urls"] == 2
+        assert payload["would_process"] == 2
+        assert [item["url"] for item in payload["urls"]] == [
+            "http://example.com/one",
+            "https://example.com/two",
+        ]
+
+
 class TestBatchDirectoryJsonError:
     """Tests for batch directory with nonexistent input."""
 
