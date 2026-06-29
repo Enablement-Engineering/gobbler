@@ -60,6 +60,13 @@ def test_status_separates_webpage_health_from_probe_failure(monkeypatch, tmp_pat
                 "http://proxy-user:proxy-pass@proxy.example:8080"
             ),
             "proxy_configured": True,
+            "advice": (
+                "A proxy is configured for Crawl4AI; retry the single-page CLI without "
+                "the proxy to isolate degraded proxy paths: "
+                "gobbler webpage https://example.com/ --no-proxy. Also verify proxy "
+                "credentials, network reachability, and Crawl4AI container logs."
+            ),
+            "suggested_command_fragment": "gobbler webpage https://example.com/ --no-proxy",
         },
     )
 
@@ -74,7 +81,94 @@ def test_status_separates_webpage_health_from_probe_failure(monkeypatch, tmp_pat
     assert webpage["service_health"]["status"] == "ready"
     assert webpage["conversion_probe"]["status"] == "failed"
     assert webpage["provider_readiness"] == "degraded"
+    assert webpage["fix"] == webpage["conversion_probe"]["advice"]
+    assert "gobbler webpage https://example.com/ --no-proxy" in webpage["fix"]
     assert REDACTED in dumped
     assert "proxy-user" not in dumped
     assert "proxy-pass" not in dumped
     assert "secret-token" not in dumped
+
+
+def test_status_loopback_proxy_probe_failure_keeps_generic_fix(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Proxy-configured loopback probe failures do not suggest proxy bypass at top level."""
+    _install_config(
+        {
+            "providers": {
+                "youtube": {"default": "youtube-transcript-api"},
+                "transcription": {"default": "whisper-local", "whisper-local": {"model": "tiny"}},
+            },
+            "services": {
+                "docling": {"host": "localhost", "port": 5001},
+                "crawl4ai": {"host": "localhost", "port": 11235},
+            },
+        },
+        tmp_path / "config.yml",
+    )
+    monkeypatch.setattr(status_commands, "check_service_health", lambda _url: (True, None))
+    monkeypatch.setattr(
+        status_commands,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "failed",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "crawl_probe",
+            "status_code": 500,
+            "error": "Crawl4AI /crawl returned HTTP 500 for http://localhost:3000/",
+            "proxy_configured": True,
+            "advice": (
+                "A proxy is configured for Crawl4AI; verify proxy credentials, network "
+                "reachability, and Crawl4AI container logs."
+            ),
+        },
+    )
+
+    webpage = status_commands.get_service_status()["services"]["webpage"]
+
+    assert webpage["status"] == "degraded"
+    assert webpage["fix"] == status_commands.WEBPAGE_PROBE_GENERIC_FIX
+    assert "--no-proxy" not in webpage["fix"]
+
+
+def test_status_non_proxy_probe_failure_keeps_generic_fix(monkeypatch, tmp_path: Path) -> None:
+    """Direct Crawl4AI probe failures keep generic service/log top-level advice."""
+    _install_config(
+        {
+            "providers": {
+                "youtube": {"default": "youtube-transcript-api"},
+                "transcription": {"default": "whisper-local", "whisper-local": {"model": "tiny"}},
+            },
+            "services": {
+                "docling": {"host": "localhost", "port": 5001},
+                "crawl4ai": {"host": "localhost", "port": 11235},
+            },
+        },
+        tmp_path / "config.yml",
+    )
+    monkeypatch.setattr(status_commands, "check_service_health", lambda _url: (True, None))
+    monkeypatch.setattr(
+        status_commands,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "failed",
+            "ok": False,
+            "provider": "crawl4ai",
+            "stage": "crawl_probe",
+            "status_code": 500,
+            "error": "Crawl4AI /crawl returned HTTP 500 during crawl_probe.",
+            "proxy_configured": False,
+            "advice": (
+                "Crawl4AI /health only confirms the service is reachable; inspect the "
+                "Crawl4AI container logs and proxy settings for /crawl failures."
+            ),
+        },
+    )
+
+    webpage = status_commands.get_service_status()["services"]["webpage"]
+
+    assert webpage["status"] == "degraded"
+    assert webpage["fix"] == status_commands.WEBPAGE_PROBE_GENERIC_FIX
+    assert "--no-proxy" not in webpage["fix"]

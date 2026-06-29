@@ -16,6 +16,10 @@ from gobbler_core.utils.redaction import redact_value
 app = typer.Typer(help="Check Gobbler status and service health")
 
 WEBPAGE_PROBE_TIMEOUT_SECONDS = 8.0
+WEBPAGE_PROBE_GENERIC_FIX = (
+    "Check Crawl4AI container logs and proxy configuration; "
+    "/health is passing but /crawl is not ready."
+)
 
 
 def check_service_health(url: str, timeout: float = 5.0) -> tuple[bool, str | None]:
@@ -74,6 +78,13 @@ def _webpage_conversion_probe(crawl4ai_url: str, config_data: dict[str, Any]) ->
         proxy_url=get_crawl4ai_proxy_url(),
         timeout=WEBPAGE_PROBE_TIMEOUT_SECONDS,
     )
+
+
+def _webpage_probe_fix(web_probe: dict[str, Any]) -> str:
+    """Return top-level webpage fix guidance for a failed conversion probe."""
+    if web_probe.get("suggested_command_fragment") and web_probe.get("advice"):
+        return str(redact_value(web_probe["advice"]))
+    return WEBPAGE_PROBE_GENERIC_FIX
 
 
 def _normalize_fallback_conditions(raw_conditions: Any) -> list[str]:
@@ -224,10 +235,7 @@ def get_service_status() -> dict[str, Any]:
             services["webpage"].update(
                 {
                     "error": web_probe.get("error", "Crawl4AI /crawl probe failed"),
-                    "fix": (
-                        "Check Crawl4AI container logs and proxy configuration; "
-                        "/health is passing but /crawl is not ready."
-                    ),
+                    "fix": _webpage_probe_fix(web_probe),
                 }
             )
             overall_status = "degraded"
