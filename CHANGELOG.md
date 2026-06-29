@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-06-29
+
+### Fixed
+- Made `gobbler status --json` surface proxy-bypass Crawl4AI probe guidance in the top-level webpage `fix` field when the detailed probe diagnostic includes a safe `--no-proxy` retry command.
+
 ## [0.2.11] - 2026-06-28
 
 ### Fixed
@@ -144,7 +149,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.11...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.12...HEAD
+[0.2.12]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.8...v0.2.9
