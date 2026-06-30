@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.13] - 2026-06-30
+
+### Fixed
+
+- Made `gobbler status --json` exit nonzero when the reported overall status is degraded while preserving the JSON response body for automation consumers.
+
 ## [0.2.12] - 2026-06-29
 
 ### Fixed

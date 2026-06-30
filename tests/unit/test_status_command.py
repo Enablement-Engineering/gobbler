@@ -7,6 +7,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from typer.testing import CliRunner
+
 from gobbler_cli.commands import status as status_commands
 from gobbler_cli.output import JSON_SCHEMA_VERSION
 from gobbler_core.config import Config
@@ -172,3 +174,45 @@ def test_status_non_proxy_probe_failure_keeps_generic_fix(monkeypatch, tmp_path:
     assert webpage["status"] == "degraded"
     assert webpage["fix"] == status_commands.WEBPAGE_PROBE_GENERIC_FIX
     assert "--no-proxy" not in webpage["fix"]
+
+
+def test_status_json_exits_zero_when_ready(monkeypatch) -> None:
+    """Status JSON exits successfully when the reported status is ready."""
+    monkeypatch.setattr(
+        status_commands,
+        "get_service_status",
+        lambda: {
+            "status": "ready",
+            "services": {},
+            "config_path": "gobbler.yml",
+            "proxy": {"configured": False},
+            "schema_version": JSON_SCHEMA_VERSION,
+        },
+    )
+
+    result = CliRunner().invoke(status_commands.app, ["--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["status"] == "ready"
+
+
+def test_status_json_exits_nonzero_when_degraded(monkeypatch) -> None:
+    """Status JSON preserves the payload but exits nonzero when degraded."""
+    monkeypatch.setattr(
+        status_commands,
+        "get_service_status",
+        lambda: {
+            "status": "degraded",
+            "services": {"webpage": {"status": "degraded", "fix": "retry later"}},
+            "config_path": "gobbler.yml",
+            "proxy": {"configured": False},
+            "schema_version": JSON_SCHEMA_VERSION,
+        },
+    )
+
+    result = CliRunner().invoke(status_commands.app, ["--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["status"] == "degraded"
+    assert payload["services"]["webpage"]["fix"] == "retry later"
