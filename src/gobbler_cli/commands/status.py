@@ -299,6 +299,8 @@ def status(  # noqa: C901, PLR0912, PLR0915
 
     if json_output:
         typer.echo(json.dumps(status_data, indent=2))
+        if status_data["status"] != "ready":
+            raise typer.Exit(1)
         return
 
     # Human-readable output

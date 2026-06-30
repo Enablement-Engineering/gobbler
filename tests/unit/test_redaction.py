@@ -8,6 +8,7 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 
+import typer
 import yaml
 
 from gobbler_cli.commands import config as config_commands, status as status_commands
@@ -174,7 +175,7 @@ def test_status_json_redacts_credential_bearing_urls(monkeypatch, tmp_path, caps
         status_commands, "check_service_health", lambda *_args, **_kwargs: (False, None)
     )
 
-    with contextlib.suppress(SystemExit):
+    with contextlib.suppress(typer.Exit):
         status_commands.status(SimpleNamespace(invoked_subcommand=None), json_output=True)
 
     output = capsys.readouterr().out

@@ -15,7 +15,7 @@ Gobbler is designed for **CLI-capable AI agents**: agents that can read skill fi
 5. Verify the output file exists, starts with YAML frontmatter, and has a non-empty markdown body.
 6. Summarize the converted content or pass the markdown file to the next workflow step.
 
-When using JSON modes, parse stdout as data. `gobbler doctor --json`, `gobbler status --json`, and conversion commands with `--format json` write one JSON object to stdout without progress text. Batch commands with `--json` write newline-delimited JSON events. Documented CLI JSON objects include top-level `schema_version: 1`; batch `batch_complete` events include `summary.total`, `summary.successful`, `summary.failed`, and `summary.skipped`.
+When using JSON modes, parse stdout as data. `gobbler doctor --json`, `gobbler status --json`, and conversion commands with `--format json` write one JSON object to stdout without progress text. `gobbler status --json` exits nonzero when the reported overall status is degraded, while still writing the diagnostic JSON body. Batch commands with `--json` write newline-delimited JSON events. Documented CLI JSON objects include top-level `schema_version: 1`; batch `batch_complete` events include `summary.total`, `summary.successful`, `summary.failed`, and `summary.skipped`.
 
 ```bash
 # YouTube transcript, no Docker required
