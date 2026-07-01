@@ -925,18 +925,33 @@ def _queue_batch_webpages(
     from gobbler_queue.manager import JobManager
     from gobbler_queue.models import JobType
 
-    # Read URLs from file or stdin
-    urls = _read_urls(input_file)
+    # Queue workers execute subprocess argv, so queued webpage batches need a
+    # durable input file path rather than stdin-only URLs stored in job args.
+    if input_file is None or str(input_file) == "-":
+        print_error(
+            "Queueing batch webpages requires an input file path; stdin is supported inline."
+        )
+        raise typer.Exit(1)
+
+    queue_input_file = input_file.expanduser().resolve()
+    queue_output_dir = output_dir.expanduser().resolve()
+
+    # Read URLs from file
+    urls = _read_urls(queue_input_file)
     if not urls:
         print_error("No valid URLs found in input")
         raise typer.Exit(1)
 
     _validate_batch_webpage_urls(urls, json_output)
+    planned_output_paths = _webpage_output_paths(urls, queue_output_dir)
 
-    # Store URLs in args since queued input can come from stdin.
+    # Store URLs and planned outputs in args for queue inspection; pass the
+    # input file in argv because workers execute the subprocess argv.
     args = {
         "urls": urls,
-        "output_dir": str(output_dir),
+        "input_file": str(queue_input_file),
+        "output_paths": [str(path) for path in planned_output_paths],
+        "output_dir": str(queue_output_dir),
         "concurrency": concurrency,
         "timeout": timeout,
         "selector": selector,
@@ -948,8 +963,9 @@ def _queue_batch_webpages(
         "gobbler",
         "batch",
         "webpages",
+        str(queue_input_file),
         "--output-dir",
-        str(output_dir),
+        str(queue_output_dir),
         "--concurrency",
         str(concurrency),
         "--timeout",
@@ -1092,6 +1108,41 @@ def _sanitize_url_to_filename(url: str) -> str:
     return name
 
 
+def _webpage_output_paths(urls: list[str], output_dir: Path) -> list[Path]:
+    """Return deterministic output paths for ordered batch webpage URLs.
+
+    URLs that map to a unique sanitized name keep the historical ``<name>.md``
+    filename. When multiple URLs would map to the same filename, keep the first
+    occurrence unchanged and append a stable 1-based suffix to later entries,
+    e.g. ``example.com.md``, ``example.com-2.md``, ``example.com-3.md``.
+    Suffixes skip filenames reserved by any input URL's natural base path so
+    historical names are not displaced by earlier duplicate entries.
+    """
+    base_paths = [output_dir / f"{_sanitize_url_to_filename(url)}.md" for url in urls]
+    reserved_base_paths = {path.as_posix().casefold() for path in base_paths}
+
+    output_paths: list[Path] = []
+    used_paths: set[str] = set()
+
+    for base_path in base_paths:
+        output_path = base_path
+        output_path_key = output_path.as_posix().casefold()
+        filename_stem = base_path.stem
+
+        suffix = 2
+        while output_path_key in used_paths or (
+            output_path_key in reserved_base_paths and output_path != base_path
+        ):
+            output_path = output_dir / f"{filename_stem}-{suffix}.md"
+            output_path_key = output_path.as_posix().casefold()
+            suffix += 1
+
+        output_paths.append(output_path)
+        used_paths.add(output_path_key)
+
+    return output_paths
+
+
 async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
     input_file: Path | None,
     output_dir: Path,
@@ -1121,14 +1172,13 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
             raise typer.Exit(1)
 
         _validate_batch_webpage_urls(urls, json_output)
+        output_paths = _webpage_output_paths(urls, output_dir)
 
         # Handle dry run
         if dry_run:
             would_process = []
             would_skip = []
-            for url in urls:
-                filename = _sanitize_url_to_filename(url) + ".md"
-                output_path = output_dir / filename
+            for url, output_path in zip(urls, output_paths, strict=True):
                 if skip_existing and output_path.exists():
                     would_skip.append({"url": url, "output": str(output_path), "reason": "exists"})
                 else:
@@ -1173,7 +1223,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 if would_process:
                     console.print("[bold]URLs to process:[/bold]")
                     for i, item in enumerate(would_process[:PREVIEW_ITEM_LIMIT], 1):
-                        console.print(f"  {i}. {item['url']}")
+                        console.print(f"  {i}. {item['url']} → {item['output']}")
                     if len(would_process) > PREVIEW_ITEM_LIMIT:
                         console.print(f"  ... and {len(would_process) - PREVIEW_ITEM_LIMIT} more")
                 console.print()
@@ -1205,16 +1255,14 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(concurrency)
 
-        async def process_url(url: str) -> tuple[str, bool, str, dict[str, Any] | None]:
-            """Process a single URL. Returns (url, success, message, metadata)."""
+        async def process_url(
+            url: str, output_path: Path
+        ) -> tuple[str, Path, bool, str, dict[str, Any] | None]:
+            """Process a single URL. Returns (url, output_path, success, message, metadata)."""
             async with semaphore:
-                # Generate output filename
-                filename = _sanitize_url_to_filename(url) + ".md"
-                output_path = output_dir / filename
-
                 # Check if already exists
                 if skip_existing and output_path.exists():
-                    return (url, True, "skipped", None)
+                    return (url, output_path, True, "skipped", None)
 
                 try:
                     # Convert webpage to markdown
@@ -1227,16 +1275,19 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                     # Write output
                     output_path.write_text(markdown_content, encoding="utf-8")
                 except Exception as e:
-                    return (url, False, str(e), None)
+                    return (url, output_path, False, str(e), None)
                 else:
-                    return (url, True, "success", metadata)
+                    return (url, output_path, True, "success", metadata)
 
         if json_output:
             # JSON output mode - no progress bar, stream JSON lines
-            tasks = [process_url(url) for url in urls]
+            tasks = [
+                process_url(url, output_path)
+                for url, output_path in zip(urls, output_paths, strict=True)
+            ]
 
             for coro in asyncio.as_completed(tasks):
-                url, success, message, metadata = await coro
+                url, output_path, success, message, metadata = await coro
 
                 if success:
                     if message == "skipped":
@@ -1245,6 +1296,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                             {
                                 "type": "item_skipped",
                                 "url": url,
+                                "output": str(output_path),
                                 "reason": "already_exists",
                             }
                         )
@@ -1254,20 +1306,31 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                             {
                                 "type": "item_success",
                                 "url": url,
+                                "output": str(output_path),
                                 "metadata": metadata,
                             }
                         )
-                        results.append({"url": url, "success": True, "metadata": metadata})
+                        results.append(
+                            {
+                                "url": url,
+                                "output": str(output_path),
+                                "success": True,
+                                "metadata": metadata,
+                            }
+                        )
                 else:
                     failed += 1
                     _write_json_line(
                         {
                             "type": "item_error",
                             "url": url,
+                            "output": str(output_path),
                             "error": message,
                         }
                     )
-                    results.append({"url": url, "success": False, "error": message})
+                    results.append(
+                        {"url": url, "output": str(output_path), "success": False, "error": message}
+                    )
 
             # Final summary
             _write_json_line(
@@ -1286,11 +1349,14 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 task = progress.add_task("Converting webpages", total=len(urls))
 
                 # Create tasks for all URLs
-                tasks = [process_url(url) for url in urls]
+                tasks = [
+                    process_url(url, output_path)
+                    for url, output_path in zip(urls, output_paths, strict=True)
+                ]
 
                 # Process with asyncio.as_completed for real-time progress
                 for coro in asyncio.as_completed(tasks):
-                    url, success, message, metadata = await coro
+                    url, _output_path, success, message, metadata = await coro
 
                     if success:
                         if message == "skipped":

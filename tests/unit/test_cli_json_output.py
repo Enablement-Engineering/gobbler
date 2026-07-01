@@ -1298,9 +1298,253 @@ class TestBatchWebpagesWithMock:
 
         assert result.exit_code == 0
         create_job_kwargs = mock_manager.create_job.call_args.kwargs
+        queued_input = Path(create_job_kwargs["args"]["input_file"])
         assert create_job_kwargs["args"]["use_proxy"] is False
+        assert queued_input.exists()
+        assert queued_input.read_text(encoding="utf-8") == "https://example.com\n"
+        assert str(queued_input) in create_job_kwargs["argv"]
         assert "--no-proxy" in create_job_kwargs["argv"]
         assert "--no-proxy" in create_job_kwargs["command"]
+
+    def test_batch_webpages_output_paths_preserve_unique_filenames(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Non-colliding webpage outputs keep their existing sanitized filenames."""
+        output_dir = tmp_path / "output"
+
+        output_paths = batch._webpage_output_paths(
+            ["https://example.com/page1", "https://example.com/page2"],
+            output_dir,
+        )
+
+        assert [path.name for path in output_paths] == [
+            "example.com_page1.md",
+            "example.com_page2.md",
+        ]
+
+    def test_batch_webpages_output_paths_suffix_collisions(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Colliding webpage output names get deterministic unique suffixes."""
+        output_dir = tmp_path / "output"
+
+        output_paths = batch._webpage_output_paths(
+            [
+                "https://example.com",
+                "https://example.com",
+                "https://www.example.com",
+            ],
+            output_dir,
+        )
+
+        assert [path.name for path in output_paths] == [
+            "example.com.md",
+            "example.com-2.md",
+            "example.com-3.md",
+        ]
+        assert len({path.name.casefold() for path in output_paths}) == len(output_paths)
+
+    def test_batch_webpages_output_paths_preserve_unique_suffix_like_filenames(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Duplicate suffixes do not displace non-colliding historical filenames."""
+        output_dir = tmp_path / "output"
+
+        output_paths = batch._webpage_output_paths(
+            [
+                "https://example.com",
+                "https://example.com",
+                "https://example.com-2",
+            ],
+            output_dir,
+        )
+
+        assert [path.name for path in output_paths] == [
+            "example.com.md",
+            "example.com-3.md",
+            "example.com-2.md",
+        ]
+
+    def test_batch_webpages_output_paths_preserve_duplicated_suffix_like_filenames(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Duplicate base names do not take another duplicated stem's natural name."""
+        output_dir = tmp_path / "output"
+
+        output_paths = batch._webpage_output_paths(
+            [
+                "https://example.com/foo",
+                "https://example.com/foo",
+                "https://example.com/foo-2",
+                "https://example.com/foo-2",
+            ],
+            output_dir,
+        )
+
+        assert [path.name for path in output_paths] == [
+            "example.com_foo.md",
+            "example.com_foo-3.md",
+            "example.com_foo-2.md",
+            "example.com_foo-2-2.md",
+        ]
+
+    def test_batch_webpages_dry_run_json_avoids_duplicate_url_output_collisions(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Dry-run JSON previews distinct outputs for duplicate batch webpage URLs."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\nhttps://example.com\n", encoding="utf-8")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+                "--no-proxy",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        dry_run_msg = next((line for line in lines if line.get("type") == "dry_run"), None)
+
+        assert result.exit_code == 0
+        assert dry_run_msg is not None
+        outputs = [Path(item["output"]).name for item in dry_run_msg["urls"]]
+        assert outputs == ["example.com.md", "example.com-2.md"]
+        assert len(set(outputs)) == len(outputs)
+
+    def test_batch_webpages_dry_run_text_shows_collision_safe_outputs(
+        self,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Text dry-run output previews collision-safe output paths."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\nhttps://example.com\n", encoding="utf-8")
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--dry-run",
+                "--no-proxy",
+            ],
+        )
+
+        assert result.exit_code == 0
+        compact_output = re.sub(r"\s+", "", result.output)
+        assert "example.com.md" in compact_output
+        assert "example.com-2.md" in compact_output
+
+    @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
+    def test_batch_webpages_processing_writes_collision_safe_outputs(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Actual webpage batch processing writes distinct files for colliding URL stems."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\nhttps://example.com\n", encoding="utf-8")
+        output_dir = tmp_path / "output"
+        call_count = 0
+
+        async def mock_async_convert(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return (f"# Content {call_count}", {"call": call_count})
+
+        mock_convert.side_effect = mock_async_convert
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--json",
+                "--no-proxy",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        success_outputs = [
+            Path(line["output"]).name for line in lines if line.get("type") == "item_success"
+        ]
+
+        assert result.exit_code == 0
+        assert set(success_outputs) == {"example.com.md", "example.com-2.md"}
+        assert (output_dir / "example.com.md").read_text(encoding="utf-8") != (
+            output_dir / "example.com-2.md"
+        ).read_text(encoding="utf-8")
+
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_preserves_duplicate_url_order(
+        self,
+        mock_job_manager: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Queued jobs keep ordered duplicate URLs so workers can reproduce safe paths."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\nhttps://example.com\n", encoding="utf-8")
+        output_dir = tmp_path / "output"
+        mock_job = MagicMock()
+        mock_job.id = "job-123"
+        mock_manager = mock_job_manager.return_value
+        mock_manager.create_job.return_value = mock_job
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--queue",
+                "--no-proxy",
+            ],
+        )
+
+        assert result.exit_code == 0
+        create_job_kwargs = mock_manager.create_job.call_args.kwargs
+        queued_input = Path(create_job_kwargs["args"]["input_file"])
+        assert create_job_kwargs["args"]["urls"] == [
+            "https://example.com",
+            "https://example.com",
+        ]
+        assert [Path(output).name for output in create_job_kwargs["args"]["output_paths"]] == [
+            "example.com.md",
+            "example.com-2.md",
+        ]
+        assert queued_input.read_text(encoding="utf-8") == (
+            "https://example.com\nhttps://example.com\n"
+        )
+        assert str(queued_input) in create_job_kwargs["argv"]
 
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")
     def test_batch_webpages_json_lines(

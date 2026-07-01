@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.14] - 2026-07-01
+
+### Fixed
+
+- Made `gobbler batch webpages` plan collision-safe output filenames for duplicate or same-stem URLs across dry-run, inline execution, and queued jobs.
+
 ## [0.2.13] - 2026-06-30
 
 ### Fixed
