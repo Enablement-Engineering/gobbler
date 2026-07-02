@@ -36,7 +36,10 @@ def extract_video_id(video_url: str) -> str:
     Raises:
         ValueError: If URL format is invalid
     """
-    pattern = r"^https?://(www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})"
+    pattern = (
+        r"^https?://(www\.)?(youtube\.com/watch\?v=|youtu\.be/)"
+        r"([a-zA-Z0-9_-]{11})(?=$|[&?#/])"
+    )
     match = re.match(pattern, video_url)
 
     if not match:

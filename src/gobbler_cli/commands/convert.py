@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
@@ -30,11 +31,23 @@ from gobbler_cli.progress import ProgressTracker
 from gobbler_core.utils.redaction import redact_value
 
 YOUTUBE_TIMEOUT_DEFAULT = 120
+YOUTUBE_INVALID_URL_MESSAGE = (
+    "Invalid YouTube URL: expected https://youtube.com/watch?v=VIDEO_ID "
+    "or https://youtu.be/VIDEO_ID."
+)
+YOUTUBE_INVALID_URL_CODE = "YOUTUBE_INVALID_URL"
+YOUTUBE_INVALID_URL_SUGGESTION = (
+    "Provide a YouTube URL like https://youtube.com/watch?v=dQw4w9WgXcQ "
+    "or https://youtu.be/dQw4w9WgXcQ."
+)
 WEBPAGE_INVALID_URL_MESSAGE = "Invalid webpage URL: expected an absolute http:// or https:// URL."
 WEBPAGE_INVALID_URL_CODE = "WEBPAGE_INVALID_URL"
 WEBPAGE_INVALID_URL_SUGGESTION = "Provide a URL like https://example.com."
 ASCII_CONTROL_CODEPOINT_LIMIT = 32
 ASCII_DELETE_CODEPOINT = 127
+YOUTUBE_URL_PATTERN = re.compile(
+    r"^https?://(www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})(?=$|[&?#/])"
+)
 
 app = typer.Typer(help="Convert individual content items to markdown")
 
@@ -173,6 +186,55 @@ def _validate_webpage_url(url: str, output_format: OutputFormat) -> None:
     raise typer.Exit(1)
 
 
+def _is_valid_youtube_url(url: str) -> bool:
+    """Return whether a single YouTube URL matches supported extraction formats.
+
+    Args:
+        url: User-provided YouTube URL.
+
+    Returns:
+        True when the URL matches the supported YouTube video URL formats.
+    """
+    return bool(YOUTUBE_URL_PATTERN.match(url))
+
+
+def _write_invalid_youtube_url_error(url: str, output_format: OutputFormat) -> None:
+    """Write an invalid YouTube URL error in the requested output format.
+
+    Args:
+        url: User-provided YouTube URL.
+        output_format: Requested CLI output format.
+    """
+    if output_format == OutputFormat.JSON:
+        write_json_result(
+            format_json_error(
+                YOUTUBE_INVALID_URL_MESSAGE,
+                YOUTUBE_INVALID_URL_CODE,
+                source=url,
+                suggestion=YOUTUBE_INVALID_URL_SUGGESTION,
+            )
+        )
+    else:
+        print_error(YOUTUBE_INVALID_URL_MESSAGE)
+
+
+def _validate_youtube_url(url: str, output_format: OutputFormat) -> None:
+    """Reject invalid single YouTube command URLs with CLI output.
+
+    Args:
+        url: User-provided YouTube URL.
+        output_format: Requested CLI output format.
+
+    Raises:
+        typer.Exit: If the URL is not a supported YouTube video URL.
+    """
+    if _is_valid_youtube_url(url):
+        return
+
+    _write_invalid_youtube_url_error(url, output_format)
+    raise typer.Exit(1)
+
+
 @app.command()
 def youtube(
     url: Annotated[
@@ -231,6 +293,13 @@ def youtube(
                 output_format,
             )
             raise typer.Exit(1)
+
+    assert actual_url is not None
+    if skip_if_exists and output and output.exists():
+        _write_skip_result(output, actual_url, output_format)
+        return
+
+    _validate_youtube_url(actual_url, output_format)
 
     asyncio.run(
         _convert_youtube(

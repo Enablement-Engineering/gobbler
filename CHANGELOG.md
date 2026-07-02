@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-07-02
+
+### Fixed
+- Made `gobbler youtube` reject invalid single-video URLs locally before conversion, returning stable `YOUTUBE_INVALID_URL` JSON diagnostics with URL-format guidance.
+
 ## [0.2.14] - 2026-07-01
 
 ### Fixed
@@ -159,7 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.14...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.15...HEAD
+[0.2.15]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.11...v0.2.12

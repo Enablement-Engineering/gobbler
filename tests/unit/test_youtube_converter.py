@@ -61,10 +61,23 @@ class TestVideoIdExtraction:
             "youtube.com/watch?v=abc",
             "https://youtube.com/watch?v=toolong123",
             "https://youtube.com/watch?v=short1",
+            "https://youtube.com/watch?v=dQw4w9WgXcQextra",
+            "https://youtu.be/dQw4w9WgXcQextra",
         ]
         for url in invalid_urls:
             with pytest.raises(ValueError, match="Invalid YouTube URL format"):
                 extract_video_id(url)
+
+    def test_extract_video_id_allows_supported_suffix_delimiters(self):
+        """Test extracting video ID when supported URL suffixes are present."""
+        video_id = "dQw4w9WgXcQ"
+        urls = [
+            f"https://youtube.com/watch?v={video_id}&t=10",
+            f"https://youtube.com/watch?v={video_id}#fragment",
+            f"https://youtu.be/{video_id}?si=abc",
+        ]
+        for url in urls:
+            assert extract_video_id(url) == video_id
 
 
 class TestTimestampFormatting:
