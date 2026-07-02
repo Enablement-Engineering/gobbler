@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.15] - 2026-07-02
+
+### Fixed
+
+- Made `gobbler youtube` reject invalid single-video URLs locally before conversion, returning stable `YOUTUBE_INVALID_URL` JSON diagnostics with URL-format guidance.
+
 ## [0.2.14] - 2026-07-01
 
 ### Fixed
