@@ -900,6 +900,144 @@ class TestBatchWebpagesUrlValidation:
         ]
 
 
+class TestBatchYoutubePlaylistUrlValidation:
+    """Tests for batch YouTube playlist local URL validation."""
+
+    @pytest.mark.parametrize(
+        "playlist_url",
+        [
+            "not-a-url",
+            "ftp://youtube.com/playlist?list=PL123",
+            "https://example.com/playlist?list=PL123",
+            "https://youtube.com/playlist?list=",
+        ],
+    )
+    @patch("yt_dlp.YoutubeDL")
+    def test_batch_youtube_playlist_json_invalid_url_rejected_before_extractor(
+        self,
+        mock_youtube_dl: MagicMock,
+        playlist_url: str,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """JSON mode rejects malformed playlist URLs before invoking yt-dlp."""
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "youtube-playlist",
+                playlist_url,
+                "--output",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        assert result.exit_code == 1
+        assert lines == [
+            {
+                "schema_version": JSON_SCHEMA_VERSION,
+                "type": "invalid_input",
+                "success": False,
+                "error_code": "YOUTUBE_PLAYLIST_INVALID_URL",
+                "error": (
+                    "Invalid YouTube playlist URL: expected an absolute http:// or https:// "
+                    "YouTube playlist URL."
+                ),
+                "url": playlist_url,
+                "source": playlist_url,
+                "suggestion": (
+                    "Provide a YouTube playlist URL like "
+                    "https://youtube.com/playlist?list=PLAYLIST_ID."
+                ),
+            }
+        ]
+        assert not output_dir.exists()
+        mock_youtube_dl.assert_not_called()
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_batch_youtube_playlist_human_invalid_url_has_guidance(
+        self,
+        mock_youtube_dl: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Human output rejects malformed playlist URLs with URL-format guidance."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "youtube-playlist",
+                "youtube.com/playlist?list=PL123",
+                "--output",
+                str(tmp_path / "output"),
+                "--dry-run",
+            ],
+        )
+
+        plain_output = _plain_cli_output(result.output)
+        assert result.exit_code == 1
+        assert "Invalid YouTube playlist URL" in plain_output
+        assert "absolute http:// or https://" in plain_output
+        assert "https://youtube.com/playlist?list=PLAYLIST_ID" in plain_output
+        assert "Dry Run Preview" not in plain_output
+        mock_youtube_dl.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "playlist_url",
+        [
+            "http://youtube.com/playlist?list=PL123",
+            "https://www.youtube.com/playlist?list=PL123",
+            "https://m.youtube.com/playlist?list=PL123",
+            "https://music.youtube.com/playlist?list=PL123",
+        ],
+    )
+    @patch("yt_dlp.YoutubeDL")
+    def test_batch_youtube_playlist_valid_urls_dispatch_to_extractor(
+        self,
+        mock_youtube_dl: MagicMock,
+        playlist_url: str,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Valid http:// and https:// playlist URLs continue to yt-dlp extraction."""
+        ydl = mock_youtube_dl.return_value.__enter__.return_value
+        ydl.extract_info.return_value = {
+            "entries": [
+                {
+                    "id": "dQw4w9WgXcQ",
+                    "title": "Example video",
+                }
+            ]
+        }
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "youtube-playlist",
+                playlist_url,
+                "--output",
+                str(tmp_path / "output"),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        payload = json.loads(result.output.strip())
+        assert result.exit_code == 0
+        assert payload["type"] == "dry_run"
+        assert payload["total_videos"] == 1
+        ydl.extract_info.assert_called_once_with(playlist_url, download=False)
+
+
 class TestBatchDirectoryJsonError:
     """Tests for batch directory with nonexistent input."""
 
