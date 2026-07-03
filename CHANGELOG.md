@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-07-03
+
+### Fixed
+- Made `gobbler batch youtube-playlist` reject malformed or schemeless playlist URLs locally before invoking `yt-dlp`, returning stable `YOUTUBE_PLAYLIST_INVALID_URL` JSON diagnostics with URL-format guidance.
+
 ## [0.2.15] - 2026-07-02
 
 ### Fixed
@@ -164,7 +169,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.15...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.16...HEAD
+[0.2.16]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.12...v0.2.13

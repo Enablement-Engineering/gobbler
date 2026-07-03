@@ -9,6 +9,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import parse_qs, urlparse
 
 import typer
 
@@ -28,6 +29,14 @@ from gobbler_cli.knowledge import (
 )
 from gobbler_cli.output import add_json_contract, print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
+
+YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE = (
+    "Invalid YouTube playlist URL: expected an absolute http:// or https:// YouTube playlist URL."
+)
+YOUTUBE_PLAYLIST_INVALID_URL_CODE = "YOUTUBE_PLAYLIST_INVALID_URL"
+YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION = (
+    "Provide a YouTube playlist URL like https://youtube.com/playlist?list=PLAYLIST_ID."
+)
 
 
 def _write_json_line(data: dict[str, Any]) -> None:
@@ -117,6 +126,55 @@ def _scan_existing_video_ids(directory: Path) -> set[str]:
     return video_ids
 
 
+def _is_valid_youtube_playlist_url(url: str) -> bool:
+    """Return whether a URL is a structurally valid YouTube playlist URL.
+
+    Args:
+        url: User-provided YouTube playlist URL.
+
+    Returns:
+        True when the URL is absolute HTTP(S), targets YouTube, and includes a playlist ID.
+    """
+    if not _is_valid_webpage_url(url):
+        return False
+
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").removeprefix("www.").lower()
+    if hostname not in {"youtube.com", "m.youtube.com", "music.youtube.com"}:
+        return False
+
+    playlist_ids = parse_qs(parsed.query).get("list", [])
+    return any(playlist_id.strip() for playlist_id in playlist_ids)
+
+
+def _write_invalid_youtube_playlist_url_error(url: str, json_output: bool) -> None:
+    """Write stable invalid-input diagnostics for a YouTube playlist URL."""
+    if json_output:
+        _write_json_line(
+            {
+                "type": "invalid_input",
+                "success": False,
+                "error_code": YOUTUBE_PLAYLIST_INVALID_URL_CODE,
+                "error": YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE,
+                "url": url,
+                "source": url,
+                "suggestion": YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION,
+            }
+        )
+        return
+
+    print_error(f"{YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE} {YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION}")
+
+
+def _validate_youtube_playlist_url(url: str, json_output: bool) -> None:
+    """Reject invalid YouTube playlist URLs before extractor dispatch."""
+    if _is_valid_youtube_playlist_url(url):
+        return
+
+    _write_invalid_youtube_playlist_url_error(url, json_output)
+    raise typer.Exit(1)
+
+
 app = typer.Typer(help="Batch processing operations")
 
 
@@ -187,15 +245,17 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
     """Async implementation of YouTube playlist batch processing."""
     import time
 
-    import yt_dlp
-
-    from gobbler_core.converters.youtube import convert_youtube_to_markdown
-
     # Use json_output param or check output_format
     use_json = json_output or output_format == "json"
     start_time = time.time()
 
     try:
+        _validate_youtube_playlist_url(url, use_json)
+
+        import yt_dlp
+
+        from gobbler_core.converters.youtube import convert_youtube_to_markdown
+
         # Create output directory (unless dry run)
         if not dry_run:
             output_dir.mkdir(parents=True, exist_ok=True)
