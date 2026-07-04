@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.17] - 2026-07-04
+
+### Fixed
+- Made queued `gobbler batch webpages --json` submissions emit parseable job and queue-error JSON instead of human progress text, including stdin, missing-file, empty-input, and queue-failure boundary cases.
+
 ## [0.2.16] - 2026-07-03
 
 ### Fixed
@@ -169,7 +174,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.16...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.17...HEAD
+[0.2.17]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.13...v0.2.14
