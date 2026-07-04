@@ -29,7 +29,7 @@ from .manager import JobManager
 from .models import Job, JobStatus, JobSummary, JobType
 from .worker import Worker
 
-__version__ = "0.2.16"
+__version__ = "0.2.17"
 
 __all__ = [
     "Database",

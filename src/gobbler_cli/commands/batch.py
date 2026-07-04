@@ -45,6 +45,18 @@ def _write_json_line(data: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def _write_batch_webpage_queue_error(error: str, error_code: str) -> None:
+    """Write a stable JSON error for queued batch webpage submissions."""
+    _write_json_line(
+        {
+            "type": "queue_error",
+            "success": False,
+            "error_code": error_code,
+            "error": error,
+        }
+    )
+
+
 def _batch_summary(total: int, successful: int, failed: int, skipped: int) -> dict[str, int]:
     """Return the stable summary shape for batch completion events."""
     return {
@@ -971,6 +983,45 @@ def webpages(
         )
 
 
+def _queue_batch_webpage_inputs(
+    input_file: Path | None,
+    output_dir: Path,
+    json_output: bool,
+) -> tuple[Path, Path, list[str], list[Path]]:
+    """Validate and prepare durable queued batch webpage inputs."""
+    if input_file is None or str(input_file) == "-":
+        message = "Queueing batch webpages requires an input file path; stdin is supported inline."
+        if json_output:
+            _write_batch_webpage_queue_error(message, "BATCH_WEBPAGE_QUEUE_REQUIRES_FILE")
+        else:
+            print_error(message)
+        raise typer.Exit(1)
+
+    queue_input_file = input_file.expanduser().resolve()
+    queue_output_dir = output_dir.expanduser().resolve()
+
+    if not queue_input_file.exists():
+        message = "Input file not found."
+        if json_output:
+            _write_batch_webpage_queue_error(message, "BATCH_WEBPAGE_INPUT_FILE_NOT_FOUND")
+        else:
+            print_error(f"Input file not found: {queue_input_file}")
+        raise typer.Exit(1)
+
+    urls = _read_urls(queue_input_file)
+    if not urls:
+        message = "No valid URLs found in input"
+        if json_output:
+            _write_batch_webpage_queue_error(message, "NO_URLS_FOUND")
+        else:
+            print_error(message)
+        raise typer.Exit(1)
+
+    _validate_batch_webpage_urls(urls, json_output)
+    planned_output_paths = _webpage_output_paths(urls, queue_output_dir)
+    return queue_input_file, queue_output_dir, urls, planned_output_paths
+
+
 def _queue_batch_webpages(
     input_file: Path | None,
     output_dir: Path,
@@ -987,23 +1038,11 @@ def _queue_batch_webpages(
 
     # Queue workers execute subprocess argv, so queued webpage batches need a
     # durable input file path rather than stdin-only URLs stored in job args.
-    if input_file is None or str(input_file) == "-":
-        print_error(
-            "Queueing batch webpages requires an input file path; stdin is supported inline."
-        )
-        raise typer.Exit(1)
-
-    queue_input_file = input_file.expanduser().resolve()
-    queue_output_dir = output_dir.expanduser().resolve()
-
-    # Read URLs from file
-    urls = _read_urls(queue_input_file)
-    if not urls:
-        print_error("No valid URLs found in input")
-        raise typer.Exit(1)
-
-    _validate_batch_webpage_urls(urls, json_output)
-    planned_output_paths = _webpage_output_paths(urls, queue_output_dir)
+    queue_input_file, queue_output_dir, urls, planned_output_paths = _queue_batch_webpage_inputs(
+        input_file=input_file,
+        output_dir=output_dir,
+        json_output=json_output,
+    )
 
     # Store URLs and planned outputs in args for queue inspection; pass the
     # input file in argv because workers execute the subprocess argv.
@@ -1048,11 +1087,37 @@ def _queue_batch_webpages(
             args=args,
             argv=argv,
         )
+        if json_output:
+            _write_json_line(
+                {
+                    "type": "job_queued",
+                    "success": True,
+                    "job_id": job.id,
+                    "job_type": JobType.BATCH_WEBPAGE.value,
+                    "status": "pending",
+                    "total_urls": len(urls),
+                    "options": {
+                        "concurrency": concurrency,
+                        "timeout": timeout,
+                        "selector": selector,
+                        "use_proxy": use_proxy,
+                        "skip_existing": skip_existing,
+                    },
+                }
+            )
+            return
+
         print_success(f"Queued batch webpage job: {job.id}")
         print_info(f"Processing {len(urls)} URLs")
         print_info("Use 'gobbler queue status' to check progress")
     except Exception as e:
-        print_error(f"Failed to queue job: {e}")
+        if json_output:
+            _write_batch_webpage_queue_error(
+                "Failed to queue batch webpage job.",
+                "BATCH_WEBPAGE_QUEUE_ERROR",
+            )
+        else:
+            print_error(f"Failed to queue job: {e}")
         raise typer.Exit(1) from None
 
 

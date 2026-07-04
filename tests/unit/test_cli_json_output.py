@@ -1435,6 +1435,7 @@ class TestBatchWebpagesWithMock:
         )
 
         assert result.exit_code == 0
+        assert "Queued batch webpage job: job-123" in _plain_cli_output(result.output)
         create_job_kwargs = mock_manager.create_job.call_args.kwargs
         queued_input = Path(create_job_kwargs["args"]["input_file"])
         assert create_job_kwargs["args"]["use_proxy"] is False
@@ -1443,6 +1444,190 @@ class TestBatchWebpagesWithMock:
         assert str(queued_input) in create_job_kwargs["argv"]
         assert "--no-proxy" in create_job_kwargs["argv"]
         assert "--no-proxy" in create_job_kwargs["command"]
+
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_json_outputs_job_payload(
+        self,
+        mock_job_manager: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Queued batch webpage JSON mode emits one parseable job payload."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com/one\nhttps://example.com/two\n")
+        output_dir = tmp_path / "output"
+        mock_job = MagicMock()
+        mock_job.id = "job-123"
+        mock_manager = mock_job_manager.return_value
+        mock_manager.create_job.return_value = mock_job
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--queue",
+                "--no-proxy",
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload == {
+            "schema_version": JSON_SCHEMA_VERSION,
+            "type": "job_queued",
+            "success": True,
+            "job_id": "job-123",
+            "job_type": "batch_webpage",
+            "status": "pending",
+            "total_urls": 2,
+            "options": {
+                "concurrency": 3,
+                "timeout": 30,
+                "selector": None,
+                "use_proxy": False,
+                "skip_existing": True,
+            },
+        }
+        assert "Queued batch webpage job" not in result.output
+        assert str(tmp_path) not in result.output
+        mock_manager.create_job.assert_called_once()
+
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_json_error_outputs_json_without_path_leak(
+        self,
+        mock_job_manager: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """JobManager failures in queued JSON mode remain parseable and path-safe."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("https://example.com\n")
+        output_dir = tmp_path / "output"
+        private_path = tmp_path / "queue.db"
+        mock_manager = mock_job_manager.return_value
+        mock_manager.create_job.side_effect = RuntimeError(f"database locked: {private_path}")
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(output_dir),
+                "--queue",
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload == {
+            "schema_version": JSON_SCHEMA_VERSION,
+            "type": "queue_error",
+            "success": False,
+            "error_code": "BATCH_WEBPAGE_QUEUE_ERROR",
+            "error": "Failed to queue batch webpage job.",
+        }
+        assert str(tmp_path) not in result.output
+        assert "Error:" not in result.output
+
+    @pytest.mark.parametrize(
+        ("args", "expected_error_code", "expected_error"),
+        [
+            (
+                ["-"],
+                "BATCH_WEBPAGE_QUEUE_REQUIRES_FILE",
+                "Queueing batch webpages requires an input file path; stdin is supported inline.",
+            ),
+            (
+                ["missing.txt"],
+                "BATCH_WEBPAGE_INPUT_FILE_NOT_FOUND",
+                "Input file not found.",
+            ),
+        ],
+    )
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_json_input_errors_are_json(
+        self,
+        mock_job_manager: MagicMock,
+        args: list[str],
+        expected_error_code: str,
+        expected_error: str,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Queued batch webpage JSON input errors stay parseable and path-safe."""
+        command_args = [
+            "batch",
+            "webpages",
+            *[str(tmp_path / arg) if arg == "missing.txt" else arg for arg in args],
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--queue",
+            "--json",
+        ]
+
+        result = runner.invoke(cli_app, command_args, input="https://example.com\n")
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload == {
+            "schema_version": JSON_SCHEMA_VERSION,
+            "type": "queue_error",
+            "success": False,
+            "error_code": expected_error_code,
+            "error": expected_error,
+        }
+        assert str(tmp_path) not in result.output
+        assert "Error:" not in result.output
+        mock_job_manager.assert_not_called()
+
+    @patch("gobbler_queue.manager.JobManager")
+    def test_batch_webpages_queue_json_empty_input_is_json(
+        self,
+        mock_job_manager: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Queued batch webpage JSON mode reports empty URL files as JSON."""
+        urls_file = tmp_path / "urls.txt"
+        urls_file.write_text("# comment only\n\n")
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "webpages",
+                str(urls_file),
+                "--output-dir",
+                str(tmp_path / "output"),
+                "--queue",
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload == {
+            "schema_version": JSON_SCHEMA_VERSION,
+            "type": "queue_error",
+            "success": False,
+            "error_code": "NO_URLS_FOUND",
+            "error": "No valid URLs found in input",
+        }
+        assert str(tmp_path) not in result.output
+        assert "Error:" not in result.output
+        mock_job_manager.assert_not_called()
 
     def test_batch_webpages_output_paths_preserve_unique_filenames(
         self,
