@@ -36,6 +36,12 @@ YOUTUBE_INVALID_URL_MESSAGE = (
     "or https://youtu.be/VIDEO_ID."
 )
 YOUTUBE_INVALID_URL_CODE = "YOUTUBE_INVALID_URL"
+YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_CODE = "YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED"
+YOUTUBE_TRANSCRIPTAPI_PAYMENT_REQUIRED_STATUS_CODE = 402
+YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_SUGGESTION = (
+    "Check TranscriptAPI billing, quota, and active plan/account state, or use another "
+    "transcript source."
+)
 YOUTUBE_INVALID_URL_SUGGESTION = (
     "Provide a YouTube URL like https://youtube.com/watch?v=dQw4w9WgXcQ "
     "or https://youtu.be/dQw4w9WgXcQ."
@@ -79,6 +85,38 @@ def _safe_error_diagnostics(error: Exception) -> dict[str, Any] | None:
         return None
     redacted = redact_value(diagnostics)
     return redacted if isinstance(redacted, dict) else None
+
+
+def _is_transcriptapi_billing_required_error(
+    error_text: str, diagnostics: dict[str, Any] | None
+) -> bool:
+    """Return True for TranscriptAPI payment/account-plan failures."""
+    if diagnostics:
+        provider = str(diagnostics.get("provider", "")).lower()
+        error_type = str(diagnostics.get("error_type", "")).lower()
+        status_code = diagnostics.get("status_code")
+        if provider == "transcriptapi":
+            return (
+                error_type == "billing_required"
+                or status_code == YOUTUBE_TRANSCRIPTAPI_PAYMENT_REQUIRED_STATUS_CODE
+            )
+
+    lowered = error_text.lower()
+    return "transcriptapi" in lowered and (
+        "payment required" in lowered or "active paid plan" in lowered or "billing" in lowered
+    )
+
+
+def _youtube_error_response_metadata(
+    error_text: str, diagnostics: dict[str, Any] | None
+) -> tuple[str, str | None]:
+    """Return the stable JSON error code and suggestion for a YouTube failure."""
+    if _is_transcriptapi_billing_required_error(error_text, diagnostics):
+        return (
+            YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_CODE,
+            YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_SUGGESTION,
+        )
+    return "YOUTUBE_CONVERSION_ERROR", None
 
 
 def _write_missing_input_error(message: str, error_code: str, output_format: OutputFormat) -> None:
@@ -422,7 +460,13 @@ async def _convert_youtube(
         error_text = _safe_error_text(e)
         diagnostics = _safe_error_diagnostics(e)
         if output_format == OutputFormat.JSON:
-            json_result = format_json_error(error_text, "YOUTUBE_CONVERSION_ERROR", source=url)
+            error_code, suggestion = _youtube_error_response_metadata(error_text, diagnostics)
+            json_result = format_json_error(
+                error_text,
+                error_code,
+                source=url,
+                suggestion=suggestion,
+            )
             if diagnostics:
                 json_result["diagnostics"] = diagnostics
             write_json_result(json_result)

@@ -252,6 +252,60 @@ class TestYouTubeProviderRateLimits:
         assert error.diagnostics["retry_after_seconds"] == 120
         assert "secret-token" not in dumped
 
+    @patch("gobbler_core.providers.youtube.httpx.Client")
+    def test_transcriptapi_402_sanitizes_action_url(self, mock_client):
+        """Test TranscriptAPI billing action URLs do not expose query or fragment data."""
+
+        class FakeClient:
+            """Context manager returning a mocked TranscriptAPI 402 response."""
+
+            def __init__(self, *_args, **_kwargs):
+                """Accept httpx.Client constructor arguments."""
+
+            def __enter__(self):
+                """Return the fake client."""
+                return self
+
+            def __exit__(self, *_args):
+                """Exit the fake client context."""
+
+            def get(self, *_args, **_kwargs):
+                """Return a payment-required response with a sensitive action URL."""
+                request = httpx.Request("GET", "https://transcriptapi.com/test")
+                return httpx.Response(
+                    402,
+                    json={
+                        "detail": {
+                            "message": "You don't have an active paid plan yet.",
+                            "action_url": (
+                                "https://transcriptapi.com/billing?"
+                                "session_id=cs_secret_123&token=abc#checkout"
+                            ),
+                        }
+                    },
+                    request=request,
+                )
+
+        mock_client.side_effect = FakeClient
+        provider = TranscriptAPIProvider(api_key="secret-token")
+
+        with pytest.raises(YouTubeTranscriptError) as exc_info:
+            provider.fetch("dQw4w9WgXcQ", language="en")
+
+        error = exc_info.value
+        dumped = json.dumps({"message": str(error), "diagnostics": error.diagnostics})
+        assert "https://transcriptapi.com/billing" in str(error)
+        assert error.diagnostics["provider"] == "transcriptapi"
+        assert error.diagnostics["error_type"] == "billing_required"
+        assert error.diagnostics["status_code"] == 402
+        assert "billing" in error.diagnostics["next_actions"][0].lower()
+        assert "secret-token" not in dumped
+        assert "session_id" not in dumped
+        assert "cs_secret_123" not in dumped
+        assert "token" not in dumped
+        assert "checkout" not in dumped
+        assert error.diagnostics["action_url"] == "https://transcriptapi.com/billing"
+
 
 class TestYouTubeProviderConfigFactory:
     """Test config-driven YouTube provider construction."""

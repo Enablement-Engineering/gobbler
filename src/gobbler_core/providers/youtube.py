@@ -45,6 +45,7 @@ import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -74,6 +75,11 @@ TRANSCRIPTAPI_RATE_LIMIT_NEXT_ACTIONS = [
     "Wait and retry after the rate-limit window.",
     "Check TranscriptAPI quota, billing, and provider status.",
     "Try a different video or caption language if the transcript is available elsewhere.",
+    "Use another transcript source if one is available.",
+]
+
+TRANSCRIPTAPI_BILLING_REQUIRED_NEXT_ACTIONS = [
+    "Check TranscriptAPI billing, quota, and active plan/account state.",
     "Use another transcript source if one is available.",
 ]
 
@@ -204,6 +210,46 @@ def create_youtube_rate_limit_error(
     return YouTubeTranscriptError(message=message, diagnostics=diagnostics)
 
 
+def _sanitize_transcriptapi_action_url(action_url: str) -> str:
+    """Return a public TranscriptAPI action URL without query or fragment details."""
+    fallback = "https://transcriptapi.com/billing"
+    try:
+        parts = urlsplit(action_url)
+    except (AttributeError, TypeError, ValueError):
+        return fallback
+
+    if parts.scheme not in {"http", "https"} or not parts.netloc:
+        return fallback
+
+    return urlunsplit((parts.scheme, parts.netloc, parts.path or "/billing", "", ""))
+
+
+def create_transcriptapi_billing_required_error(
+    *,
+    video_id: str,
+    language: str,
+    provider_message: str = "Payment required",
+    action_url: str = "https://transcriptapi.com/billing",
+) -> YouTubeTranscriptError:
+    """Create an actionable TranscriptAPI account/billing diagnostic error."""
+    next_actions = TRANSCRIPTAPI_BILLING_REQUIRED_NEXT_ACTIONS
+    safe_action_url = _sanitize_transcriptapi_action_url(action_url)
+    diagnostics: dict[str, Any] = {
+        "provider": "transcriptapi",
+        "error_type": "billing_required",
+        "status_code": 402,
+        "video_id": video_id,
+        "language": language,
+        "action_url": safe_action_url,
+        "next_actions": next_actions,
+    }
+    message = (
+        f"TranscriptAPI: {provider_message}. Action: {safe_action_url}. "
+        f"Next actions: {_format_next_actions(next_actions)}"
+    )
+    return YouTubeTranscriptError(message=message, diagnostics=diagnostics)
+
+
 class TranscriptProvider(ABC):
     """Base class for transcript providers."""
 
@@ -328,11 +374,12 @@ class TranscriptAPIProvider(TranscriptProvider):
             if response.status_code == httpx.codes.PAYMENT_REQUIRED:
                 data = response.json()
                 detail = data.get("detail", {})
-                msg = (
-                    f"TranscriptAPI: {detail.get('message', 'Payment required')}. "
-                    f"Action: {detail.get('action_url', 'https://transcriptapi.com/billing')}"
+                raise create_transcriptapi_billing_required_error(
+                    video_id=video_id,
+                    language=language,
+                    provider_message=detail.get("message", "Payment required"),
+                    action_url=detail.get("action_url", "https://transcriptapi.com/billing"),
                 )
-                raise RuntimeError(msg)
             if response.status_code == httpx.codes.NOT_FOUND:
                 msg = "TranscriptAPI: Transcript not available for this video"
                 raise RuntimeError(msg)
