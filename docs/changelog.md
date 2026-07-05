@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.18] - 2026-07-05
+
+### Fixed
+
+- Made TranscriptAPI fallback billing/active-plan failures return stable `YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED` JSON diagnostics with account-actionable guidance instead of generic YouTube retry/proxy advice.
+
 ## [0.2.17] - 2026-07-04
 
 ### Fixed

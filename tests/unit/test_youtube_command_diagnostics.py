@@ -12,7 +12,7 @@ import typer
 
 from gobbler_cli.commands import convert
 from gobbler_cli.output import OutputFormat
-from gobbler_core.providers.youtube import YouTubeTranscriptError
+from gobbler_core.providers.youtube import YouTubeTranscriptError, create_youtube_rate_limit_error
 from gobbler_core.utils.redaction import REDACTED
 
 
@@ -237,3 +237,131 @@ async def test_youtube_json_error_includes_sanitized_diagnostics(capsys) -> None
     assert payload["diagnostics"]["proxy_url"] == f"http://{REDACTED}@proxy.example:8080"
     assert "proxy-user" not in dumped
     assert "proxy-pass" not in dumped
+
+
+@pytest.mark.asyncio
+async def test_youtube_json_transcriptapi_billing_error_gets_specific_diagnostic(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """TranscriptAPI billing failures use a stable account-actionable JSON code."""
+
+    async def fail_conversion(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, Any]]:
+        raise YouTubeTranscriptError(
+            message=(
+                "TranscriptAPI: You don't have an active paid plan yet.. "
+                "Action: https://transcriptapi.com/billing"
+            ),
+            diagnostics={
+                "provider": "transcriptapi",
+                "error_type": "billing_required",
+                "status_code": 402,
+                "video_id": "dQw4w9WgXcQ",
+                "language": "auto",
+                "action_url": "https://transcriptapi.com/billing",
+            },
+        )
+
+    with (
+        patch("gobbler_cli.commands.convert.ProgressTracker", _NoopProgress),
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=fail_conversion,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="auto",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["success"] is False
+    assert payload["error_code"] == "YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED"
+    assert payload["diagnostics"]["provider"] == "transcriptapi"
+    assert payload["diagnostics"]["error_type"] == "billing_required"
+    assert "billing" in payload["suggestion"].lower()
+    assert "active plan" in payload["suggestion"].lower()
+    assert "TRANSCRIPTAPI_KEY" not in payload["suggestion"]
+
+
+@pytest.mark.asyncio
+async def test_youtube_json_transcriptapi_legacy_billing_text_gets_specific_diagnostic(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Legacy TranscriptAPI payment text is classified without structured diagnostics."""
+
+    async def fail_conversion(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, Any]]:
+        message = (
+            "TranscriptAPI: You don't have an active paid plan yet.. "
+            "Action: https://transcriptapi.com/billing"
+        )
+        raise RuntimeError(message)
+
+    with (
+        patch("gobbler_cli.commands.convert.ProgressTracker", _NoopProgress),
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=fail_conversion,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="auto",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["error_code"] == "YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED"
+    assert "TRANSCRIPTAPI_KEY" not in payload["suggestion"]
+
+
+@pytest.mark.asyncio
+async def test_youtube_json_transcriptapi_rate_limit_keeps_conversion_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """TranscriptAPI rate limits are not classified as billing failures."""
+
+    async def fail_conversion(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, Any]]:
+        raise create_youtube_rate_limit_error(
+            video_id="dQw4w9WgXcQ",
+            language="auto",
+            provider="transcriptapi",
+            retry_after_seconds=120,
+        )
+
+    with (
+        patch("gobbler_cli.commands.convert.ProgressTracker", _NoopProgress),
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=fail_conversion,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="auto",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["error_code"] == "YOUTUBE_CONVERSION_ERROR"
+    assert payload["diagnostics"]["provider"] == "transcriptapi"
+    assert payload["diagnostics"]["error_type"] == "rate_limited"
+    assert payload["diagnostics"]["status_code"] == 429

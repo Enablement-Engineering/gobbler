@@ -139,6 +139,17 @@ ERROR_KNOWLEDGE_BASE: list[ErrorSolution] = [
         error_codes=["YOUTUBE_CONVERSION_ERROR"],
     ),
     ErrorSolution(
+        keywords=["transcriptapi", "payment required", "active paid plan", "billing"],
+        title="TranscriptAPI billing or plan required",
+        description="TranscriptAPI handled the fallback request but the account cannot run it.",
+        fix=(
+            "Check TranscriptAPI billing, quota, and active plan/account state, or use another "
+            "transcript source."
+        ),
+        docs="https://transcriptapi.com/billing",
+        error_codes=["YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED"],
+    ),
+    ErrorSolution(
         keywords=["no transcript", "captions", "subtitles", "disabled"],
         title="Video has no transcripts available",
         description="This YouTube video doesn't have captions/subtitles available.",
