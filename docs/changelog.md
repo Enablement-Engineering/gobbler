@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.19] - 2026-07-06
+
+### Fixed
+
+- Made `gobbler webpage --format json` promote provider-specific diagnostic advice, such as safe `--no-proxy` Crawl4AI retry guidance, into the top-level `suggestion` field instead of falling back to generic service-start advice.
+
 ## [0.2.18] - 2026-07-05
 
 ### Fixed
