@@ -7,7 +7,7 @@ import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -701,6 +701,93 @@ class TestConvertJsonStdoutPurity:
         assert payload["schema_version"] == JSON_SCHEMA_VERSION
         assert payload["metadata"]["source"] == "https://example.com"
         assert "Converting web page" not in result.output
+
+    def test_webpage_json_error_uses_diagnostic_advice(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Webpage JSON errors promote provider diagnostic guidance to the suggestion field."""
+
+        class DiagnosticWebpageError(Exception):
+            """Error carrying structured webpage diagnostics."""
+
+            diagnostics: ClassVar[dict[str, str]] = {
+                "provider": "crawl4ai",
+                "advice": (
+                    "A proxy is configured for Crawl4AI via "
+                    "https://proxy-user:proxy-pass@proxy.example:8080 retry the "
+                    "single-page CLI without the proxy: "
+                    "gobbler webpage https://example.com/ --no-proxy."
+                ),
+                "suggested_command_fragment": "gobbler webpage https://example.com/ --no-proxy",
+            }
+
+        async def fake_convert_webpage_to_markdown(*_args: object, **_kwargs: object) -> None:
+            message = "Crawl4AI /crawl returned HTTP 500"
+            raise DiagnosticWebpageError(message)
+
+        def fake_get_default_provider(**_kwargs: object) -> object:
+            return object()
+
+        monkeypatch.setattr(
+            "gobbler_core.providers.webpage.get_default_provider",
+            fake_get_default_provider,
+        )
+        monkeypatch.setattr(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            fake_convert_webpage_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            ["convert", "webpage", "https://example.com", "--format", "json"],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error_code"] == "WEBPAGE_CONVERSION_ERROR"
+        assert "[REDACTED]@proxy.example:8080" in payload["suggestion"]
+        assert payload["suggestion"] == payload["diagnostics"]["advice"]
+        assert "proxy-pass" not in payload["suggestion"]
+        assert "proxy-user" not in payload["suggestion"]
+        assert payload["diagnostics"]["suggested_command_fragment"].endswith("--no-proxy")
+
+    def test_webpage_json_error_keeps_generic_suggestion_without_diagnostic_advice(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Webpage JSON errors without provider advice keep the knowledge-base suggestion."""
+
+        async def fake_convert_webpage_to_markdown(*_args: object, **_kwargs: object) -> None:
+            message = "Crawl4AI connection failed"
+            raise RuntimeError(message)
+
+        def fake_get_default_provider(**_kwargs: object) -> object:
+            return object()
+
+        monkeypatch.setattr(
+            "gobbler_core.providers.webpage.get_default_provider",
+            fake_get_default_provider,
+        )
+        monkeypatch.setattr(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            fake_convert_webpage_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            ["convert", "webpage", "https://example.com", "--format", "json"],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error_code"] == "WEBPAGE_CONVERSION_ERROR"
+        assert payload["suggestion"] == "cd ~/Projects/gobbler && docker compose up -d crawl4ai"
+        assert "diagnostics" not in payload
 
 
 # =============================================================================

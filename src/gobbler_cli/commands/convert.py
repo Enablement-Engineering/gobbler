@@ -119,6 +119,16 @@ def _youtube_error_response_metadata(
     return "YOUTUBE_CONVERSION_ERROR", None
 
 
+def _webpage_json_error_suggestion(diagnostics: dict[str, Any] | None) -> str | None:
+    """Return contextual webpage JSON guidance from provider diagnostics when available."""
+    if not diagnostics:
+        return None
+    advice = diagnostics.get("advice")
+    if isinstance(advice, str) and advice.strip():
+        return str(redact_value(advice))
+    return None
+
+
 def _write_missing_input_error(message: str, error_code: str, output_format: OutputFormat) -> None:
     """Write a missing input error in the requested output format."""
     if output_format == OutputFormat.JSON:
@@ -919,7 +929,12 @@ async def _convert_webpage(
         error_text = _safe_error_text(e)
         diagnostics = _safe_error_diagnostics(e)
         if output_format == OutputFormat.JSON:
-            json_result = format_json_error(error_text, "WEBPAGE_CONVERSION_ERROR", source=url)
+            json_result = format_json_error(
+                error_text,
+                "WEBPAGE_CONVERSION_ERROR",
+                source=url,
+                suggestion=_webpage_json_error_suggestion(diagnostics),
+            )
             if diagnostics:
                 json_result["diagnostics"] = diagnostics
             write_json_result(json_result)

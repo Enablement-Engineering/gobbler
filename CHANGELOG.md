@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.19] - 2026-07-06
+
+### Fixed
+- Made `gobbler webpage --format json` promote provider-specific diagnostic advice, such as safe `--no-proxy` Crawl4AI retry guidance, into the top-level `suggestion` field instead of falling back to generic service-start advice.
+
 ## [0.2.18] - 2026-07-05
 
 ### Fixed
@@ -179,7 +184,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.18...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.19...HEAD
+[0.2.19]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.18...v0.2.19
 [0.2.18]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.17...v0.2.18
 [0.2.17]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.15...v0.2.16
