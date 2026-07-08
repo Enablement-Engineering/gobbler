@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.20] - 2026-07-08
+
+### Fixed
+
+- Made queued `gobbler batch webpages` human output point to the existing `gobbler daemon status` progress command instead of the removed `gobbler queue status` command.
+
 ## [0.2.19] - 2026-07-06
 
 ### Fixed
