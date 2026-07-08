@@ -1109,7 +1109,7 @@ def _queue_batch_webpages(
 
         print_success(f"Queued batch webpage job: {job.id}")
         print_info(f"Processing {len(urls)} URLs")
-        print_info("Use 'gobbler queue status' to check progress")
+        print_info("Use 'gobbler daemon status' to check progress")
     except Exception as e:
         if json_output:
             _write_batch_webpage_queue_error(

@@ -1522,7 +1522,10 @@ class TestBatchWebpagesWithMock:
         )
 
         assert result.exit_code == 0
-        assert "Queued batch webpage job: job-123" in _plain_cli_output(result.output)
+        output = _plain_cli_output(result.output)
+        assert "Queued batch webpage job: job-123" in output
+        assert "Use 'gobbler daemon status' to check progress" in output
+        assert "gobbler queue status" not in output
         create_job_kwargs = mock_manager.create_job.call_args.kwargs
         queued_input = Path(create_job_kwargs["args"]["input_file"])
         assert create_job_kwargs["args"]["use_proxy"] is False
