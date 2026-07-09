@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.21] - 2026-07-09
+
+### Fixed
+
+- Sanitized top-level `gobbler webpage --format json` failure `source` values so credential-bearing URLs do not expose userinfo, query values, or fragments in automation logs.
+
 ## [0.2.20] - 2026-07-08
 
 ### Fixed

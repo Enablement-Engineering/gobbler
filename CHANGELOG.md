@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.21] - 2026-07-09
+
+### Fixed
+- Sanitized top-level `gobbler webpage --format json` failure `source` values so credential-bearing URLs do not expose userinfo, query values, or fragments in automation logs.
+
 ## [0.2.20] - 2026-07-08
 
 ### Fixed
@@ -189,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.20...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.21...HEAD
+[0.2.21]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.20...v0.2.21
 [0.2.20]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.19...v0.2.20
 [0.2.19]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.18...v0.2.19
 [0.2.18]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.17...v0.2.18

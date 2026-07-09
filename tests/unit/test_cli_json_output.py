@@ -754,6 +754,180 @@ class TestConvertJsonStdoutPurity:
         assert "proxy-user" not in payload["suggestion"]
         assert payload["diagnostics"]["suggested_command_fragment"].endswith("--no-proxy")
 
+    def test_webpage_json_error_sanitizes_credential_bearing_source(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Webpage JSON failure source does not leak userinfo, query values, or fragments."""
+
+        async def fake_convert_webpage_to_markdown(*_args: object, **_kwargs: object) -> None:
+            message = "Crawl4AI /crawl returned HTTP 500"
+            raise RuntimeError(message)
+
+        def fake_get_default_provider(**_kwargs: object) -> object:
+            return object()
+
+        monkeypatch.setattr(
+            "gobbler_core.providers.webpage.get_default_provider",
+            fake_get_default_provider,
+        )
+        monkeypatch.setattr(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            fake_convert_webpage_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "convert",
+                "webpage",
+                "https://user:pass@example.com/path?token=secret&x=public#frag",
+                "--format",
+                "json",
+            ],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["source"] == "https://[REDACTED]@example.com/path"
+        payload_text = json.dumps(payload)
+        assert "user:pass" not in payload_text
+        assert "token=secret" not in payload_text
+        assert "x=public" not in payload_text
+        assert "frag" not in payload_text
+
+    def test_webpage_json_error_preserves_normal_public_source_path(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Normal webpage JSON failure sources keep a useful public URL path."""
+
+        async def fake_convert_webpage_to_markdown(*_args: object, **_kwargs: object) -> None:
+            message = "Crawl4AI /crawl returned HTTP 500"
+            raise RuntimeError(message)
+
+        def fake_get_default_provider(**_kwargs: object) -> object:
+            return object()
+
+        monkeypatch.setattr(
+            "gobbler_core.providers.webpage.get_default_provider",
+            fake_get_default_provider,
+        )
+        monkeypatch.setattr(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            fake_convert_webpage_to_markdown,
+        )
+
+        result = runner.invoke(
+            cli_app,
+            ["convert", "webpage", "https://example.com/path", "--format", "json"],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["source"] == "https://example.com/path"
+
+    def test_webpage_invalid_url_json_sanitizes_credential_bearing_source(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Invalid webpage URL JSON failures sanitize raw user input source values."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "convert",
+                "webpage",
+                "https://user:pass@example.com:99999/path?token=secret&x=public#frag",
+                "--format",
+                "json",
+            ],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error_code"] == "WEBPAGE_INVALID_URL"
+        assert payload["source"] == "https://[REDACTED]@example.com:99999/path"
+        payload_text = json.dumps(payload)
+        assert "user:pass" not in payload_text
+        assert "token=secret" not in payload_text
+        assert "x=public" not in payload_text
+        assert "#frag" not in payload_text
+
+    @pytest.mark.parametrize(
+        ("url", "expected_source"),
+        [
+            ("example.com/path?token=secret&x=public#frag", "example.com/path"),
+            (
+                "//user:pass@example.com/path?token=secret&x=public#frag",
+                "//[REDACTED]@example.com/path",
+            ),
+            (
+                "https://user:pass@[::1/path?token=secret&x=public#frag",
+                "https://[REDACTED]@[::1/path",
+            ),
+            (
+                "https://user:pass@example.com\uff0fpath?token=secret&x=public#frag",
+                "https://[REDACTED]@example.com\uff0fpath",
+            ),
+        ],
+    )
+    def test_webpage_invalid_url_json_sanitizes_non_absolute_source(
+        self,
+        runner: CliRunner,
+        cli_app,
+        url: str,
+        expected_source: str,
+    ) -> None:
+        """Invalid non-absolute webpage URL sources drop query, fragment, and userinfo."""
+        result = runner.invoke(
+            cli_app,
+            ["convert", "webpage", url, "--format", "json"],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error_code"] == "WEBPAGE_INVALID_URL"
+        assert payload["source"] == expected_source
+        payload_text = json.dumps(payload)
+        assert "user:pass" not in payload_text
+        assert "token=secret" not in payload_text
+        assert "x=public" not in payload_text
+        assert "#frag" not in payload_text
+
+    def test_webpage_provider_not_found_json_sanitizes_credential_bearing_source(
+        self,
+        runner: CliRunner,
+        cli_app,
+    ) -> None:
+        """Provider lookup failures sanitize webpage JSON source values."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "convert",
+                "webpage",
+                "https://user:pass@example.com/path?token=secret&x=public#frag",
+                "--provider",
+                "missing-provider",
+                "--format",
+                "json",
+            ],
+        )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error_code"] == "WEBPAGE_PROVIDER_NOT_FOUND"
+        assert payload["source"] == "https://[REDACTED]@example.com/path"
+        payload_text = json.dumps(payload)
+        assert "user:pass" not in payload_text
+        assert "token=secret" not in payload_text
+        assert "x=public" not in payload_text
+        assert "#frag" not in payload_text
+
     def test_webpage_json_error_keeps_generic_suggestion_without_diagnostic_advice(
         self,
         monkeypatch: pytest.MonkeyPatch,

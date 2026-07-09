@@ -28,7 +28,7 @@ from gobbler_cli.output import (
     write_output,
 )
 from gobbler_cli.progress import ProgressTracker
-from gobbler_core.utils.redaction import redact_value
+from gobbler_core.utils.redaction import REDACTED, redact_value
 
 YOUTUBE_TIMEOUT_DEFAULT = 120
 YOUTUBE_INVALID_URL_MESSAGE = (
@@ -160,11 +160,13 @@ def _write_provider_not_found_error(
     error_code: str,
     source: str,
     output_format: OutputFormat,
+    *,
+    json_source: str | None = None,
 ) -> None:
     """Write a provider lookup failure in the requested output format."""
     error_text = _safe_error_text(error)
     if output_format == OutputFormat.JSON:
-        write_json_result(format_json_error(error_text, error_code, source=source))
+        write_json_result(format_json_error(error_text, error_code, source=json_source or source))
     else:
         print_error(error_text)
 
@@ -209,12 +211,55 @@ def _write_invalid_webpage_url_error(url: str, output_format: OutputFormat) -> N
             format_json_error(
                 WEBPAGE_INVALID_URL_MESSAGE,
                 WEBPAGE_INVALID_URL_CODE,
-                source=url,
+                source=_safe_webpage_failure_source(url),
                 suggestion=WEBPAGE_INVALID_URL_SUGGESTION,
             )
         )
     else:
         print_error(WEBPAGE_INVALID_URL_MESSAGE)
+
+
+def _sanitize_unparseable_webpage_source(url: str) -> str:
+    """Best-effort source sanitizer for URL strings that urllib rejects."""
+    source_without_params = re.split(r"[?#]", url, maxsplit=1)[0]
+    if "://" in source_without_params:
+        scheme, rest = source_without_params.split("://", 1)
+        if "@" in rest:
+            _, hostpath = rest.rsplit("@", 1)
+            return f"{scheme}://{REDACTED}@{hostpath}"
+        return source_without_params
+
+    if source_without_params.startswith("//") and "@" in source_without_params[2:]:
+        _, hostpath = source_without_params[2:].rsplit("@", 1)
+        return f"//{REDACTED}@{hostpath}"
+
+    if "@" in source_without_params:
+        return REDACTED
+
+    return source_without_params
+
+
+def _safe_webpage_failure_source(url: str) -> str:
+    """Return a sanitized source URL for webpage JSON failure payloads.
+
+    The original input can contain userinfo, query tokens, or fragments. Failure
+    payloads are often persisted by automation, so keep only the stable URL
+    identifier needed for debugging while removing credential-bearing parts.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return _sanitize_unparseable_webpage_source(url)
+
+    netloc = parsed.netloc
+    if netloc and "@" in netloc:
+        _, hostport = netloc.rsplit("@", 1)
+        netloc = f"{REDACTED}@{hostport}"
+
+    sanitized = parsed._replace(netloc=netloc, query="", fragment="").geturl()
+    if not netloc and "@" in sanitized:
+        return REDACTED
+    return sanitized
 
 
 def _validate_webpage_url(url: str, output_format: OutputFormat) -> None:
@@ -896,6 +941,7 @@ async def _convert_webpage(
                         "WEBPAGE_PROVIDER_NOT_FOUND",
                         url,
                         output_format,
+                        json_source=_safe_webpage_failure_source(url),
                     )
                     raise typer.Exit(1) from None
             else:
@@ -932,7 +978,7 @@ async def _convert_webpage(
             json_result = format_json_error(
                 error_text,
                 "WEBPAGE_CONVERSION_ERROR",
-                source=url,
+                source=_safe_webpage_failure_source(url),
                 suggestion=_webpage_json_error_suggestion(diagnostics),
             )
             if diagnostics:
