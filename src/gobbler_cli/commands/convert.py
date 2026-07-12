@@ -21,9 +21,11 @@ from gobbler_cli.output import (
     add_json_contract,
     format_json_error,
     format_json_success,
+    open_output_file,
     print_error,
     print_success,
     print_warning,
+    validate_open_request,
     write_json_result,
     write_output,
 )
@@ -169,6 +171,28 @@ def _write_provider_not_found_error(
         write_json_result(format_json_error(error_text, error_code, source=json_source or source))
     else:
         print_error(error_text)
+
+
+def _validate_open_option(
+    open_requested: bool, output: Path | None, output_format: OutputFormat
+) -> None:
+    """Validate a conversion ``--open`` request and render a clear CLI error."""
+    try:
+        validate_open_request(open_requested, output, output_format)
+    except ValueError as exc:
+        if output_format == OutputFormat.JSON:
+            write_json_result(format_json_error(str(exc), "OPEN_NOT_AVAILABLE"))
+        else:
+            print_error(str(exc))
+        raise typer.Exit(2) from None
+
+
+def _open_output_or_warn(output: Path) -> None:
+    """Open a completed output without turning opener failure into conversion failure."""
+    try:
+        open_output_file(output)
+    except RuntimeError as exc:
+        print_warning(str(exc))
 
 
 def _is_valid_webpage_url(url: str) -> bool:
@@ -363,6 +387,9 @@ def youtube(
         bool,
         typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
     ] = False,
+    open_result: Annotated[
+        bool, typer.Option("--open", help="Open the output file after successful conversion")
+    ] = False,
 ) -> None:
     """Convert a YouTube video to markdown.
 
@@ -375,6 +402,8 @@ def youtube(
         gobbler youtube https://youtube.com/watch?v=ABC123 -o out.md --skip-if-exists
         echo "https://youtube.com/watch?v=ABC123" | gobbler youtube
     """
+    _validate_open_option(open_result, output, output_format)
+    output_existed = bool(output and output.exists())
     # Handle stdin input
     actual_url = url
     if url is None or url == "-":
@@ -406,6 +435,8 @@ def youtube(
             skip_if_exists=skip_if_exists,
         )
     )
+    if open_result and output and not (skip_if_exists and output_existed):
+        _open_output_or_warn(output)
 
 
 def _clean_transcript(text: str) -> str:
@@ -561,6 +592,9 @@ def audio(
         bool,
         typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
     ] = False,
+    open_result: Annotated[
+        bool, typer.Option("--open", help="Open the output file after successful conversion")
+    ] = False,
 ) -> None:
     """Transcribe an audio file to markdown.
 
@@ -570,6 +604,8 @@ def audio(
         gobbler audio recording.mp3 --model medium --language es
         gobbler audio recording.mp3 -o out.md --skip-if-exists
     """
+    _validate_open_option(open_result, output, output_format)
+    output_existed = bool(output and output.exists())
     asyncio.run(
         _convert_audio(
             file_path=file_path,
@@ -582,6 +618,8 @@ def audio(
             skip_if_exists=skip_if_exists,
         )
     )
+    if open_result and output and not (skip_if_exists and output_existed):
+        _open_output_or_warn(output)
 
 
 async def _convert_audio(
@@ -685,6 +723,9 @@ def document(
         bool,
         typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
     ] = False,
+    open_result: Annotated[
+        bool, typer.Option("--open", help="Open the output file after successful conversion")
+    ] = False,
 ) -> None:
     """Convert a document (PDF, DOCX, etc.) to markdown.
 
@@ -694,6 +735,8 @@ def document(
         gobbler document scanned.pdf --ocr
         gobbler document report.pdf -o out.md --skip-if-exists
     """
+    _validate_open_option(open_result, output, output_format)
+    output_existed = bool(output and output.exists())
     asyncio.run(
         _convert_document(
             file_path=file_path,
@@ -704,6 +747,8 @@ def document(
             skip_if_exists=skip_if_exists,
         )
     )
+    if open_result and output and not (skip_if_exists and output_existed):
+        _open_output_or_warn(output)
 
 
 async def _convert_document(
@@ -832,6 +877,9 @@ def webpage(
         bool,
         typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
     ] = False,
+    open_result: Annotated[
+        bool, typer.Option("--open", help="Open the output file after successful conversion")
+    ] = False,
 ) -> None:
     """Convert a web page to markdown.
 
@@ -843,6 +891,8 @@ def webpage(
         gobbler webpage https://example.com --no-proxy
         echo "https://example.com" | gobbler webpage
     """
+    _validate_open_option(open_result, output, output_format)
+    output_existed = bool(output and output.exists())
     # Handle stdin input
     actual_url = url
     if url is None or url == "-":
@@ -854,6 +904,7 @@ def webpage(
                 output_format,
             )
             raise typer.Exit(1)
+    assert actual_url is not None
     if verbose:
         import logging
 
@@ -873,6 +924,8 @@ def webpage(
             skip_if_exists=skip_if_exists,
         )
     )
+    if open_result and output and not (skip_if_exists and output_existed):
+        _open_output_or_warn(output)
 
 
 async def _convert_webpage(
