@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, Literal
 
 import httpx
 import pytest
@@ -11,6 +12,63 @@ import pytest
 from gobbler_core.utils.http_client import RetryableHTTPClient
 
 LOGGER_NAME = "gobbler_core.utils.http_client"
+
+RequestMethod = Callable[[str], Awaitable[httpx.Response]]
+
+
+def _request_method(client: RetryableHTTPClient, method: Literal["get", "post"]) -> RequestMethod:
+    """Return a request callable with a common signature for the retry matrix."""
+    return client.get if method == "get" else client.post
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+@pytest.mark.parametrize(
+    ("expected_exception", "message"),
+    [
+        (httpx.TimeoutException, "provider timed out"),
+        (httpx.ConnectError, "provider unavailable"),
+    ],
+)
+async def test_retryable_transport_failure_matrix_exhausts_retries_without_traceback(
+    method: Literal["get", "post"],
+    expected_exception: type[httpx.HTTPError],
+    message: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Expected transport failures warn between attempts and end without traceback noise."""
+
+    class FailingClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def get(self, url: str, **kwargs: Any) -> httpx.Response:
+            return await self._fail("GET", url)
+
+        async def post(self, url: str, **kwargs: Any) -> httpx.Response:
+            return await self._fail("POST", url)
+
+        async def _fail(self, request_method: str, url: str) -> httpx.Response:
+            self.calls += 1
+            request = httpx.Request(request_method, url)
+            raise expected_exception(message, request=request)
+
+    transport = FailingClient()
+    client = RetryableHTTPClient(max_retries=3)
+    client._client = transport  # type: ignore[assignment]
+
+    with (
+        caplog.at_level(logging.WARNING, logger=LOGGER_NAME),
+        pytest.raises(expected_exception, match=message),
+    ):
+        await _request_method(client, method)("https://service.example/provider")
+
+    assert transport.calls == 3
+    retry_records = [record for record in caplog.records if "retrying" in record.message]
+    assert [record.message for record in retry_records] == [
+        f"Request failed: {message}, retrying (1/3)...",
+        f"Request failed: {message}, retrying (2/3)...",
+    ]
+    assert not any(record.exc_info for record in caplog.records)
 
 
 async def test_post_final_http_status_error_retries_without_unexpected_traceback(
