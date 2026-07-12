@@ -49,9 +49,17 @@ make test
 # Unit tests only
 make test-unit
 
+# Fast public CLI contract smoke tests (no Docker or worker required)
+make test-cli-contract
+
 # With coverage
 uv run pytest --cov
 ```
+
+The CLI contract harness in `tests/cli_contract.py` provides helpers for asserting
+exit codes and parsing single-object JSON or JSON-lines stdout. Add focused public
+CLI checks to `tests/unit/test_cli_contract_smoke.py`; mock external services so the
+harness remains safe to run in CI and from a fresh contributor checkout.
 
 ## Commit Messages
 
