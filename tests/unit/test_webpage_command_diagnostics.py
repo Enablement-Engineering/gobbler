@@ -80,6 +80,94 @@ async def test_webpage_no_proxy_bypasses_default_provider_proxy_lookup(capsys) -
 
     assert captured_kwargs["use_proxy"] is False
     assert payload["success"] is True
+    receipt = payload["receipt"]
+    assert receipt["provider"] == "crawl4ai"
+    assert receipt["proxy_mode"] == "disabled"
+    assert receipt["source_host"] == "example.com"
+    assert receipt["output_path"] is None
+    assert receipt["byte_count"] == len(b"# Page")
+    assert isinstance(receipt["elapsed_time_ms"], int)
+    assert receipt["elapsed_time_ms"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_webpage_json_success_includes_conversion_receipt(tmp_path: Path, capsys) -> None:
+    """Standard proxied conversions report a safe machine-readable receipt."""
+    output = tmp_path / "page.json"
+
+    async def convert_page(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, Any]]:
+        return "# Café", {"title": "Page", "provider": "crawl4ai"}
+
+    with (
+        patch("gobbler_core.providers.webpage.get_default_provider", return_value=object()),
+        patch(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            side_effect=convert_page,
+        ),
+    ):
+        await convert._convert_webpage(
+            url="https://example.com/article",
+            output=output,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+        )
+
+    assert capsys.readouterr().out == ""
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    receipt = payload["receipt"]
+
+    assert receipt["provider"] == "crawl4ai"
+    assert receipt["proxy_mode"] == "enabled"
+    assert receipt["source_host"] == "example.com"
+    assert receipt["output_path"] == str(output)
+    assert receipt["byte_count"] == len("# Café".encode())
+    assert isinstance(receipt["elapsed_time_ms"], int)
+    assert receipt["elapsed_time_ms"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_webpage_receipt_redacts_credential_bearing_source(capsys) -> None:
+    """Receipt source details never include URL credentials or sensitive components."""
+    source = (
+        "https://user:password@example.com/reset/secret-path-token"
+        "?session=query-secret#access_token=fragment-secret"
+    )
+
+    async def convert_page(*_args: Any, **_kwargs: Any) -> tuple[str, dict[str, Any]]:
+        return "# Page", {"title": "Page", "provider": "crawl4ai"}
+
+    with (
+        patch("gobbler_core.providers.webpage.get_default_provider", return_value=object()),
+        patch(
+            "gobbler_core.converters.webpage.convert_webpage_to_markdown",
+            side_effect=convert_page,
+        ),
+    ):
+        await convert._convert_webpage(
+            url=source,
+            output=None,
+            css_selector=None,
+            clean=False,
+            timeout=30,
+            include_images=True,
+            output_format=OutputFormat.JSON,
+        )
+
+    receipt = json.loads(capsys.readouterr().out)["receipt"]
+    dumped = json.dumps(receipt)
+
+    assert receipt["source_host"] == "example.com"
+    for secret in (
+        "user",
+        "password",
+        "secret-path-token",
+        "query-secret",
+        "fragment-secret",
+    ):
+        assert secret not in dumped
 
 
 @pytest.mark.asyncio
