@@ -18,6 +18,7 @@ from gobbler_cli.commands.convert import (
     WEBPAGE_INVALID_URL_MESSAGE,
     WEBPAGE_INVALID_URL_SUGGESTION,
     _is_valid_webpage_url,
+    _safe_webpage_failure_source,
 )
 from gobbler_cli.knowledge import (
     PREVIEW_ITEM_LIMIT,
@@ -45,7 +46,11 @@ def _write_json_line(data: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
-def _write_batch_webpage_queue_error(error: str, error_code: str) -> None:
+def _write_batch_webpage_queue_error(
+    error: str,
+    error_code: str,
+    category: str = "queue_submission",
+) -> None:
     """Write a stable JSON error for queued batch webpage submissions."""
     _write_json_line(
         {
@@ -53,18 +58,88 @@ def _write_batch_webpage_queue_error(error: str, error_code: str) -> None:
             "success": False,
             "error_code": error_code,
             "error": error,
+            "summary": _batch_summary(1, 0, 1, 0, outcomes=Counter({category: 1})),
         }
     )
 
 
-def _batch_summary(total: int, successful: int, failed: int, skipped: int) -> dict[str, int]:
-    """Return the stable summary shape for batch completion events."""
-    return {
+OUTCOME_CATEGORIES = (
+    "completed",
+    "skipped",
+    "invalid_input",
+    "provider_service",
+    "filesystem_output",
+    "queue_submission",
+)
+
+RETRY_GUIDANCE = {
+    "invalid_input": "Fix the invalid inputs, then rerun the batch.",
+    "provider_service": (
+        "Retry failed items after checking provider availability and configuration."
+    ),
+    "filesystem_output": "Check output permissions and free space, then retry failed items.",
+    "queue_submission": "Check the queue database and daemon, then submit the batch again.",
+}
+
+
+def _batch_summary(
+    total: int,
+    successful: int,
+    failed: int,
+    skipped: int,
+    *,
+    outcomes: Counter[str] | None = None,
+) -> dict[str, Any]:
+    """Return the stable, categorized summary shape for batch events."""
+    categorized = Counter(outcomes or {})
+    categorized["completed"] = successful
+    categorized["skipped"] = skipped
+    summary: dict[str, Any] = {
         "total": total,
         "successful": successful,
         "failed": failed,
         "skipped": skipped,
+        "outcomes": {category: categorized[category] for category in OUTCOME_CATEGORIES},
     }
+    summary["retry_guidance"] = [
+        {"category": category, "suggestion": RETRY_GUIDANCE[category]}
+        for category in RETRY_GUIDANCE
+        if categorized[category]
+    ]
+    return summary
+
+
+def _failure_category(error: Exception) -> str:
+    """Classify a conversion exception without exposing its message or source."""
+    return "filesystem_output" if isinstance(error, OSError) else "provider_service"
+
+
+def _safe_batch_webpage_failure_source(url: str) -> str:
+    """Sanitize secrets while preserving ordinary invalid input diagnostics."""
+    if any(marker in url for marker in ("@", "?", "#")):
+        return _safe_webpage_failure_source(url)
+    return url
+
+
+def _print_categorized_summary(summary: dict[str, Any]) -> None:
+    """Print stable outcome category counts and safe retry guidance."""
+    print_info("Batch summary:")
+    outcomes = summary["outcomes"]
+    for category in OUTCOME_CATEGORIES:
+        print_info(f"  {category}: {outcomes[category]}")
+    for guidance in summary["retry_guidance"]:
+        print_info(f"Retry ({guidance['category']}): {guidance['suggestion']}")
+
+
+def _invalid_input_summary(total: int) -> dict[str, Any]:
+    """Return a terminal summary for a batch rejected before dispatch."""
+    return _batch_summary(
+        total,
+        successful=0,
+        failed=total,
+        skipped=0,
+        outcomes=Counter({"invalid_input": total}),
+    )
 
 
 def _directory_output_paths(files: list[Path], output_dir: Path) -> dict[Path, Path]:
@@ -173,9 +248,17 @@ def _write_invalid_youtube_playlist_url_error(url: str, json_output: bool) -> No
                 "suggestion": YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION,
             }
         )
+        _write_json_line(
+            {
+                "type": "batch_complete",
+                "success": False,
+                "summary": _invalid_input_summary(1),
+            }
+        )
         return
 
     print_error(f"{YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE} {YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION}")
+    _print_categorized_summary(_invalid_input_summary(1))
 
 
 def _validate_youtube_playlist_url(url: str, json_output: bool) -> None:
@@ -344,6 +427,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                         "concurrency": concurrency,
                         "videos": [v["video"] for v in would_process],
                         "skipped": [v["video"] for v in would_skip],
+                        "summary": _batch_summary(len(videos), 0, 0, len(would_skip)),
                     }
                 )
             else:
@@ -390,6 +474,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
         skipped = 0
         success_details: list[dict[str, Any]] = []
         failures: list[dict[str, Any]] = []
+        outcomes: Counter[str] = Counter()
 
         semaphore = asyncio.Semaphore(concurrency)
 
@@ -439,8 +524,10 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     return (video, True, "success", {"output_file": str(output_path), **metadata})
 
                 except TimeoutError:
+                    outcomes["provider_service"] += 1
                     return (video, False, f"Timed out after {per_video_timeout}s", None)
                 except Exception as e:
+                    outcomes[_failure_category(e)] += 1
                     return (video, False, str(e), None)
 
         # Create and run tasks
@@ -496,7 +583,9 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     "successful": successful,
                     "failed": failed,
                     "skipped": skipped,
-                    "summary": _batch_summary(len(videos), successful, failed, skipped),
+                    "summary": _batch_summary(
+                        len(videos), successful, failed, skipped, outcomes=outcomes
+                    ),
                     "output_dir": str(output_dir),
                     "processing_time_seconds": processing_time,
                     "success_details": success_details,
@@ -530,6 +619,10 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                 print_info(f"Skipped {skipped} existing files")
             if failed > 0:
                 print_error(f"{failed} videos failed to process")
+            _print_categorized_summary(
+                _batch_summary(len(videos), successful, failed, skipped, outcomes=outcomes)
+            )
+            if failed > 0:
                 raise typer.Exit(1)
 
     except typer.Exit:
@@ -693,6 +786,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                         "estimated_time": estimated_time,
                         "files": would_process,
                         "skipped": would_skip,
+                        "summary": _batch_summary(len(files), 0, 0, len(would_skip)),
                     }
                 )
             else:
@@ -738,6 +832,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
         successful = 0
         failed = 0
         skipped = 0
+        outcomes: Counter[str] = Counter()
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(concurrency)
@@ -777,6 +872,7 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                     return (file_path, True, "success", {"output": str(output_path), **metadata})
 
                 except Exception as e:
+                    outcomes[_failure_category(e)] += 1
                     return (file_path, False, str(e), None)
 
         # Create tasks for all files
@@ -821,7 +917,9 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 {
                     "type": "batch_complete",
                     "success": failed == 0,
-                    "summary": _batch_summary(len(files), successful, failed, skipped),
+                    "summary": _batch_summary(
+                        len(files), successful, failed, skipped, outcomes=outcomes
+                    ),
                 }
             )
             if failed > 0:
@@ -850,6 +948,9 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
                 print_error(f"{failed} files failed to process")
             if skipped > 0:
                 print_info(f"{skipped} files skipped (unknown type)")
+            _print_categorized_summary(
+                _batch_summary(len(files), successful, failed, skipped, outcomes=outcomes)
+            )
 
     except typer.Exit:
         raise
@@ -992,7 +1093,9 @@ def _queue_batch_webpage_inputs(
     if input_file is None or str(input_file) == "-":
         message = "Queueing batch webpages requires an input file path; stdin is supported inline."
         if json_output:
-            _write_batch_webpage_queue_error(message, "BATCH_WEBPAGE_QUEUE_REQUIRES_FILE")
+            _write_batch_webpage_queue_error(
+                message, "BATCH_WEBPAGE_QUEUE_REQUIRES_FILE", "invalid_input"
+            )
         else:
             print_error(message)
         raise typer.Exit(1)
@@ -1003,7 +1106,9 @@ def _queue_batch_webpage_inputs(
     if not queue_input_file.exists():
         message = "Input file not found."
         if json_output:
-            _write_batch_webpage_queue_error(message, "BATCH_WEBPAGE_INPUT_FILE_NOT_FOUND")
+            _write_batch_webpage_queue_error(
+                message, "BATCH_WEBPAGE_INPUT_FILE_NOT_FOUND", "invalid_input"
+            )
         else:
             print_error(f"Input file not found: {queue_input_file}")
         raise typer.Exit(1)
@@ -1012,7 +1117,7 @@ def _queue_batch_webpage_inputs(
     if not urls:
         message = "No valid URLs found in input"
         if json_output:
-            _write_batch_webpage_queue_error(message, "NO_URLS_FOUND")
+            _write_batch_webpage_queue_error(message, "NO_URLS_FOUND", "invalid_input")
         else:
             print_error(message)
         raise typer.Exit(1)
@@ -1103,6 +1208,13 @@ def _queue_batch_webpages(
                         "use_proxy": use_proxy,
                         "skip_existing": skip_existing,
                     },
+                    "summary": _batch_summary(
+                        len(urls),
+                        0,
+                        0,
+                        0,
+                        outcomes=Counter({"queue_submission": 1}),
+                    ),
                 }
             )
             return
@@ -1110,6 +1222,9 @@ def _queue_batch_webpages(
         print_success(f"Queued batch webpage job: {job.id}")
         print_info(f"Processing {len(urls)} URLs")
         print_info("Use 'gobbler daemon status' to check progress")
+        _print_categorized_summary(
+            _batch_summary(len(urls), 0, 0, 0, outcomes=Counter({"queue_submission": 1}))
+        )
     except Exception as e:
         if json_output:
             _write_batch_webpage_queue_error(
@@ -1173,8 +1288,8 @@ def _write_invalid_webpage_url_records(invalid_urls: list[str], json_output: boo
                     "success": False,
                     "error_code": WEBPAGE_INVALID_URL_CODE,
                     "error": WEBPAGE_INVALID_URL_MESSAGE,
-                    "url": url,
-                    "source": url,
+                    "url": _safe_batch_webpage_failure_source(url),
+                    "source": _safe_batch_webpage_failure_source(url),
                     "suggestion": WEBPAGE_INVALID_URL_SUGGESTION,
                 }
             )
@@ -1191,6 +1306,11 @@ def _validate_batch_webpage_urls(urls: list[str], json_output: bool) -> None:
         return
 
     _write_invalid_webpage_url_records(invalid_urls, json_output)
+    summary = _invalid_input_summary(len(invalid_urls))
+    if json_output:
+        _write_json_line({"type": "batch_complete", "success": False, "summary": summary})
+    else:
+        _print_categorized_summary(summary)
     raise typer.Exit(1)
 
 
@@ -1326,6 +1446,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                         "estimated_time": estimated_time,
                         "urls": would_process,
                         "skipped": would_skip,
+                        "summary": _batch_summary(len(urls), 0, 0, len(would_skip)),
                     }
                 )
             else:
@@ -1376,6 +1497,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
         failed = 0
         skipped = 0
         results: list[dict[str, Any]] = []
+        outcomes: Counter[str] = Counter()
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(concurrency)
@@ -1400,6 +1522,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                     # Write output
                     output_path.write_text(markdown_content, encoding="utf-8")
                 except Exception as e:
+                    outcomes[_failure_category(e)] += 1
                     return (url, output_path, False, str(e), None)
                 else:
                     return (url, output_path, True, "success", metadata)
@@ -1448,13 +1571,18 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                     _write_json_line(
                         {
                             "type": "item_error",
-                            "url": url,
+                            "url": _safe_batch_webpage_failure_source(url),
                             "output": str(output_path),
                             "error": message,
                         }
                     )
                     results.append(
-                        {"url": url, "output": str(output_path), "success": False, "error": message}
+                        {
+                            "url": _safe_batch_webpage_failure_source(url),
+                            "output": str(output_path),
+                            "success": False,
+                            "error": message,
+                        }
                     )
 
             # Final summary
@@ -1462,7 +1590,9 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 {
                     "type": "batch_complete",
                     "success": failed == 0,
-                    "summary": _batch_summary(len(urls), successful, failed, skipped),
+                    "summary": _batch_summary(
+                        len(urls), successful, failed, skipped, outcomes=outcomes
+                    ),
                 }
             )
             if failed > 0:
@@ -1500,6 +1630,10 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                 print_info(f"Skipped {skipped} existing files")
             if failed > 0:
                 print_error(f"{failed} webpages failed to convert")
+            _print_categorized_summary(
+                _batch_summary(len(urls), successful, failed, skipped, outcomes=outcomes)
+            )
+            if failed > 0:
                 raise typer.Exit(1)
 
     except typer.Exit:
