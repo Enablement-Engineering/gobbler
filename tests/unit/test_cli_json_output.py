@@ -1046,7 +1046,7 @@ class TestBatchWebpagesUrlValidation:
 
         lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
         assert result.exit_code == 1
-        assert len(lines) == 1
+        assert len(lines) == 2
         assert lines[0]["schema_version"] == JSON_SCHEMA_VERSION
         assert lines[0]["type"] == "invalid_input"
         assert lines[0]["success"] is False
@@ -1085,7 +1085,7 @@ class TestBatchWebpagesUrlValidation:
 
         lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
         assert result.exit_code == 1
-        assert len(lines) == 1
+        assert len(lines) == 2
         assert lines[0]["type"] == "invalid_input"
         assert lines[0]["error_code"] == "WEBPAGE_INVALID_URL"
         assert lines[0]["url"] == "ftp://example.com/file"
@@ -1120,7 +1120,7 @@ class TestBatchWebpagesUrlValidation:
 
         lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
         assert result.exit_code == 1
-        assert len(lines) == 1
+        assert len(lines) == 2
         assert lines[0]["type"] == "invalid_input"
         assert lines[0]["error_code"] == "WEBPAGE_INVALID_URL"
         assert lines[0]["url"] == "ftp://example.com/file"
@@ -1200,24 +1200,10 @@ class TestBatchYoutubePlaylistUrlValidation:
 
         lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
         assert result.exit_code == 1
-        assert lines == [
-            {
-                "schema_version": JSON_SCHEMA_VERSION,
-                "type": "invalid_input",
-                "success": False,
-                "error_code": "YOUTUBE_PLAYLIST_INVALID_URL",
-                "error": (
-                    "Invalid YouTube playlist URL: expected an absolute http:// or https:// "
-                    "YouTube playlist URL."
-                ),
-                "url": playlist_url,
-                "source": playlist_url,
-                "suggestion": (
-                    "Provide a YouTube playlist URL like "
-                    "https://youtube.com/playlist?list=PLAYLIST_ID."
-                ),
-            }
-        ]
+        assert [line["type"] for line in lines] == ["invalid_input", "batch_complete"]
+        assert lines[0]["error_code"] == "YOUTUBE_PLAYLIST_INVALID_URL"
+        assert lines[0]["url"] == playlist_url
+        assert lines[1]["summary"]["outcomes"]["invalid_input"] == 1
         assert not output_dir.exists()
         mock_youtube_dl.assert_not_called()
 
@@ -1742,6 +1728,8 @@ class TestBatchWebpagesWithMock:
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
+        summary = payload.pop("summary")
+        assert summary["outcomes"]["queue_submission"] == 1
         assert payload == {
             "schema_version": JSON_SCHEMA_VERSION,
             "type": "job_queued",
@@ -1793,6 +1781,8 @@ class TestBatchWebpagesWithMock:
 
         assert result.exit_code == 1
         payload = json.loads(result.output)
+        summary = payload.pop("summary")
+        assert summary["outcomes"]["queue_submission"] == 1
         assert payload == {
             "schema_version": JSON_SCHEMA_VERSION,
             "type": "queue_error",
@@ -1844,6 +1834,8 @@ class TestBatchWebpagesWithMock:
 
         assert result.exit_code == 1
         payload = json.loads(result.output)
+        summary = payload.pop("summary")
+        assert summary["outcomes"]["invalid_input"] == 1
         assert payload == {
             "schema_version": JSON_SCHEMA_VERSION,
             "type": "queue_error",
@@ -1882,6 +1874,8 @@ class TestBatchWebpagesWithMock:
 
         assert result.exit_code == 1
         payload = json.loads(result.output)
+        summary = payload.pop("summary")
+        assert summary["outcomes"]["invalid_input"] == 1
         assert payload == {
             "schema_version": JSON_SCHEMA_VERSION,
             "type": "queue_error",
