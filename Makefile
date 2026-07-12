@@ -1,4 +1,4 @@
-.PHONY: help install dev test clean start start-docker stop restart logs status worker worker-stop verify diagnose lint security typecheck docs docs-serve docs-build docs-deploy
+.PHONY: help install dev test test-cli-contract clean start start-docker stop restart logs status worker worker-stop verify diagnose lint security typecheck docs docs-serve docs-build docs-deploy
 
 PYTHON ?= python3
 GOBBLER_DOCKER_HELPER = PYTHONPATH=src $(PYTHON) -m gobbler_cli.docker_services
@@ -30,6 +30,7 @@ help:
 	@echo ""
 	@echo "🧪 Testing & Diagnostics:"
 	@echo "  make test           - Run tests"
+	@echo "  make test-cli-contract - Run the CI-safe public CLI contract smoke tests"
 	@echo "  make lint           - Run linter (ruff)"
 	@echo "  make security       - Run security scan (bandit)"
 	@echo "  make typecheck      - Run type checker (mypy)"
@@ -149,6 +150,11 @@ worker-stop:
 test:
 	@echo "🧪 Running tests..."
 	uv run pytest tests/unit/ -v
+
+# Run the fast, service-free public CLI contract smoke harness
+test-cli-contract:
+	@echo "🧪 Running CLI contract smoke tests..."
+	uv run --extra dev python -m pytest tests/unit/test_cli_contract_smoke.py -v
 
 # Run linting with ruff
 # Checks code style, formatting, and common issues
