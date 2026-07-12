@@ -73,7 +73,7 @@ def test_cli_contract_invalid_input_json_exits_nonzero_before_dispatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Invalid batch input emits one diagnostic JSON record and exits nonzero."""
+    """Invalid batch input emits a diagnostic plus categorized summary and exits nonzero."""
     urls_file = tmp_path / "urls.txt"
     urls_file.write_text("ftp://example.com/private\n", encoding="utf-8")
     convert = MagicMock()
@@ -94,18 +94,19 @@ def test_cli_contract_invalid_input_json_exits_nonzero_before_dispatch(
         expected_exit_code=1,
     )
 
-    assert records == [
-        {
-            "schema_version": JSON_SCHEMA_VERSION,
-            "type": "invalid_input",
-            "success": False,
-            "error_code": "WEBPAGE_INVALID_URL",
-            "error": "Invalid webpage URL: expected an absolute http:// or https:// URL.",
-            "url": "ftp://example.com/private",
-            "source": "ftp://example.com/private",
-            "suggestion": "Provide a URL like https://example.com.",
-        }
-    ]
+    assert records[0] == {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "type": "invalid_input",
+        "success": False,
+        "error_code": "WEBPAGE_INVALID_URL",
+        "error": "Invalid webpage URL: expected an absolute http:// or https:// URL.",
+        "url": "ftp://example.com/private",
+        "source": "ftp://example.com/private",
+        "suggestion": "Provide a URL like https://example.com.",
+    }
+    assert records[1]["type"] == "batch_complete"
+    assert records[1]["success"] is False
+    assert records[1]["summary"]["outcomes"]["invalid_input"] == 1
     assert "Error:" not in result.output
     convert.assert_not_called()
 
