@@ -48,6 +48,13 @@ def test_validate_open_request_guards_automation(
     opener.assert_not_called()
 
 
+def test_validate_open_request_rejects_ci_even_with_a_tty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CI must never reach the platform opener, even when a TTY is available."""
+    monkeypatch.setenv("CI", "true")
+    with pytest.raises(ValueError, match="cannot be used in CI"):
+        validate_open_request(True, Path("result.md"), OutputFormat.MARKDOWN, interactive=True)
+
+
 def test_validate_open_request_is_noop_when_not_requested() -> None:
     """Normal automation behavior is unchanged when --open is absent."""
     validate_open_request(False, None, OutputFormat.JSON, interactive=False)

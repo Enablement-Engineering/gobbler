@@ -60,7 +60,7 @@ class CliContractHarness:
     ) -> tuple[Result, list[dict[str, Any]]]:
         """Invoke a command and require each non-empty stdout line to be a JSON object."""
         result = self.invoke(args, expected_exit_code=expected_exit_code, stdin=stdin)
-        records = [json.loads(line) for line in result.output.splitlines() if line]
+        records = [json.loads(line.strip()) for line in result.output.splitlines() if line.strip()]
         assert records, "JSON-lines stdout must contain at least one object"
         assert all(isinstance(record, dict) for record in records)
         return result, records

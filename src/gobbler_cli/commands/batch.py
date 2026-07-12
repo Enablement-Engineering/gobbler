@@ -18,7 +18,6 @@ from gobbler_cli.commands.convert import (
     WEBPAGE_INVALID_URL_MESSAGE,
     WEBPAGE_INVALID_URL_SUGGESTION,
     _is_valid_webpage_url,
-    _safe_webpage_failure_source,
 )
 from gobbler_cli.knowledge import (
     PREVIEW_ITEM_LIMIT,
@@ -30,6 +29,7 @@ from gobbler_cli.knowledge import (
 )
 from gobbler_cli.output import add_json_contract, print_error, print_info, print_success
 from gobbler_cli.progress import create_progress
+from gobbler_core.utils.redaction import REDACTED, redact_value
 
 YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE = (
     "Invalid YouTube playlist URL: expected an absolute http:// or https:// YouTube playlist URL."
@@ -115,10 +115,21 @@ def _failure_category(error: Exception) -> str:
 
 
 def _safe_batch_webpage_failure_source(url: str) -> str:
-    """Sanitize secrets while preserving ordinary invalid input diagnostics."""
-    if any(marker in url for marker in ("@", "?", "#")):
-        return _safe_webpage_failure_source(url)
-    return url
+    """Sanitize batch sources while preserving ordinary public URLs."""
+    if not any(marker in url for marker in ("@", "?", "#")):
+        return url
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.hostname:
+            return f"{parsed.scheme}://{parsed.hostname}"
+    except ValueError:
+        pass
+    return REDACTED
+
+
+def _safe_batch_webpage_error(message: str, url: str) -> str:
+    """Remove the submitted URL before redacting provider diagnostic text."""
+    return str(redact_value(message.replace(url, _safe_batch_webpage_failure_source(url))))
 
 
 def _print_categorized_summary(summary: dict[str, Any]) -> None:
@@ -951,6 +962,8 @@ async def _batch_directory(  # noqa: C901, PLR0912, PLR0915
             _print_categorized_summary(
                 _batch_summary(len(files), successful, failed, skipped, outcomes=outcomes)
             )
+            if failed > 0:
+                raise typer.Exit(1)
 
     except typer.Exit:
         raise
@@ -1328,13 +1341,13 @@ def _sanitize_url_to_filename(url: str) -> str:
 
     parsed = urlparse(url)
 
-    # Get domain without www prefix
-    domain = parsed.netloc.lower()
+    # Use hostname, not netloc, so URL userinfo can never enter output paths.
+    domain = (parsed.hostname or "unknown").lower()
     if domain.startswith("www."):
         domain = domain[4:]
 
-    # Get path, remove leading/trailing slashes
-    path = parsed.path.strip("/")
+    # Do not retain paths from credential- or token-bearing sources in output names.
+    path = "" if any(marker in url for marker in ("@", "?", "#")) else parsed.path.strip("/")
 
     # Combine domain and path
     name = f"{domain}_{path}" if path else domain
@@ -1573,7 +1586,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                             "type": "item_error",
                             "url": _safe_batch_webpage_failure_source(url),
                             "output": str(output_path),
-                            "error": message,
+                            "error": _safe_batch_webpage_error(message, url),
                         }
                     )
                     results.append(
@@ -1581,7 +1594,7 @@ async def _batch_webpages(  # noqa: C901, PLR0912, PLR0915
                             "url": _safe_batch_webpage_failure_source(url),
                             "output": str(output_path),
                             "success": False,
-                            "error": message,
+                            "error": _safe_batch_webpage_error(message, url),
                         }
                     )
 

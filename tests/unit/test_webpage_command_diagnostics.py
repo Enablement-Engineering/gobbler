@@ -156,8 +156,9 @@ async def test_webpage_receipt_redacts_credential_bearing_source(capsys) -> None
             output_format=OutputFormat.JSON,
         )
 
-    receipt = json.loads(capsys.readouterr().out)["receipt"]
-    dumped = json.dumps(receipt)
+    payload = json.loads(capsys.readouterr().out)
+    receipt = payload["receipt"]
+    dumped = json.dumps(payload)
 
     assert receipt["source_host"] == "example.com"
     for secret in (

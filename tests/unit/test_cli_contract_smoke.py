@@ -35,6 +35,17 @@ def cli_contract() -> CliContractHarness:
     return CliContractHarness(app=app, runner=CliRunner())
 
 
+def test_cli_contract_json_lines_ignores_whitespace_only_separators() -> None:
+    """Whitespace-only separators do not break otherwise valid JSON-lines output."""
+    runner = MagicMock()
+    runner.invoke.return_value = MagicMock(exit_code=0, output='{"ok": true}\n   \n')
+    harness = CliContractHarness(app=app, runner=runner)
+
+    _, records = harness.invoke_json_lines(["ignored"], expected_exit_code=0)
+
+    assert records == [{"ok": True}]
+
+
 def test_cli_contract_version_reports_version_and_success(
     cli_contract: CliContractHarness,
 ) -> None:

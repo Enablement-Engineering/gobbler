@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from enum import StrEnum
@@ -45,6 +46,9 @@ def validate_open_request(
         raise ValueError(message)
     if output_format == OutputFormat.JSON:
         message = "--open cannot be used with --format json; JSON mode is noninteractive."
+        raise ValueError(message)
+    if os.environ.get("CI"):
+        message = "--open cannot be used in CI; it would launch a desktop application."
         raise ValueError(message)
     is_interactive = sys.stdout.isatty() if interactive is None else interactive
     if not is_interactive:

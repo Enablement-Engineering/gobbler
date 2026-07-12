@@ -699,7 +699,7 @@ class TestConvertJsonStdoutPurity:
         payload = json.loads(result.output)
         assert payload["success"] is True
         assert payload["schema_version"] == JSON_SCHEMA_VERSION
-        assert payload["metadata"]["source"] == "https://example.com"
+        assert payload["metadata"]["source"] == "example.com"
         assert "Converting web page" not in result.output
 
     def test_webpage_json_error_uses_diagnostic_advice(
@@ -1363,6 +1363,31 @@ class TestBatchDirectoryJsonError:
         assert complete_msg["summary"]["successful"] == 0
         assert complete_msg["summary"]["failed"] == 1
         assert complete_msg["summary"]["skipped"] == 0
+
+    @patch("gobbler_core.converters.audio.convert_audio_to_markdown")
+    def test_batch_directory_human_item_failure_exits_nonzero(
+        self,
+        mock_convert: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Human directory batches must signal failures through their process exit code."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "meeting.mp3").write_bytes(b"audio")
+
+        async def mock_async_error(*args, **kwargs):
+            message = "transcription failed"
+            raise RuntimeError(message)
+
+        mock_convert.side_effect = mock_async_error
+        result = runner.invoke(
+            cli_app,
+            ["batch", "directory", str(input_dir), "--output", str(tmp_path / "output")],
+        )
+
+        assert result.exit_code == 1
 
     def test_directory_output_paths_uses_source_extension_for_same_stem_collisions(
         self,
@@ -2223,11 +2248,16 @@ class TestBatchWebpagesWithMock:
     ) -> None:
         """Test that failed items output item_error message."""
         urls_file = tmp_path / "urls.txt"
-        urls_file.write_text("https://failing-url.test\n")
+        urls_file.write_text(
+            "https://user:password@failing-url.test/secret-path?session=query-secret#token=fragment\n"
+        )
         output_dir = tmp_path / "output"
 
         async def mock_async_error(*args, **kwargs):
-            msg = "Connection failed"
+            msg = (
+                "Connection failed for https://user:password@failing-url.test/secret-path"
+                "?session=query-secret#token=fragment"
+            )
             raise RuntimeError(msg)
 
         mock_convert.side_effect = mock_async_error
@@ -2249,6 +2279,11 @@ class TestBatchWebpagesWithMock:
 
         assert error_msg is not None
         assert error_msg["url"] == "https://failing-url.test"
+        assert "user" not in json.dumps(error_msg)
+        assert "password" not in json.dumps(error_msg)
+        assert "secret-path" not in json.dumps(error_msg)
+        assert "query-secret" not in json.dumps(error_msg)
+        assert "fragment" not in json.dumps(error_msg)
         assert "error" in error_msg
 
     @patch("gobbler_core.converters.webpage.convert_webpage_to_markdown")

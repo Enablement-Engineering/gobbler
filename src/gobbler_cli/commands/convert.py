@@ -286,6 +286,29 @@ def _sanitize_unparseable_webpage_source(url: str) -> str:
     return source_without_params
 
 
+def _safe_webpage_success_source(url: str) -> str:
+    """Return the host-only source identifier safe for persisted success JSON."""
+    try:
+        hostname = urlparse(url).hostname
+    except ValueError:
+        return REDACTED
+    return hostname or REDACTED
+
+
+def _sanitize_webpage_success_value(value: Any, url: str, safe_source: str) -> Any:
+    """Replace a submitted URL wherever a successful JSON payload may retain it."""
+    if isinstance(value, str):
+        return value.replace(url, safe_source)
+    if isinstance(value, dict):
+        return {
+            key: _sanitize_webpage_success_value(child, url, safe_source)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [_sanitize_webpage_success_value(child, url, safe_source) for child in value]
+    return value
+
+
 def _safe_webpage_failure_source(url: str) -> str:
     """Return a sanitized source URL for webpage JSON failure payloads.
 
@@ -1040,7 +1063,12 @@ async def _convert_webpage(  # noqa: PLR0915
                 )
 
         if output_format == OutputFormat.JSON:
-            json_result = format_json_success(result, metadata, source=url)
+            safe_source = _safe_webpage_success_source(url)
+            safe_result = str(_sanitize_webpage_success_value(result, url, safe_source))
+            safe_metadata = cast(
+                "dict[str, Any]", _sanitize_webpage_success_value(metadata, url, safe_source)
+            )
+            json_result = format_json_success(safe_result, safe_metadata, source=safe_source)
             json_result["receipt"] = _webpage_success_receipt(
                 url=url,
                 output=output,
