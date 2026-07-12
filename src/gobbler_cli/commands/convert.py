@@ -935,7 +935,7 @@ def webpage(
 
     asyncio.run(
         _convert_webpage(
-            url=cast("str", actual_url),
+            url=actual_url,
             output=output,
             css_selector=css_selector,
             clean=clean,
