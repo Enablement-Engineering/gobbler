@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
@@ -54,6 +55,28 @@ ASCII_DELETE_CODEPOINT = 127
 YOUTUBE_URL_PATTERN = re.compile(
     r"^https?://(www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})(?=$|[&?#/])"
 )
+
+
+def _webpage_success_receipt(
+    *,
+    url: str,
+    output: Path | None,
+    markdown: str,
+    metadata: dict[str, Any],
+    provider_name: str | None,
+    use_proxy: bool,
+    elapsed_time_ms: int,
+) -> dict[str, Any]:
+    """Build a success receipt without retaining sensitive URL components."""
+    return {
+        "provider": str(metadata.get("provider") or provider_name or "crawl4ai"),
+        "proxy_mode": "enabled" if use_proxy else "disabled",
+        "source_host": urlparse(url).hostname,
+        "output_path": str(output) if output else None,
+        "byte_count": len(markdown.encode("utf-8")),
+        "elapsed_time_ms": elapsed_time_ms,
+    }
+
 
 app = typer.Typer(help="Convert individual content items to markdown")
 
@@ -861,7 +884,7 @@ def webpage(
 
     asyncio.run(
         _convert_webpage(
-            url=actual_url,
+            url=cast("str", actual_url),
             output=output,
             css_selector=css_selector,
             clean=clean,
@@ -875,7 +898,7 @@ def webpage(
     )
 
 
-async def _convert_webpage(
+async def _convert_webpage(  # noqa: PLR0915
     url: str,
     output: Path | None,
     css_selector: str | None,
@@ -895,6 +918,7 @@ async def _convert_webpage(
             return
 
         _validate_webpage_url(url, output_format)
+        conversion_started = time.perf_counter()
 
         # Use selector-based conversion if selector is provided or clean mode
         if css_selector or clean:
@@ -964,6 +988,15 @@ async def _convert_webpage(
 
         if output_format == OutputFormat.JSON:
             json_result = format_json_success(result, metadata, source=url)
+            json_result["receipt"] = _webpage_success_receipt(
+                url=url,
+                output=output,
+                markdown=result,
+                metadata=metadata,
+                provider_name=provider_name,
+                use_proxy=use_proxy,
+                elapsed_time_ms=int((time.perf_counter() - conversion_started) * 1000),
+            )
             write_json_result(json_result, output)
         else:
             write_output(result, output, output_format)
