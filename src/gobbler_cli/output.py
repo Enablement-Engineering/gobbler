@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from enum import StrEnum
 from pathlib import Path
@@ -15,6 +17,58 @@ console = Console()
 error_console = Console(stderr=True)
 
 JSON_SCHEMA_VERSION = 1
+
+
+def _open_command(output_path: Path, platform: str = sys.platform) -> list[str]:
+    """Build the platform-native command used to open an output file."""
+    if platform == "darwin":
+        return ["open", str(output_path)]
+    if platform.startswith(("linux", "freebsd")):
+        return ["xdg-open", str(output_path)]
+    if platform == "win32":
+        return ["explorer", str(output_path)]
+    msg = f"Opening output files is not supported on platform {platform!r}."
+    raise RuntimeError(msg)
+
+
+def validate_open_request(
+    open_requested: bool,
+    output_path: Path | None,
+    output_format: OutputFormat,
+    *,
+    interactive: bool | None = None,
+) -> None:
+    """Validate that an output-open request is safe for an interactive CLI session."""
+    if not open_requested:
+        return
+    if output_path is None:
+        message = "--open requires an output file; provide --output PATH."
+        raise ValueError(message)
+    if output_format == OutputFormat.JSON:
+        message = "--open cannot be used with --format json; JSON mode is noninteractive."
+        raise ValueError(message)
+    if os.environ.get("CI"):
+        message = "--open cannot be used in CI; it would launch a desktop application."
+        raise ValueError(message)
+    is_interactive = sys.stdout.isatty() if interactive is None else interactive
+    if not is_interactive:
+        message = "--open requires an interactive terminal; omit it for scripts and automation."
+        raise ValueError(message)
+
+
+def open_output_file(
+    output_path: Path,
+    *,
+    platform: str = sys.platform,
+    opener: Any = subprocess.Popen,
+) -> None:
+    """Open a completed conversion output with the platform-native application."""
+    command = _open_command(output_path, platform)
+    try:
+        opener(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        msg = f"Could not open {output_path}: {exc}"
+        raise RuntimeError(msg) from exc
 
 
 class OutputFormat(StrEnum):

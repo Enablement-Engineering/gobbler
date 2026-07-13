@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -19,6 +20,8 @@ from gobbler_core.providers.webpage.crawl4ai import (
     check_crawl4ai_conversion_probe,
 )
 from gobbler_core.utils.redaction import REDACTED
+
+HTTP_CLIENT_LOGGER = "gobbler_core.utils.http_client"
 
 
 def test_crawl_request_uses_documented_proxy_config_dict() -> None:
@@ -224,6 +227,69 @@ async def test_fetch_http_error_includes_sanitized_diagnostics() -> None:
     assert "proxy-user" not in dumped
     assert "proxy-pass" not in dumped
     assert api_token not in dumped
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_exception", "expected_message"),
+    [
+        ("status", Crawl4AIConversionError, "returned HTTP 503"),
+        ("timeout", TimeoutError, "Request timed out after 2 seconds"),
+        ("connection", RuntimeError, "Crawl4AI service unavailable"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_fetch_provider_retry_boundary_matrix(
+    failure: str,
+    expected_exception: type[Exception],
+    expected_message: str,
+    httpx_mock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Provider failures exhaust shared retries without duplicate traceback logging."""
+    request = httpx.Request("POST", "http://crawl.local/crawl")
+    for _ in range(3):
+        if failure == "status":
+            httpx_mock.add_response(method="POST", url=str(request.url), status_code=503)
+        else:
+            exception_type = httpx.TimeoutException if failure == "timeout" else httpx.ConnectError
+            httpx_mock.add_exception(exception_type(f"simulated {failure}", request=request))
+
+    provider = Crawl4AIProvider(service_url="http://crawl.local")
+    with (
+        caplog.at_level(logging.WARNING, logger=HTTP_CLIENT_LOGGER),
+        pytest.raises(expected_exception, match=expected_message),
+    ):
+        await provider.fetch("https://example.com", timeout=2)
+
+    assert len(httpx_mock.get_requests()) == 3
+    retry_records = [record for record in caplog.records if "retrying" in record.message]
+    assert len(retry_records) == 2
+    assert [record.levelno for record in retry_records] == [logging.WARNING, logging.WARNING]
+    assert not any(record.exc_info for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_fetch_malformed_provider_payload_is_not_retried_or_traceback_logged(
+    httpx_mock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A successful but malformed provider payload fails once as an expected diagnostic."""
+    httpx_mock.add_response(
+        method="POST",
+        url="http://crawl.local/crawl",
+        json={"success": True, "unexpected": "shape"},
+    )
+
+    provider = Crawl4AIProvider(service_url="http://crawl.local")
+    with (
+        caplog.at_level(logging.WARNING),
+        pytest.raises(Crawl4AIConversionError, match="unexpected response format"),
+    ):
+        await provider.fetch("https://example.com")
+
+    assert len(httpx_mock.get_requests()) == 1
+    assert not any("retrying" in record.message for record in caplog.records)
+    assert not any(record.exc_info for record in caplog.records)
 
 
 @pytest.mark.asyncio
