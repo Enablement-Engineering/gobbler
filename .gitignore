@@ -78,3 +78,6 @@ skills/**/*.pyc
 .ai/
 .hermes/
 site/
+
+# Local generated audit artifacts
+/audit-artifacts-*/
