@@ -39,9 +39,14 @@ def test_open_command_rejects_unknown_platform() -> None:
     ],
 )
 def test_validate_open_request_guards_automation(
-    path: Path | None, output_format: OutputFormat, interactive: bool, message: str
+    path: Path | None,
+    output_format: OutputFormat,
+    interactive: bool,
+    message: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Opening is blocked for stdout, JSON, and noninteractive conversion modes."""
+    monkeypatch.delenv("CI", raising=False)
     opener = MagicMock()
     with pytest.raises(ValueError, match=message):
         validate_open_request(True, path, output_format, interactive=interactive)
