@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.22] - 2026-07-16
+
+### Fixed
+
+- Sanitized invalid single-video `gobbler youtube --format json` diagnostic sources so URLs do not expose userinfo, query values, or fragments.
+
 ## [0.2.21] - 2026-07-09
 
 ### Fixed

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.22] - 2026-07-16
+
+### Fixed
+- Sanitized invalid single-video `gobbler youtube --format json` diagnostic sources so URLs do not expose userinfo, query values, or fragments.
+
 ## [0.2.21] - 2026-07-09
 
 ### Fixed

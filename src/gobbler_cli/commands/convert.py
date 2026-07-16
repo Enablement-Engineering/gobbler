@@ -361,6 +361,14 @@ def _is_valid_youtube_url(url: str) -> bool:
     return bool(YOUTUBE_URL_PATTERN.match(url))
 
 
+def _safe_youtube_failure_source(url: str) -> str:
+    """Return a sanitized source for invalid YouTube JSON diagnostics."""
+    try:
+        return _safe_webpage_failure_source(url)
+    except Exception:
+        return REDACTED
+
+
 def _write_invalid_youtube_url_error(url: str, output_format: OutputFormat) -> None:
     """Write an invalid YouTube URL error in the requested output format.
 
@@ -373,7 +381,7 @@ def _write_invalid_youtube_url_error(url: str, output_format: OutputFormat) -> N
             format_json_error(
                 YOUTUBE_INVALID_URL_MESSAGE,
                 YOUTUBE_INVALID_URL_CODE,
-                source=url,
+                source=_safe_youtube_failure_source(url),
                 suggestion=YOUTUBE_INVALID_URL_SUGGESTION,
             )
         )

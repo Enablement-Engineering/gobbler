@@ -47,6 +47,73 @@ def test_youtube_json_invalid_url_rejected_locally(
     convert_youtube.assert_not_called()
 
 
+def test_youtube_json_invalid_url_sanitizes_sensitive_source(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid YouTube JSON input omits userinfo, query values, and fragments."""
+    convert_youtube = AsyncMock()
+    monkeypatch.setattr(convert, "_convert_youtube", convert_youtube)
+    url = (
+        "https://user:password@youtube.com/watch"
+        "?session=session-secret&q=search-secret#fragment-secret"
+    )
+
+    with pytest.raises(typer.Exit) as exit_info:
+        convert.youtube(
+            url=url,
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+            skip_if_exists=False,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+    dumped = json.dumps(payload)
+
+    assert exit_info.value.exit_code == 1
+    assert payload["error_code"] == "YOUTUBE_INVALID_URL"
+    assert payload["source"] == f"https://{REDACTED}@youtube.com/watch"
+    assert "user" not in dumped
+    assert "password" not in dumped
+    assert "session-secret" not in dumped
+    assert "search-secret" not in dumped
+    assert "fragment-secret" not in dumped
+    convert_youtube.assert_not_called()
+
+
+def test_youtube_json_invalid_url_sanitization_never_raises(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sanitizer failures still produce a safe invalid-URL diagnostic."""
+    convert_youtube = AsyncMock()
+    monkeypatch.setattr(convert, "_convert_youtube", convert_youtube)
+    monkeypatch.setattr(convert, "urlparse", lambda _url: (_ for _ in ()).throw(RuntimeError))
+
+    with pytest.raises(typer.Exit) as exit_info:
+        convert.youtube(
+            url="https://user:password@youtube.com/watch?session=secret#fragment",
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+            skip_if_exists=False,
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_info.value.exit_code == 1
+    assert payload["error_code"] == "YOUTUBE_INVALID_URL"
+    assert payload["source"] == REDACTED
+    convert_youtube.assert_not_called()
+
+
 def test_youtube_human_invalid_url_rejected_before_progress(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
