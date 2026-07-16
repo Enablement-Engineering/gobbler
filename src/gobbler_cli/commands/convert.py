@@ -54,6 +54,8 @@ WEBPAGE_INVALID_URL_CODE = "WEBPAGE_INVALID_URL"
 WEBPAGE_INVALID_URL_SUGGESTION = "Provide a URL like https://example.com."
 ASCII_CONTROL_CODEPOINT_LIMIT = 32
 ASCII_DELETE_CODEPOINT = 127
+MAX_HOSTNAME_LENGTH = 253
+MAX_HOSTNAME_LABEL_LENGTH = 63
 YOUTUBE_URL_PATTERN = re.compile(
     r"^https?://(www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})(?=$|[&?#/])"
 )
@@ -100,15 +102,22 @@ def _read_stdin_url() -> str | None:
 
 def _safe_error_text(error: Exception) -> str:
     """Return a redacted error string for CLI diagnostics."""
-    return str(redact_value(str(error)))
+    try:
+        redacted = redact_value(str(error))
+    except Exception:
+        return REDACTED
+    return redacted if isinstance(redacted, str) else REDACTED
 
 
 def _safe_error_diagnostics(error: Exception) -> dict[str, Any] | None:
     """Return redacted structured diagnostics attached to an exception."""
-    diagnostics = getattr(error, "diagnostics", None)
-    if not isinstance(diagnostics, dict):
+    try:
+        diagnostics = getattr(error, "diagnostics", None)
+        if not isinstance(diagnostics, dict):
+            return None
+        redacted = redact_value(diagnostics)
+    except Exception:
         return None
-    redacted = redact_value(diagnostics)
     return redacted if isinstance(redacted, dict) else None
 
 
@@ -361,12 +370,115 @@ def _is_valid_youtube_url(url: str) -> bool:
     return bool(YOUTUBE_URL_PATTERN.match(url))
 
 
+def _normalized_failure_hostname(hostname: str) -> str | None:
+    """Return a normalized hostname only when its characters are valid."""
+    ascii_hostname = hostname.encode("idna").decode("ascii")
+    if len(ascii_hostname) > MAX_HOSTNAME_LENGTH:
+        return None
+    if ":" in ascii_hostname:
+        return ascii_hostname if re.fullmatch(r"[0-9A-Fa-f:.]+", ascii_hostname) else None
+
+    labels = ascii_hostname.rstrip(".").split(".")
+    labels_are_valid = all(
+        label
+        and len(label) <= MAX_HOSTNAME_LABEL_LENGTH
+        and not label.startswith("-")
+        and not label.endswith("-")
+        and re.fullmatch(r"[A-Za-z0-9-]+", label)
+        for label in labels
+    )
+    return ascii_hostname if labels_are_valid else None
+
+
 def _safe_youtube_failure_source(url: str) -> str:
-    """Return a sanitized source for invalid YouTube JSON diagnostics."""
+    """Return a minimal sanitized identity for YouTube JSON failures."""
     try:
-        return _safe_webpage_failure_source(url)
+        is_url_like = "://" in url or url.startswith("//")
+        if not is_url_like:
+            has_sensitive_marker = any(marker in url for marker in ("@", "?", "#", "/", "\\"))
+            return REDACTED if has_sensitive_marker else url
+
+        has_unsafe_character = "\\" in url or any(
+            char.isspace()
+            or ord(char) < ASCII_CONTROL_CODEPOINT_LIMIT
+            or ord(char) == ASCII_DELETE_CODEPOINT
+            for char in url
+        )
+        if has_unsafe_character:
+            return REDACTED
+
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        port = parsed.port
+        if not hostname:
+            return REDACTED
+
+        ascii_hostname = _normalized_failure_hostname(hostname)
+        if ascii_hostname is None:
+            return REDACTED
+
+        host = f"[{ascii_hostname}]" if ":" in ascii_hostname else ascii_hostname
+        authority = f"{host}:{port}" if port is not None else host
+        if "@" in parsed.netloc:
+            authority = f"{REDACTED}@{authority}"
     except Exception:
         return REDACTED
+    else:
+        prefix = f"{parsed.scheme}://" if parsed.scheme else "//"
+        return f"{prefix}{authority}"
+
+
+def _redacted_submitted_url_userinfo(url: str) -> str | None:
+    """Return the exact URL form with authority userinfo masked, without parsing its port."""
+    try:
+        if "://" in url:
+            authority_start = url.index("://") + 3
+        elif url.startswith("//"):
+            authority_start = 2
+        else:
+            return None
+
+        authority_end = min(
+            (index for marker in "/?#" if (index := url.find(marker, authority_start)) >= 0),
+            default=len(url),
+        )
+        userinfo_end = url.rfind("@", authority_start, authority_end)
+        if userinfo_end < 0:
+            return None
+        return f"{url[:authority_start]}{REDACTED}{url[userinfo_end:]}"
+    except Exception:
+        return None
+
+
+def _replace_submitted_url(value: Any, url: str, safe_source: str) -> Any:
+    """Replace submitted URL forms recursively in a JSON-compatible value."""
+    url_forms = {url}
+    redacted_userinfo_url = _redacted_submitted_url_userinfo(url)
+    if redacted_userinfo_url:
+        url_forms.add(redacted_userinfo_url)
+    try:
+        redacted_url = redact_value(url)
+    except Exception:
+        redacted_url = None
+    if isinstance(redacted_url, str):
+        url_forms.add(redacted_url)
+
+    if isinstance(value, str):
+        for url_form in url_forms:
+            value = value.replace(url_form, safe_source)
+        return value
+    if isinstance(value, dict):
+        return {
+            _replace_submitted_url(key, url, safe_source): _replace_submitted_url(
+                child, url, safe_source
+            )
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [_replace_submitted_url(child, url, safe_source) for child in value]
+    if isinstance(value, tuple):
+        return tuple(_replace_submitted_url(child, url, safe_source) for child in value)
+    return value
 
 
 def _write_invalid_youtube_url_error(url: str, output_format: OutputFormat) -> None:
@@ -600,15 +712,17 @@ async def _convert_youtube(
         error_text = _safe_error_text(e)
         diagnostics = _safe_error_diagnostics(e)
         if output_format == OutputFormat.JSON:
+            safe_source = _safe_youtube_failure_source(url)
             error_code, suggestion = _youtube_error_response_metadata(error_text, diagnostics)
             json_result = format_json_error(
                 error_text,
                 error_code,
-                source=url,
+                source=safe_source,
                 suggestion=suggestion,
             )
             if diagnostics:
                 json_result["diagnostics"] = diagnostics
+            json_result = _replace_submitted_url(json_result, url, safe_source)
             write_json_result(json_result)
         else:
             print_error(f"Failed to convert YouTube video: {error_text}")
