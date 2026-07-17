@@ -248,14 +248,15 @@ def _is_valid_youtube_playlist_url(url: str) -> bool:
 def _write_invalid_youtube_playlist_url_error(url: str, json_output: bool) -> None:
     """Write stable invalid-input diagnostics for a YouTube playlist URL."""
     if json_output:
+        safe_source = _safe_batch_webpage_failure_source(url)
         _write_json_line(
             {
                 "type": "invalid_input",
                 "success": False,
                 "error_code": YOUTUBE_PLAYLIST_INVALID_URL_CODE,
                 "error": YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE,
-                "url": url,
-                "source": url,
+                "url": safe_source,
+                "source": safe_source,
                 "suggestion": YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION,
             }
         )

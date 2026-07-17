@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.23] - 2026-07-17
+
+### Fixed
+
+- Sanitized invalid `gobbler batch youtube-playlist --json` diagnostic URL fields so credential-bearing inputs do not expose userinfo, query values, or fragments.
+
 ## [0.2.22] - 2026-07-16
 
 ### Fixed
