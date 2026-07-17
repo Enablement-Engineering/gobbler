@@ -164,8 +164,9 @@ gobbler browser status
 - Check extension is installed at `chrome://extensions/`
 - Verify extension popup shows "Connected"
 
-**Commands timing out**:
-- Increase timeout: `--timeout 60`
+**`browser exec` timing out:**
+- Increase its timeout: `gobbler browser exec "..." --timeout 60`
+- `browser extract` does not expose a timeout option
 - Check browser tab is active
 - Verify page has loaded completely
 

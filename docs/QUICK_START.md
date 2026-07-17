@@ -2,175 +2,128 @@
 icon: material/rocket-launch
 ---
 
-# Gobbler Quick Start Guide
+# Quick start
 
-Get up and running with Gobbler in 5 minutes! This guide covers the essentials to get your first transcription.
+This path gets the current source checkout running without assuming a global Python environment.
 
-## Prerequisites Checklist
+## 1. Install
 
-Before you begin, ensure you have:
-
-- [ ] **Python 3.11+** - Check with `python3 --version`
-- [ ] **uv package manager** - Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- [ ] **Docker** (optional, for web/document conversion) - [Download Docker](https://docs.docker.com/get-docker/)
-- [ ] **ffmpeg** (optional, for audio extraction) - Install with `brew install ffmpeg` (macOS)
-
-## 3 Simple Steps to Your First Transcription
-
-### Step 1: Install Gobbler
+Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# Clone the repository
 git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler
-
-# Install dependencies
-make install
+uv sync
 ```
 
-### Step 2: Verify the CLI
+Check the CLI and local runtime:
 
 ```bash
+uv run gobbler --version
+uv run gobbler doctor --json
+```
+
+`doctor --json` may report document or webpage conversion as degraded when Docker services are not running. That does not prevent YouTube or local audio conversion.
+
+## 2. Run a conversion
+
+```bash
+# Print Markdown to stdout
+uv run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID"
+
+# Save Markdown to a file
+uv run gobbler youtube \
+  "https://youtube.com/watch?v=VIDEO_ID" \
+  -o ./outputs/video.md
+```
+
+YouTube URLs can also be read from stdin:
+
+```bash
+printf '%s\n' "https://youtube.com/watch?v=VIDEO_ID" | uv run gobbler youtube -o video.md
+```
+
+## 3. Add optional backends
+
+### Audio/video
+
+Install ffmpeg, then use local faster-whisper:
+
+```bash
+# macOS
+brew install ffmpeg
+
+uv run gobbler audio meeting.mp3 --model small -o meeting.md
+```
+
+The first local transcription downloads the selected Whisper model.
+
+### Documents and web pages
+
+Docker services provide Docling and Crawl4AI:
+
+```bash
+make start-docker
+uv run gobbler doctor --json
+
+uv run gobbler document report.pdf --no-ocr -o report.md
+uv run gobbler webpage "https://example.com" --no-proxy -o page.md
+```
+
+`make start-docker` starts only the two Compose services. It does not start a queue worker.
+
+## Batch work
+
+All three batch commands support `--dry-run`:
+
+```bash
+uv run gobbler batch youtube-playlist \
+  "https://youtube.com/playlist?list=PLAYLIST_ID" \
+  -o ./transcripts --dry-run
+
+uv run gobbler batch directory ./documents -o ./markdown --pattern "*.pdf" --dry-run
+
+uv run gobbler batch webpages urls.txt -o ./pages --dry-run
+```
+
+Queueing is explicit and currently available for webpage batches:
+
+```bash
+uv run gobbler batch webpages urls.txt -o ./pages --queue --json
+uv run gobbler jobs worker start
+uv run gobbler jobs list
+```
+
+The queue uses a local SQLite database. There is no Redis/RQ requirement and no automatic queueing of long commands.
+
+## Install the CLI globally
+
+If you prefer `gobbler` without `uv run`:
+
+```bash
+uv tool install .
 gobbler --version
 ```
 
-### Step 3: Try Your First Transcription
+Reinstall after pulling source changes:
 
 ```bash
-gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+uv tool install . --force
 ```
 
-That's it! Gobbler will extract the transcript and return it as clean markdown.
-
-## Verify It Works
-
-Run these verification commands to ensure everything is set up correctly:
+## Install Skills for an AI agent
 
 ```bash
-# Verify installation
-make verify
-
-# Check for any issues
-make diagnose
+npx skills@latest add Enablement-Engineering/gobbler --list
+npx skills@latest add Enablement-Engineering/gobbler
 ```
 
-You should see:
-- ✅ Python 3.11+ detected
-- ✅ uv installed
-- ✅ Gobbler installed
+The Skills installer does not install the CLI.
 
-## Need Web Scraping or Document Conversion?
+## Next steps
 
-If you want to use Gobbler's full feature set (web scraping, document conversion):
-
-```bash
-# Start all services (recommended)
-make start
-
-# Verify services are running
-make status
-```
-
-This starts Docker services AND the background worker:
-- **Crawl4AI** - Web scraping with JavaScript rendering
-- **Docling** - Document conversion (PDF, DOCX, PPTX, XLSX)
-- **Redis** - Background job queue
-- **RQ Worker** - Processes long-running tasks
-
-## Common First-Run Issues
-
-### Issue: "Python 3.11+ required"
-**Solution:** Install Python 3.11 or higher from [python.org](https://www.python.org/downloads/)
-
-### Issue: "uv not found"
-**Solution:** Install uv package manager:
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### Issue: "Gobbler not installed"
-**Solution:** Run the installation:
-```bash
-make install
-```
-
-### Issue: "Docker daemon not running"
-**Solution:** Start Docker Desktop or run:
-```bash
-# macOS
-open -a Docker
-
-# Linux
-sudo systemctl start docker
-```
-
-### Issue: "Services unavailable"
-**Solution:** Start the services:
-```bash
-make start
-```
-
-### Issue: YouTube transcription works, but web scraping doesn't
-**Solution:** This is normal! YouTube transcription doesn't need Docker. For web scraping:
-```bash
-make start
-```
-
-## What You Can Do Without Docker
-
-Gobbler works great even without Docker! These features are available out of the box:
-
-- ✅ **YouTube transcripts** - Extract official video transcripts
-- ✅ **YouTube playlist batch** - Process entire playlists
-- ✅ **YouTube downloads** - Download videos in various qualities
-- ✅ **Audio/video transcription** - Whisper-based transcription with Metal acceleration
-- ✅ **Batch audio processing** - Transcribe entire directories
-
-## Available Commands
-
-Here are the most useful commands for getting started:
-
-```bash
-make help           # Show all available commands
-make verify         # Check installation and system health
-make diagnose       # Run diagnostics and suggest fixes
-make start          # Start all services (Docker + worker)
-make stop           # Stop all services
-make status         # Check service health
-make logs           # View service logs
-```
-
-## Next Steps
-
-Now that you're up and running:
-
-1. **Explore capabilities** - Try different types of content:
-   ```bash
-   gobbler webpage "https://example.com"
-   gobbler document /path/to/document.pdf
-   gobbler audio /path/to/audio.mp3
-   ```
-
-2. **Read the CLI guide** - Learn about all available commands in the [CLI Usage](cli.md) guide
-
-3. **Explore skills** - See all available skills in the [Skills Reference](SKILLS.md)
-
-4. **Configure Gobbler** - Customize settings in `~/.config/gobbler/config.yml` (optional)
-
-## Getting Help
-
-If you run into issues:
-
-1. Run diagnostics: `make diagnose`
-2. Check service logs: `make logs`
-3. Review common issues above
-4. Open an issue on [GitHub](https://github.com/Enablement-Engineering/gobbler/issues)
-
-## Pro Tips
-
-- **Background processing** - Long tasks automatically queue with `auto_queue=true`
-- **Batch operations** - Process multiple items efficiently with batch tools
-- **Health checks** - Use `make status` to verify all services are healthy
-- **Configuration** - Customize behavior in `~/.config/gobbler/config.yml`
-
-Happy Gobbling! 🦃
+- [Installation](installation.md): platform prerequisites, Docker, and browser setup.
+- [CLI usage](cli.md): current command families and output contracts.
+- [Configuration](configuration.md): exact YAML schema and integration-specific environment variables.
+- [Setup and troubleshooting](setup-troubleshooting.md): diagnostics and recovery.
+- [Browser extension](browser-extension.md): intentionally selected authenticated tabs.

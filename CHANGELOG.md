@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.24] - 2026-07-17
+
+### Changed
+- Reconciled installation, CLI, configuration, provider, queue, browser-extension, troubleshooting, contributor, and agent-skill documentation with the current runtime.
+- Documented extension-managed tab scope, automatic page-API injection, relay lifecycle, and browser debugger security boundaries.
+- Synchronized package and extension release versions and added regression coverage for version drift.
+
+### Fixed
+- Made `gobbler config init` use the repository's canonical example in source checkouts instead of an incorrect parent-directory lookup.
+- Made queued webpage-batch output point to `gobbler jobs get JOB_ID` and the SQLite worker rather than the unrelated legacy daemon wrapper.
+
 ## [0.2.23] - 2026-07-17
 
 ### Fixed
@@ -204,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.23...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.24...HEAD
+[0.2.24]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.23...v0.2.24
 [0.2.23]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.22...v0.2.23
 [0.2.22]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.21...v0.2.22
 [0.2.21]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.20...v0.2.21

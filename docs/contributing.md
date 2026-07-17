@@ -43,18 +43,23 @@ make test
 ## Testing
 
 ```bash
-# Run all tests
+# Unit tests (the default test target)
 make test
-
-# Unit tests only
-make test-unit
 
 # Fast public CLI contract smoke tests (no Docker or worker required)
 make test-cli-contract
 
-# With coverage
-uv run pytest --cov
+# Blocking pull-request checks
+uv run pytest tests/unit/ -v \
+  --cov=src/gobbler_core --cov=src/gobbler_cli \
+  --cov=src/gobbler_relay --cov=src/gobbler_queue \
+  --cov-report=term-missing --cov-fail-under=0
+uv run ruff format --check src/ tests/
+uv run ruff check src/ tests/
+uv run --extra docs mkdocs build --strict
 ```
+
+Mypy and integration tests are currently advisory in GitHub Actions; pull requests are blocked by the unit-test and Ruff jobs above.
 
 The CLI contract harness in `tests/cli_contract.py` provides helpers for asserting
 exit codes and parsing single-object JSON or JSON-lines stdout. Add focused public

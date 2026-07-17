@@ -18,7 +18,14 @@ CLI, skills, scripts, and other Python applications.
 
 ### Providers
 
-- `youtube.py` - YouTube transcript API providers with fallback chain
+- `transcription/` - local faster-whisper and OpenAI Whisper API providers
+- `document/` - Docling HTTP provider
+- `webpage/` - Crawl4AI HTTP provider
+- `youtube.py` - transcript-specific providers and fallback chain
+
+Converters orchestrate these provider interfaces; providers are not themselves converters. The
+YouTube provider family is a separate synchronous interface from the generic registry-backed
+transcription/document/webpage families.
 
 ### Utilities
 
@@ -26,6 +33,10 @@ CLI, skills, scripts, and other Python applications.
 - `frontmatter.py` - YAML frontmatter generation
 - `health.py` - Service health checking
 - `http_client.py` - Retryable HTTP client
+- `config.py` - YAML defaults, deep merge, and service endpoint lookup
+- `providers/fallback.py` and `providers/proxy.py` - library-level fallback/proxy composition
+- `redaction.py` - diagnostic secret and URL sanitization
+- `selectors.py` - selector normalization for webpage conversion
 
 ## Usage
 
@@ -47,3 +58,6 @@ This package is designed to be:
 - **Testable**: All external services are mockable
 
 The Gobbler CLI imports these modules directly for conversion workflows.
+
+The CLI is the stable public automation surface. Python imports are useful for
+in-repository development but may evolve during the active beta.

@@ -63,11 +63,10 @@ gobbler batch webpages urls.txt -o ./output
 # From stdin
 cat urls.txt | gobbler batch webpages -o ./output
 
-# With selector/timeout/concurrency
+# With timeout/concurrency
 gobbler batch webpages urls.txt -o ./output \
   -c 5 \
-  -t 60 \
-  -s ".article-body"
+  -t 60
 
 # Skip already converted URLs
 gobbler batch webpages urls.txt -o ./output --skip-existing
@@ -81,7 +80,7 @@ Useful options:
 - `-o, --output-dir PATH`: output directory; required.
 - `-c, --concurrency INTEGER`: concurrent conversions, usually 1-10.
 - `-t, --timeout INTEGER`: timeout per page in seconds.
-- `-s, --selector TEXT`: CSS selector for targeted extraction.
+- `-s, --selector TEXT`: accepted by the current CLI but not yet forwarded by the batch implementation; use single-page `gobbler webpage --selector` when selection is required.
 - `--skip-existing / --no-skip-existing`: skip URLs with existing output.
 - `--queue`: queue the batch job instead of running inline.
 - `-j, --json`: output progress/results as JSON lines.

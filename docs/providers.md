@@ -4,410 +4,187 @@ icon: material/swap-horizontal
 
 # Providers
 
-Gobbler uses a **provider abstraction** system that allows pluggable backends for content conversion. This enables swapping between local and cloud-based services, adding new backends without changing application code, and graceful fallback between multiple providers.
+Gobbler has two provider mechanisms:
 
-## Overview
+1. A runtime registry for transcription, document, and webpage conversion.
+2. A separate YouTube transcript provider interface retained for compatibility and fallback handling.
 
-Providers are organized by **category** (the type of content they process):
-
-| Category | Purpose | Available Providers |
-|----------|---------|---------------------|
-| `transcription` | Audio/video to text | `whisper-local`, `openai-whisper` |
-| `document` | PDF, DOCX, PPTX, XLSX to markdown | `docling` |
-| `webpage` | Web pages to markdown | `crawl4ai` |
-
-Each category has a default provider that can be overridden via configuration or CLI flags.
-
-!!! note "YouTube Transcripts Use a Separate Provider System"
-    YouTube transcript providers (`youtube-transcript-api`, `transcriptapi`, `auto`) are **not** part of this generic provider registry. They have their own provider system optimized for handling IP blocking and fallback logic.
-
-    See [YouTube Provider Configuration](configuration.md#youtube-provider-configuration) for setup details.
-
-## Available Providers
-
-### Transcription Providers
-
-| Provider | Description | Requirements |
-|----------|-------------|--------------|
-| `whisper-local` | Local transcription using faster-whisper with CoreML acceleration on M-series Macs | ffmpeg |
-| `openai-whisper` | Cloud-based transcription using OpenAI Whisper API | `OPENAI_API_KEY` |
-
-#### whisper-local
-
-Uses the [faster-whisper](https://github.com/guillaumekln/faster-whisper) library for fast, local transcription. Automatically uses CoreML acceleration on Apple Silicon Macs.
-
-**Features:**
-- Fully offline - no API keys required
-- CoreML/Metal acceleration on M-series Macs
-- Multiple model sizes (tiny, base, small, medium, large)
-- Language auto-detection
-
-**Model sizes:**
-
-| Model | Speed | Accuracy | Memory | Use Case |
-|-------|-------|----------|--------|----------|
-| tiny | ~32x realtime | Lower | ~1GB | Quick drafts |
-| base | ~16x realtime | Moderate | ~1GB | General use |
-| **small** | ~6x realtime | Good | ~2GB | **Default** |
-| medium | ~2x realtime | Better | ~5GB | Important content |
-| large | ~1x realtime | Best | ~10GB | Critical accuracy |
-
-#### openai-whisper
-
-Uses the [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) for cloud-based transcription with high accuracy.
-
-**Features:**
-- High-quality cloud transcription
-- Automatic language detection
-- Word-level timestamps
-- No local hardware requirements
-- Automatic audio extraction and compression for large files
-
-**Configuration:**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `api_key` | string | `$OPENAI_API_KEY` | OpenAI API key |
-| `model` | string | `whisper-1` | OpenAI Whisper model |
-| `timeout` | float | `120.0` | Request timeout in seconds |
-
-**File size handling:**
-- OpenAI API has a 25MB file limit
-- Files exceeding 25MB are automatically compressed via ffmpeg
-- Audio is extracted to mono 16kHz MP3 at 64kbps for optimal compression
-
-### Document Providers
-
-| Provider | Description | Requirements |
-|----------|-------------|--------------|
-| `docling` | Docling Docker service for document conversion with OCR | Docling running |
-
-#### docling
-
-Uses the [Docling](https://github.com/DS4SD/docling) service running in Docker for enterprise-grade document conversion.
-
-**Features:**
-- PDF, DOCX, PPTX, XLSX support
-- Optional OCR for scanned documents
-- Table extraction with structure preservation
-- Markdown output with formatting
-
-**Supported formats:**
-
-| Format | Extension | Notes |
-|--------|-----------|-------|
-| PDF | `.pdf` | With optional OCR for scanned pages |
-| Word | `.docx` | Microsoft Word documents |
-| PowerPoint | `.pptx` | Presentations with slide structure |
-| Excel | `.xlsx` | Spreadsheets as markdown tables |
-
-### Webpage Providers
-
-| Provider | Description | Requirements |
-|----------|-------------|--------------|
-| `crawl4ai` | Crawl4AI Docker service with JavaScript rendering | Crawl4AI running |
-
-#### crawl4ai
-
-Uses the [Crawl4AI](https://github.com/unclecode/crawl4ai) service running in Docker for web scraping with full JavaScript support.
-
-**Features:**
-- JavaScript rendering via Playwright
-- Clean markdown extraction
-- CSS selector support
-- Link and image extraction
-
-## Configuration
-
-Configure providers in `~/.config/gobbler/config.yaml`:
-
-```yaml
-# Provider configuration
-providers:
-  transcription:
-    default: whisper-local
-    whisper-local:
-      model: small
-      device: auto
-
-  document:
-    default: docling
-    docling:
-      service_url: http://localhost:5001
-      timeout: 120
-
-  webpage:
-    default: crawl4ai
-    crawl4ai:
-      service_url: http://localhost:11235
-      api_token: gobbler-local-token
-```
-
-### Provider-Specific Configuration
-
-#### whisper-local
-
-```yaml
-providers:
-  transcription:
-    default: whisper-local
-    whisper-local:
-      model: small          # tiny, base, small, medium, large
-      device: auto          # auto, cpu, cuda, mps
-```
-
-#### openai-whisper
-
-```yaml
-providers:
-  transcription:
-    default: openai-whisper
-    openai-whisper:
-      api_key: ${OPENAI_API_KEY}  # Or set directly
-      model: whisper-1
-      timeout: 120
-```
-
-#### docling
-
-```yaml
-providers:
-  document:
-    default: docling
-    docling:
-      service_url: http://localhost:5001
-      timeout: 120          # Request timeout in seconds
-```
-
-#### crawl4ai
-
-```yaml
-providers:
-  webpage:
-    default: crawl4ai
-    crawl4ai:
-      service_url: http://localhost:11235
-      api_token: gobbler-local-token
-```
-
-### Environment Variables
-
-Provider configuration can also be set via environment variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `GOBBLER_WHISPER_MODEL` | Default Whisper model | `small` |
-| `GOBBLER_DOCLING_URL` | Docling service URL | `http://localhost:5001` |
-| `GOBBLER_CRAWL4AI_URL` | Crawl4AI service URL | `http://localhost:11235` |
-| `OPENAI_API_KEY` | OpenAI API key (required for `openai-whisper` provider) | - |
-
-## CLI Usage
-
-### List Providers
+Inspect the installed runtime:
 
 ```bash
-# List all providers
-gobbler providers list
-
-# Filter by category
-gobbler providers list --category transcription
-gobbler providers list -c document
-
-# JSON output
 gobbler providers list --format json
-```
-
-**Example output:**
-
-```
-All Providers
-┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Category      ┃ Name           ┃ Description                           ┃
-┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ document      │ docling        │ Docling document conversion provider  │
-│ transcription │ whisper-local  │ Local transcription using faster-wh...│
-│ webpage       │ crawl4ai       │ Crawl4AI web page conversion provider │
-└───────────────┴────────────────┴───────────────────────────────────────┘
-```
-
-### Get Provider Info
-
-```bash
-# Get detailed provider information
 gobbler providers info transcription whisper-local
-gobbler providers info document docling
-
-# JSON output
-gobbler providers info transcription whisper-local --format json
+gobbler status --json
 ```
 
-**Example output:**
+## Registered conversion providers
 
-```
-Provider: whisper-local
+The current registry contains:
 
-  Category:    transcription
-  Name:        whisper-local
-  Class:       WhisperLocalProvider
-  Module:      gobbler_core.providers.transcription.whisper
+| Category | Provider | Backend |
+| --- | --- | --- |
+| `transcription` | `whisper-local` | local faster-whisper/CTranslate2 |
+| `transcription` | `openai-whisper` | OpenAI audio transcription API |
+| `document` | `docling` | local/configured Docling HTTP service |
+| `webpage` | `crawl4ai` | local/configured Crawl4AI HTTP service |
 
-Description:
+YouTube providers do not appear in `gobbler providers list` because they implement a separate transcript-specific interface.
 
-  Local transcription provider using faster-whisper.
-
-  Uses the faster-whisper library with automatic CoreML acceleration
-  on M-series Macs. Models are cached globally to avoid reloading.
-```
-
-### Using --provider Flag
-
-Override the default provider for any conversion command:
+## Local Whisper
 
 ```bash
-# Audio transcription with local Whisper
-gobbler audio recording.mp3 --provider whisper-local
+gobbler audio recording.mp3 --provider whisper-local --model small -o recording.md
+```
 
-# Audio transcription with OpenAI API (requires OPENAI_API_KEY)
-gobbler audio recording.mp3 --provider openai-whisper
+- No API key.
+- Uses `faster-whisper` with CTranslate2.
+- Current implementation requests `device="cpu"` and `compute_type="auto"`.
+- Models: `tiny`, `base`, `small`, `medium`, `large`.
+- Models are downloaded on first use and cached by the underlying libraries.
+- ffmpeg is used to extract or compress audio when preprocessing is needed.
 
-# Document conversion (provider override)
-gobbler document report.pdf --provider docling
+Gobbler does not currently select CUDA or Apple's Metal/CoreML through a CLI device option. Performance depends on the CTranslate2 build and host CPU.
 
-# Webpage conversion (provider override)
+## OpenAI Whisper
+
+```bash
+export OPENAI_API_KEY="..."
+gobbler audio recording.mp3 --provider openai-whisper -o recording.md
+```
+
+- Reads `OPENAI_API_KEY` when no key is passed programmatically.
+- Uses the `whisper-1` model.
+- Supports automatic language detection or a language supplied with `--language`.
+- Files over the API's 25 MB limit are preprocessed with ffmpeg; conversion fails if the compressed result remains too large.
+
+The CLI still passes its `--model` value when explicitly constructing a transcription provider. `openai-whisper` ignores local model names and uses `whisper-1`.
+
+## Docling
+
+```bash
+make start-docker
+gobbler document report.pdf --provider docling --no-ocr -o report.md
+```
+
+The default provider reads `services.docling.host` and `services.docling.port` from the effective config. Defaults:
+
+```yaml
+services:
+  docling:
+    host: localhost
+    port: 5001
+```
+
+Supported inputs include PDF, DOCX, PPTX, and XLSX. OCR is a per-command option and is enabled by default.
+
+## Crawl4AI
+
+```bash
+make start-docker
+gobbler webpage "https://example.com" --provider crawl4ai --no-proxy -o page.md
+```
+
+The default provider reads its endpoint and token from:
+
+```yaml
+services:
+  crawl4ai:
+    host: localhost
+    port: 11235
+    api_token: gobbler-local-token
+```
+
+The client sends Crawl4AI-compatible crawl requests and normalizes supported response shapes. `gobbler doctor --json` performs both a health check and a conversion probe, which is more useful than checking only whether the port is open.
+
+Webpage proxy selection can come from `CRAWL4AI_PROXY` or a configured proxy service. Use `--no-proxy` to force a direct request.
+
+## YouTube transcript providers
+
+### `youtube-transcript-api`
+
+The default free provider requests YouTube captions directly. It requires no local service or API key, but YouTube can rate-limit or block a host.
+
+This is the no-flag provider selected by the default configuration.
+
+### `transcriptapi`
+
+The paid fallback reads `TRANSCRIPTAPI_KEY`:
+
+```bash
+export TRANSCRIPTAPI_KEY="..."
+gobbler youtube "URL"
+```
+
+A typical fallback configuration is:
+
+```yaml
+providers:
+  youtube:
+    default: youtube-transcript-api
+    youtube-transcript-api:
+      fallback:
+        provider: transcriptapi
+        on: [ip_blocked, rate_limited]
+    transcriptapi: {}
+```
+
+`gobbler status --json` reports whether the fallback is configured and whether the required key is visible.
+
+## Provider selection behavior
+
+```bash
+gobbler audio file.mp3 --provider whisper-local
+gobbler audio file.mp3 --provider openai-whisper
+gobbler document file.pdf --provider docling
 gobbler webpage "https://example.com" --provider crawl4ai
 ```
 
-!!! note "Provider availability"
-    The `--provider` flag is currently in development. Provider selection
-    is determined by the configuration file default settings.
+The `providers.*.default` config keys describe the provider schema, but current CLI behavior is not uniform:
 
-## Provider Comparison
+- Document and webpage no-flag paths currently select Docling and Crawl4AI respectively and read `services.*` endpoint settings. They do not consult `providers.document.default` or `providers.webpage.default`.
+- Audio's no-flag path currently uses local Whisper directly. Use `--provider openai-whisper` rather than relying on `providers.transcription.default`.
+- YouTube has its own configured default and fallback implementation. The current YouTube CLI does not expose `--provider`; change `providers.youtube.default` or configure fallback instead.
 
-### Local vs API-Based Providers
+This distinction is intentional documentation of current behavior, not a promise that all categories are configured identically.
 
-| Aspect | Local Providers | API-Based Providers |
-|--------|-----------------|---------------------|
-| **Privacy** | Data stays local | Data sent to external service |
-| **Cost** | Hardware cost only | Per-request pricing |
-| **Speed** | Depends on hardware | Generally consistent |
-| **Reliability** | No network dependency | Requires internet |
-| **Setup** | Install dependencies | API key only |
-| **Model updates** | Manual updates | Automatic |
+## Fallback conditions
 
-### When to Use Each
+The generic provider package defines these condition names:
 
-**Use local providers (whisper-local, docling, crawl4ai) when:**
-- Data privacy is critical
-- Processing large volumes (cost savings)
-- Working offline
-- Consistent latency is needed
+- `error`
+- `timeout`
+- `rate_limited`
+- `ip_blocked`
+- `unavailable`
 
-**Use API-based providers when:**
-- No local hardware for processing
-- Occasional use (simpler setup)
-- Need latest model improvements automatically
-- Don't want to manage Docker services
+The user-visible automatic fallback path currently matters most for YouTube transcript retrieval. Do not assume every registry provider automatically consults a fallback config merely because the schema accepts one.
 
-## Creating Custom Providers
-
-Gobbler's provider system is extensible. To create a custom provider:
-
-### 1. Implement the Base Class
-
-```python
-from gobbler_core.providers.transcription.base import (
-    TranscriptionProvider,
-    TranscriptionResult,
-    TranscriptionSegment,
-)
-
-class MyTranscriptionProvider(TranscriptionProvider):
-    """Custom transcription provider using MyService."""
-
-    @property
-    def name(self) -> str:
-        return "my-provider"
-
-    async def transcribe(
-        self,
-        audio_path: Path,
-        language: str = "auto",
-        **options,
-    ) -> TranscriptionResult:
-        # Your implementation here
-        return TranscriptionResult(
-            text="transcribed text",
-            segments=[],
-            language="en",
-            duration=120.0,
-        )
-
-    def supports_format(self, file_extension: str) -> bool:
-        return file_extension.lower() in {".mp3", ".wav"}
-```
-
-### 2. Register with the Registry
-
-```python
-from gobbler_core.providers.registry import ProviderRegistry
-
-# At module load time
-ProviderRegistry.register("transcription", "my-provider", MyTranscriptionProvider)
-```
-
-### 3. Add Configuration
+## Proxy services
 
 ```yaml
-providers:
-  transcription:
-    default: my-provider
-    my-provider:
-      api_key: ${MY_API_KEY}
-      endpoint: https://api.myservice.com
+proxy_services:
+  webshare:
+    type: rotating
+    username: ${WEBSHARE_USER}
+    password: ${WEBSHARE_PASS}
+  datacenter:
+    type: static
+    url: ${PROXY_URL}
 ```
 
-For detailed implementation guidance, see [Contributing](contributing.md).
+Provider entries may reference a named proxy where supported. Environment substitution is applied to proxy fields. Keep credentials in the environment and never commit them.
 
-## Architecture
+## Diagnosing provider failures
 
-The provider abstraction uses a registry pattern:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ProviderRegistry                         │
-├─────────────────────────────────────────────────────────────┤
-│  register(category, name, provider_class)                   │
-│  create(category, name, **kwargs) -> Provider               │
-│  list_providers(category) -> list[str]                      │
-│  get_provider_info(category, name) -> dict                  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌────────────────┐    ┌───────────────┐     ┌───────────────┐
-│  transcription │    │   document    │     │   webpage     │
-├────────────────┤    ├───────────────┤     ├───────────────┤
-│ whisper-local  │    │   docling     │     │   crawl4ai    │
-│ openai-whisper │    │               │     │               │
-└────────────────┘    └───────────────┘     └───────────────┘
+```bash
+gobbler providers list --format json
+gobbler status --json
+gobbler doctor --json
+gobbler explain "connection refused" --json
 ```
 
-### Base Classes
-
-Each category has an abstract base class defining the interface:
-
-| Category | Base Class | Key Method |
-|----------|------------|------------|
-| `transcription` | `TranscriptionProvider` | `transcribe(audio_path, language)` |
-| `document` | `DocumentProvider` | `convert(file_path, ocr)` |
-| `webpage` | `WebPageProvider` | `fetch(url, timeout)` |
-
-### Result Types
-
-Each category returns a standardized result type:
-
-- `TranscriptionResult` - text, segments, language, duration
-- `DocumentResult` - markdown, pages, metadata
-- `WebPageResult` - markdown, title, url, links
-
-Provider implementations live under `src/gobbler_core/providers/`.
+- Unknown provider: compare the requested name to `providers list`.
+- Docling/Crawl4AI connection failure: start Compose and inspect `docker compose ps` and logs.
+- Local Whisper failure: verify ffmpeg, supported file extension, disk space, and model download access.
+- OpenAI failure: verify `OPENAI_API_KEY`, file size, and network access.
+- YouTube IP block: wait, use a configured proxy, or configure TranscriptAPI fallback.

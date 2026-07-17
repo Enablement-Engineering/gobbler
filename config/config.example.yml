@@ -1,190 +1,108 @@
-# Gobbler Configuration
-# Copy this file to ~/.config/gobbler/config.yml and customize as needed
+# Gobbler configuration
+# Copy to ~/.config/gobbler/config.yml or run: gobbler config init
 #
-# Configuration Precedence (highest to lowest):
-#   1. CLI flags (e.g., --proxy, --provider)
-#   2. Config file settings (this file)
-#   3. Environment variables (e.g., OPENAI_API_KEY, TRANSCRIPTAPI_KEY)
+# Current precedence where a setting is supported:
+#   1. CLI option
+#   2. Config file
+#   3. Integration-specific environment variable
+#   4. Built-in default
+#
+# Gobbler does not provide a universal GOBBLER_* override system and does not
+# currently use GOBBLER_CONFIG to select another file.
 
-# =============================================================================
-# Proxy Services
-# =============================================================================
-# Define reusable proxy configurations that can be referenced by providers.
-# Proxies help avoid IP blocks and rate limiting from external services.
-#
-# Supported proxy types:
-#   - rotating: Rotating proxy service (new IP per request)
-#   - static: Fixed datacenter/residential proxy
-#
-# Environment variable substitution is supported using ${VAR_NAME} syntax.
-
+# Reusable proxies. ${VAR_NAME} substitution is supported in proxy fields.
 proxy_services:
-  # Webshare rotating proxy (recommended for high-volume usage)
   # webshare:
   #   type: rotating
   #   username: ${WEBSHARE_USER}
   #   password: ${WEBSHARE_PASS}
-
-  # Static/datacenter proxy
   # datacenter:
   #   type: static
   #   url: ${PROXY_URL}
 
-# =============================================================================
-# Provider Configuration
-# =============================================================================
-# Gobbler uses a pluggable provider architecture. Each capability (transcription,
-# document conversion, web scraping, YouTube transcripts) can use different
-# backend implementations. Configure which provider to use and its settings here.
-#
-# Fallback Configuration:
-# Providers can specify fallback behavior when errors occur. Available conditions:
-#   - error: Any error occurred
-#   - timeout: Request timed out
-#   - rate_limited: Service rate limit exceeded
-#   - ip_blocked: IP address blocked by service
-#   - unavailable: Service temporarily unavailable
-
 providers:
-  # YouTube transcript providers
+  # YouTube uses a transcript-specific provider interface.
   youtube:
-    # Default provider: youtube-transcript-api or transcriptapi
     default: youtube-transcript-api
-
-    # youtube-transcript-api: Free, scrapes YouTube directly
-    # May be blocked by YouTube for high-volume usage
     youtube-transcript-api:
-      # proxy: webshare  # Reference to proxy_services entry above
+      # proxy: webshare
       # fallback:
       #   provider: transcriptapi
       #   on: [ip_blocked, rate_limited]
-
-    # TranscriptAPI: Paid service, more reliable for high volume
-    # Requires TRANSCRIPTAPI_KEY environment variable
     transcriptapi: {}
-      # api_key set via TRANSCRIPTAPI_KEY env var
+      # Reads TRANSCRIPTAPI_KEY.
 
-  # Audio/video transcription providers
+  # Registered conversion providers. Note that the no-flag `gobbler audio`
+  # path currently selects whisper-local directly; use --provider to override.
   transcription:
-    # Default provider to use: whisper-local or openai-whisper
     default: whisper-local
-
-    # Local Whisper (faster-whisper) configuration
     whisper-local:
-      # Model size: tiny, base, small, medium, large
-      # Larger models are more accurate but slower and use more memory
       model: small
-      # fallback:
-      #   provider: openai-whisper
-      #   on: [error, timeout]
+    # openai-whisper:
+    #   model: whisper-1
+    #   timeout: 120
+    # Reads OPENAI_API_KEY.
 
-    # OpenAI Whisper API configuration
-    # Requires OPENAI_API_KEY environment variable to be set
-    openai-whisper:
-      # Model to use (currently only whisper-1 available)
-      model: whisper-1
-      # Request timeout in seconds
-      timeout: 120
-
-  # Document conversion providers (PDF, DOCX, PPTX, XLSX)
   document:
-    # Default provider to use (currently only docling available)
+    # The no-flag CLI currently selects docling directly.
     default: docling
-
-    # Docling Docker service configuration
     docling:
-      # Enable OCR for scanned documents
       ocr: true
 
-  # Web page scraping providers
   webpage:
-    # Default provider to use (currently only crawl4ai available)
+    # The no-flag CLI currently selects crawl4ai directly.
     default: crawl4ai
-
-    # Crawl4AI Docker service configuration
     crawl4ai:
-      # Default request timeout in seconds
       timeout: 30
-      # proxy: webshare  # Enable for sites that block scrapers
+      # proxy: webshare
 
-# =============================================================================
-# Legacy Settings (kept for backwards compatibility)
-# =============================================================================
-
-# Whisper transcription settings
+# Legacy/direct converter settings retained by the current schema.
 whisper:
-  # Model size: tiny, base, small, medium, large
-  # Larger models are more accurate but slower and use more memory
   model: small
-
-  # Language code (ISO 639-1) or 'auto' for automatic detection
-  # Examples: en, es, fr, de, ja, ko, zh
   language: auto
 
-# Docling document conversion settings
 docling:
-  # Enable OCR for scanned documents (slower but handles image-based PDFs)
   ocr: true
-
-  # Enable Visual Language Model (expensive, more accurate for complex layouts)
   vlm: false
 
-# Crawl4AI web scraping settings
 crawl4ai:
-  # Default request timeout in seconds
   timeout: 30
-
-  # Maximum timeout allowed (hard limit)
   max_timeout: 120
 
-# Output formatting settings
-output:
-  # Format: frontmatter (YAML + markdown) or plain (markdown only)
-  default_format: frontmatter
-
-  # Timestamp format: iso8601, unix, or readable
-  timestamp_format: iso8601
-
-  # Default output directory for saved content
-  # When set, CLI commands will suggest saving to this directory if no -o flag is provided
-  # Supports ~ for home directory expansion
-  # Examples:
-  #   default_directory: ~/Documents/Gobbler
-  #   default_directory: ~/Obsidian/Captures
-  #   default_directory: ~/Notes/Inbox
-  # default_directory: null
-
-# Service endpoints for Docker containers (usually no need to change)
-# Note: Audio transcription runs locally and doesn't use a service endpoint
+# Service endpoints read by the default document/webpage providers.
 services:
   crawl4ai:
     host: localhost
     port: 11235
-
+    # Must match CRAWL4AI_API_TOKEN used by Docker Compose.
+    api_token: gobbler-local-token
   docling:
     host: localhost
     port: 5001
 
-# Model cache directory (used by docker-compose.yml)
-# Set GOBBLER_MODELS_PATH environment variable to customize
+# Output compatibility settings. Current conversion commands still use
+# explicit CLI flags: stdout without -o, and --format for representation.
+output:
+  default_format: frontmatter
+  timestamp_format: iso8601
+  default_directory: null
+
+# Used by docker-compose.yml through GOBBLER_MODELS_PATH, not dynamically read
+# by the Python CLI to relocate an already-running container mount.
 models_path: ~/.gobbler/models
 
-# Queue settings
+# Compatibility/reserved settings. The current job queue is SQLite-backed,
+# queueing is explicit through --queue, and no automatic threshold is applied.
 queue:
-  auto_queue_threshold: 105  # seconds (1:45) - queue if longer
+  auto_queue_threshold: 105
   default_queue: default
-  job_timeout: 600    # 10 minutes max job time
 
-# Monitoring settings
+# Monitoring values remain in the effective schema but do not start a metrics
+# server or globally reconfigure all command logging by themselves.
 monitoring:
-  metrics_enabled: false      # Enable Prometheus metrics
-  metrics_port: 9090          # Metrics HTTP server port
-  log_format: text            # 'text' or 'json'
-  log_level: INFO             # DEBUG, INFO, WARNING, ERROR
-
-# HTTP server for browser extension relay
-relay:
-  enabled: true
-  host: "127.0.0.1"
-  port: 4625
-  auto_shutdown_timeout: 14400  # 4 hours of inactivity
+  metrics_enabled: false
+  metrics_port: 9090
+  metrics_host: 0.0.0.0
+  log_format: text
+  log_level: INFO
+  health_check_interval: 60

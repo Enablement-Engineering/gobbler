@@ -8,7 +8,7 @@ integrations.
 ## Architecture
 
 ```
-Browser tabs in the "Gobbler" group
+Browser tabs matching the extension-managed group ID
         |
         v
 Gobbler extension background worker
@@ -20,7 +20,7 @@ Relay server (gobbler relay start)
 Gobbler CLI commands
 ```
 
-Only tabs in a tab group named `Gobbler` are exposed to the relay.
+Only tabs matching the extension's stored `gobblerGroupId` are exposed to the relay. A matching visible title alone is insufficient, but moving a tab into the existing managed group satisfies the current guard. Preserve this distinction when changing the security model.
 
 ## Useful Commands
 

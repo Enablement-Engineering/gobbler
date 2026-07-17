@@ -23,8 +23,8 @@ Control the browser via the Gobbler CLI and browser extension. Includes integrat
 
 **Requires**: 
 - Gobbler browser extension installed
-- Target tabs in "Gobbler" tab group
-- Relay server running; start it with `gobbler relay start` if status commands report it is not running
+- Target tabs in the specific extension-managed group ID
+- Local relay; most browser operations auto-start it, but `browser status` does not
 
 > **Note**: AI chat integrations (NotebookLM, Claude, ChatGPT, Gemini) use DOM automation and may break when sites update their UI.
 
@@ -34,12 +34,13 @@ Control the browser via the Gobbler CLI and browser extension. Includes integrat
 
 ```bash
 # Check browser connection
+gobbler relay start
 gobbler browser status
 
 # List tabs in Gobbler group
 gobbler browser list
 
-# Inject APIs into all Gobbler tabs (required for AI chat integrations)
+# Re-inject page APIs if automatic injection did not occur
 gobbler browser inject
 
 # Extract current page to markdown
@@ -76,7 +77,7 @@ gobbler browser list --json
 
 ### Inject APIs
 
-Inject page-specific APIs into all tabs in the Gobbler group. **Required** before using AI chat commands (especially after page refresh or extension reload).
+Inject page-specific APIs into matching tabs in the Gobbler group. The extension normally injects on matching grouped tabs and navigation; use this command after browser/extension reload or when automatic injection did not occur.
 
 ```bash
 gobbler browser inject
@@ -125,7 +126,7 @@ gobbler browser exec "document.title"
 gobbler browser exec "document.title" --tab 1234567890
 
 # With timeout
-gobbler browser exec "await fetch('/api').then(r => r.json())" --timeout 30
+gobbler browser exec "fetch('/api').then(r => r.json())" --timeout 30
 ```
 
 ---
@@ -139,9 +140,9 @@ These integrations use browser DOM automation to interact with AI chat services.
 ## Common Prerequisites
 
 1. **Browser extension installed** - Load `browser-extension/` folder in Chrome
-2. **Tab in "Gobbler" group** - Right-click tab → "Add to group" → name it "Gobbler"
-3. **Relay running** - Start with `gobbler relay start` if `gobbler browser status` reports that the relay is not running
-4. **APIs injected** - Run `gobbler browser inject` after page refresh
+2. **Tab authorized by extension** - Open the popup and click **Allow & Add** or **Add Tab**
+3. **Relay available** - Start it before `browser status`; other operations normally auto-start it
+4. **APIs injected** - Usually automatic; run `gobbler browser inject` as recovery
 
 ## CRITICAL: One Query at a Time
 
@@ -168,7 +169,7 @@ gobbler notebooklm query "Question 2" &
 All AI chat integrations follow this pattern:
 
 ```bash
-# 1. Inject APIs (required after page refresh or extension reload)
+# 1. Ensure APIs are present; manually inject after extension/browser reload if needed
 gobbler browser inject
 
 # 2. List available tabs
@@ -357,7 +358,7 @@ gobbler relay status
 ### "No tabs found"
 
 1. Open the page you want to control
-2. Right-click the tab → "Add to group" → "Gobbler"
+2. Use **Allow & Add** or **Add Tab** in the extension popup
 3. Run `gobbler browser list` again
 
 ### "API not injected" / Commands not working
@@ -393,7 +394,7 @@ You probably sent parallel queries. STOP. Wait for each query to complete before
 
 | Issue | Check | Fix |
 |-------|-------|-----|
-| No tabs found | Tab in "Gobbler" group? | Right-click tab → Add to group → "Gobbler" |
+| No tabs found | Tab added through the extension? | Use **Allow & Add** or **Add Tab** in the popup |
 | API not injected | Extension reloaded? | Reload extension, refresh page, `gobbler browser inject` |
 | Not connected | Extension loaded? | chrome://extensions → Load unpacked |
 | Relay error | Relay running? | `gobbler relay start` |
@@ -406,5 +407,5 @@ You probably sent parallel queries. STOP. Wait for each query to complete before
 ## Prerequisites
 
 1. **Browser extension** installed (load `browser-extension/` folder)
-2. **Target tabs** in a tab group named "Gobbler"
+2. **Target tabs** in the extension-managed group; use the popup for first-time origin permission
 3. **Relay server** running; start with `gobbler relay start` if needed

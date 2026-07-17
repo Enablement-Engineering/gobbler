@@ -51,9 +51,9 @@ This installs the skill files only. Install the `gobbler` CLI separately:
 ```bash
 git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler
-make install
-gobbler --version
-gobbler doctor --json
+uv sync
+uv run gobbler --version
+uv run gobbler doctor --json
 ```
 
 Agents working from a source checkout can also use `uv --directory` so commands are reproducible without a global install:

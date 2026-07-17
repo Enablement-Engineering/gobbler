@@ -16,8 +16,10 @@ uv sync
 make start-docker
 
 # Run tests
-make test                           # Unit + key integration tests
+make test                           # Unit tests
 make test-unit                      # Unit tests only
+make test-integration               # Integration tests
+make test-all                       # Unit + integration + end-to-end tests
 uv run pytest tests/unit/test_youtube_converter.py -v  # Single test file
 uv run pytest tests/unit/test_youtube_converter.py::test_function -v  # Single test
 
@@ -50,8 +52,8 @@ uv run gobbler status --json
   - `relay.py` - WebSocket server for bidirectional browser communication
   - `client.py` - Client for sending commands to extension
 
-- **gobbler_queue/** - RQ-based background job queue
-  - `worker.py` - SimpleWorker (no fork, for macOS CoreML compatibility)
+- **gobbler_queue/** - SQLite-backed background job queue
+  - `worker.py` - Polling worker that executes structured command arguments
   - `manager.py` - Job management and progress tracking
   - `models.py` - Job data models
 
@@ -64,7 +66,7 @@ uv run gobbler status --json
 
 1. **CLI-first architecture**: Skills and scripts call the same CLI/core logic
 2. **Progressive disclosure**: Skills load concise metadata and read full CLI instructions on demand
-3. **Auto-queue**: Long tasks (>1:45 estimated) automatically queue for background processing
+3. **Explicit queueing**: Supported commands queue only when the caller supplies `--queue`
 4. **Provider abstraction**: Multiple backends per capability with fallback (e.g., YouTube: free API → paid API)
 5. **Tab group security**: Browser automation only accesses tabs in the "Gobbler" Chrome tab group
 
@@ -89,10 +91,15 @@ Markdown instruction files for AI agents. Each skill contains a `SKILL.md` with 
 
 ## Configuration
 
-User config: `~/.config/gobbler/config.yaml`
+User config: `~/.config/gobbler/config.yml`
 
 ```yaml
 services:
-  docling: "http://localhost:5001"
-  crawl4ai: "http://localhost:11235"
+  docling:
+    host: localhost
+    port: 5001
+  crawl4ai:
+    host: localhost
+    port: 11235
+    api_token: gobbler-local-token
 ```

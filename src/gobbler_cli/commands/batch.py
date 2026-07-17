@@ -79,7 +79,7 @@ RETRY_GUIDANCE = {
         "Retry failed items after checking provider availability and configuration."
     ),
     "filesystem_output": "Check output permissions and free space, then retry failed items.",
-    "queue_submission": "Check the queue database and daemon, then submit the batch again.",
+    "queue_submission": "Check the queue database and worker, then submit the batch again.",
 }
 
 
@@ -1261,7 +1261,7 @@ def _queue_batch_webpages(
 
         print_success(f"Queued batch webpage job: {job.id}")
         print_info(f"Processing {len(urls)} URLs")
-        print_info("Use 'gobbler daemon status' to check progress")
+        print_info(f"Use 'gobbler jobs get {job.id}' to check progress")
         _print_categorized_summary(
             _batch_summary(len(urls), 0, 0, 0, outcomes=Counter({"queue_submission": 1}))
         )

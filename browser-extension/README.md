@@ -1,129 +1,128 @@
-# Gobbler Browser Extension
+# Gobbler browser extension
 
-Extract authenticated web content from intentionally selected browser tabs and send it to Gobbler
-for markdown conversion.
+This unpacked Chromium extension connects intentionally selected tabs to Gobbler's local relay. It supports generic extraction/navigation/JavaScript commands and page-specific automation for NotebookLM, Claude.ai, ChatGPT, and Gemini.
 
-## Features
+## Install
 
-- ✅ Extract current page content from tabs in the Gobbler tab group
-- ✅ Extract with CSS selectors
-- ✅ Send to Gobbler for markdown conversion
-- ✅ Copy markdown to clipboard
-
-## Installation
-
-### 1. Create Icon Files
-
-The extension needs icon files. Create simple 16x16, 48x48, and 128x128 PNG files or use these commands to create placeholders:
+1. Install Gobbler from the repository root and verify `gobbler --version`.
+2. Open `chrome://extensions/` in Chrome, Brave, Edge, or another Chromium browser.
+3. Enable **Developer mode**.
+4. Select **Load unpacked** and choose this `browser-extension/` directory.
+5. Open a harmless page such as `https://example.com`.
+6. Open the extension popup and click **Allow & Add** or **Add Tab**.
+7. Verify:
 
 ```bash
-# On macOS with ImageMagick
-convert -size 16x16 xc:#0066cc icons/icon16.png
-convert -size 48x48 xc:#0066cc icons/icon48.png
-convert -size 128x128 xc:#0066cc icons/icon128.png
+gobbler relay start
+gobbler browser status
+gobbler browser list
 ```
 
-Or just create any PNG files and name them appropriately.
+Use the popup for first-time access to an origin because Chrome only permits the permission prompt from that user gesture. The context-menu add action works only after that origin permission already exists.
 
-### 2. Load Extension in Chrome
+The icon assets are already committed under `icons/`; no generation step is required.
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top right)
-3. Click "Load unpacked"
-4. Select the `browser-extension` directory
+## Relay lifecycle
 
-### 3. Start Gobbler Relay Server
-
-Make sure the Gobbler relay is running:
+Most browser operations auto-start the relay on `127.0.0.1:4625`; `browser status` deliberately does not.
 
 ```bash
-cd gobbler
-uv run gobbler relay start
+gobbler relay status
+gobbler relay start
+gobbler relay restart
 ```
 
-The HTTP server will start on `http://localhost:4625` by default.
+Use `gobbler browser --no-auto-start status` only when debugging lifecycle behavior.
 
-## Usage
+## CLI examples
 
-### Basic Page Extraction
+```bash
+# Generic grouped-tab operations
+gobbler browser list --json
+gobbler browser open "https://example.com"
+gobbler browser navigate "https://example.org"
+gobbler browser extract --selector article -o article.md
+gobbler browser exec "document.title" --json
 
-1. Navigate to any webpage (e.g., YouTube Watch Later)
-2. Add the tab to the Gobbler tab group from the extension popup or context menu
-3. Click the Gobbler extension icon
-4. Click "Extract Current Page"
-5. Content will be converted to markdown
-6. Click "Copy" to copy to clipboard
+# Inject matching page APIs after browser/extension reload
+gobbler browser inject
+gobbler browser inject --tab TAB_ID --json
 
-### Extract with Selector
-
-1. Navigate to the page
-2. Add the tab to the Gobbler tab group
-3. Click the Gobbler extension icon
-4. Click "Extract with Selector"
-5. Enter a CSS selector (e.g., `ytd-playlist-video-renderer`, `article`, `.main-content`)
-6. Content will be extracted and converted
-
-### Extract YouTube Watch Later
-
-1. Open YouTube and make sure you're logged in
-2. Go to https://www.youtube.com/playlist?list=WL
-3. Add the tab to the Gobbler tab group
-4. Click Gobbler extension
-5. Use selector: `ytd-playlist-video-renderer` to get video titles
-6. Or extract the full page
-
-## Configuration
-
-- **Server URL**: Change in extension popup if Gobbler is running on a different port
-
-## How It Works
-
-```
-Your Browser (with real sessions)
-        ↓
-Gobbler Extension (extracts HTML)
-        ↓
-HTTP POST to localhost:4625/extract
-        ↓
-Gobbler HTTP Server (converts to markdown)
-        ↓
-Response with markdown
-        ↓
-Display in extension popup
+# Site-specific integrations
+gobbler notebooklm list
+gobbler notebooklm query "Summarize the notebook"
+gobbler claude query "Draft a concise answer"
+gobbler chatgpt query "Describe the current conversation"
+gobbler gemini query "Compare the visible sources"
 ```
 
-## Advantages Over Cookie Export
+## Security model
 
-- ✅ Uses your real browser session without copying cookies
-- ✅ No cookie export or cookie copying
-- ✅ Can access pages you are already authenticated to when those tabs are intentionally placed in the Gobbler tab group
-- ✅ Simple and fast
+Extension command guards compare each tab's group ID with the stored `gobblerGroupId`. A different group with the same title does not match, but manually moving a tab into the existing managed group makes it eligible. Site-origin permissions gate scripting-based extraction and page-API injection; debugger-based `browser exec` only checks group eligibility. This is a scope boundary, not a permission bypass:
 
-The extension does not bypass site access controls or bot detection. Only automate pages the user
-explicitly asks to use, and do not submit forms or messages unless requested.
+- The extension uses the browser's existing authenticated session.
+- It does not copy cookies into Gobbler.
+- It does not bypass authentication, access controls, rate limits, or bot detection.
+- `browser exec` runs arbitrary JavaScript in a selected grouped tab.
+- `browser exec` uses Chrome's debugger permission; Chrome may show a debugging banner and the attachment can persist until tab close or relay disconnect.
+- Do not read private content or submit forms/messages unless the user explicitly requested that action.
+- Remove sensitive tabs from the Gobbler group when they are no longer needed.
 
-## Development
+## Architecture
 
-The extension consists of:
+```text
+Gobbler CLI
+    ↕ HTTP/WebSocket on 127.0.0.1:4625
+Gobbler relay
+    ↕ WebSocket
+extension service worker (background.js)
+    ↕ Chrome extension APIs
+content.js and page-apis/*.js in grouped tabs
+```
 
-- `manifest.json` - Extension configuration
-- `popup.html` - Extension popup UI
-- `popup.js` - Popup logic and API calls
-- `content.js` - Content script (minimal)
-- `background.js` - Service worker
+The popup POSTs extraction requests to its configurable Server URL. CLI automation uses the extension WebSocket, currently fixed to `ws://localhost:4625/ws`; changing the popup URL or starting the relay on another port does not change that WebSocket endpoint.
+
+## Files
+
+- `manifest.json`: Manifest V3 permissions, content scripts, service worker, and extension assets.
+- `background.js`: relay WebSocket, tab-group checks, command dispatch, and page API registry.
+- `content.js`: page extraction bridge.
+- `popup.html`, `popup.js`, `styles.css`: extension UI.
+- `page-apis/*.js`: DOM adapters for supported AI chat sites.
+- `vendor/`: extension-local dependencies; no CDN scripts are required at runtime.
 
 ## Troubleshooting
 
-**Extension won't load:**
-- Make sure icon files exist in `icons/` directory
-- Check Chrome extension errors in `chrome://extensions/`
+### Extension will not load
 
-**"Failed to fetch" error:**
-- Make sure the Gobbler relay server is running
-- Check server URL in extension popup (default: http://localhost:4625)
-- Check browser console for CORS errors
+- Confirm every path in `manifest.json` exists.
+- Inspect errors at `chrome://extensions/`.
+- Reload the unpacked extension after source changes.
 
-**No content extracted:**
-- Try using a more specific CSS selector
-- Check if page has loaded completely
-- Some dynamic content may require waiting
+### No extension connected
+
+```bash
+gobbler relay restart
+gobbler browser status
+```
+
+Then inspect the extension service-worker console for WebSocket errors.
+
+### No tabs found
+
+- Confirm the group name is exactly **Gobbler**.
+- Confirm the target tab is inside that group.
+- Run `gobbler browser list --json`.
+
+### Generic browser command works but AI integration fails
+
+The third-party site's DOM probably changed or the page API was not injected:
+
+```bash
+gobbler browser inject
+gobbler browser exec "Object.keys(window).filter(k => k.startsWith('gobbler'))" --json
+```
+
+Inspect the page API in `page-apis/` and compare its selectors with the live page.
+
+Full guide: <https://enablement-engineering.github.io/gobbler/browser-extension/>
