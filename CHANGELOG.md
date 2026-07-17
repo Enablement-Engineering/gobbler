@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.23] - 2026-07-17
 
 ### Fixed
-- Sanitized invalid `gobbler batch youtube-playlist --json` diagnostic URL fields so credential-bearing inputs do not expose userinfo, query values, or fragments.
+- Sanitized invalid `gobbler batch youtube-playlist --json` diagnostic URL fields to retain only a validated authority, preventing exposure of userinfo, arbitrary path tokens, query values, fragments, and malformed backslash authorities.
 
 ## [0.2.22] - 2026-07-16
 

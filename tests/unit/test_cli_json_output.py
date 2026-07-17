@@ -1233,6 +1233,26 @@ class TestBatchYoutubePlaylistUrlValidation:
                     "private-fragment",
                 ),
             ),
+            (
+                "//youtube.com/private-path-token?list=private-list#private-fragment",
+                REDACTED,
+                ("private-path-token", "private-list", "private-fragment"),
+            ),
+            (
+                "https://youtube.com/private-path-token",
+                "https://youtube.com",
+                ("private-path-token",),
+            ),
+            (
+                "https://youtube.com\\malformed-private-path-token?list=private-list",
+                REDACTED,
+                ("malformed-private-path-token", "private-list"),
+            ),
+            (
+                "https://[2001:db8::1]:8443/private-path-token?list=private-list",
+                "https://[2001:db8::1]:8443",
+                ("private-path-token", "private-list"),
+            ),
         ],
     )
     @patch("yt_dlp.YoutubeDL")
@@ -1285,10 +1305,14 @@ class TestBatchYoutubePlaylistUrlValidation:
         tmp_path: Path,
     ) -> None:
         """A sanitizer parsing failure still emits parseable, safely redacted JSON."""
-        playlist_url = "youtube.com/playlist?list=private-list#private-fragment"
+        playlist_url = "https://example.com/private-path-token?list=private-list#private-fragment"
         output_dir = tmp_path / "output"
 
-        with patch("gobbler_cli.commands.batch.urlparse", side_effect=ValueError("bad port")):
+        parsed_url = batch.urlparse(playlist_url)
+        with patch(
+            "gobbler_cli.commands.batch.urlparse",
+            side_effect=[parsed_url, ValueError("bad port")],
+        ) as mock_urlparse:
             result = runner.invoke(
                 cli_app,
                 [
@@ -1307,6 +1331,7 @@ class TestBatchYoutubePlaylistUrlValidation:
         assert lines[0]["url"] == REDACTED
         assert lines[0]["source"] == REDACTED
         assert playlist_url not in json.dumps(lines)
+        assert mock_urlparse.call_count == 2
         assert not output_dir.exists()
         mock_youtube_dl.assert_not_called()
 
