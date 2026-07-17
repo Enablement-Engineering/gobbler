@@ -324,6 +324,10 @@ Append to ALL image generation requests:
 
 ### CLI Output Format
 
+The following is an **aspirational branding pattern**, not a transcript of the current CLI. The
+current implementation uses concise Rich progress/status output and stable JSON modes; do not use
+the strings below as an automation contract.
+
 ```
 Phase indicators:
 🦃  [Action]... (Explanation)
@@ -338,7 +342,7 @@ Completion:
 ### Example Session
 
 ```bash
-$ gobbler transcribe https://youtube.com/watch?v=abc123
+$ gobbler youtube https://youtube.com/watch?v=abc123
 
 🦃  Spotting prey... (Found: "How to Cook Perfect Pasta")
 🔪  Slicing content... (Downloading transcript)
@@ -361,7 +365,7 @@ $ gobbler transcribe https://youtube.com/watch?v=abc123
 😴 Food coma. YouTube said slow down. Retrying in 30s...
 
 # Service down
-💀 Crawl4AI container is sleeping. Run: make docker-up
+💀 Crawl4AI container is sleeping. Run: make start-docker
 ```
 
 ---

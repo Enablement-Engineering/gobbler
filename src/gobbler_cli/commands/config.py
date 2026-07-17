@@ -157,27 +157,35 @@ def init_config(
     # Create directory if needed
     config_dir.mkdir(parents=True, exist_ok=True)
 
-    # Read example config from package
-    example_config = (
-        Path(__file__).parent.parent.parent.parent.parent / "config" / "config.example.yml"
-    )
+    # Use the repository example in source checkouts; packaged installs use the fallback below.
+    example_config = Path(__file__).resolve().parents[3] / "config" / "config.example.yml"
 
     if example_config.exists():
         config_content = example_config.read_text()
     else:
-        # Fallback minimal config
+        # Fallback minimal config for packaged installs without the repository example.
         config_content = """\
-# Gobbler Configuration
-# See https://github.com/your-repo/gobbler for full options
+# Gobbler configuration
+# Full reference: https://enablement-engineering.github.io/gobbler/configuration/
 
-output:
-  default_format: frontmatter
-  timestamp_format: iso8601
-  # default_directory: ~/Documents/Gobbler  # Uncomment to set default save location
+services:
+  crawl4ai:
+    host: localhost
+    port: 11235
+    api_token: gobbler-local-token
+  docling:
+    host: localhost
+    port: 5001
 
 whisper:
   model: small
   language: auto
+
+providers:
+  youtube:
+    default: youtube-transcript-api
+    youtube-transcript-api: {}
+    transcriptapi: {}
 """
 
     config_path.write_text(config_content)

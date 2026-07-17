@@ -39,15 +39,17 @@ Gobbler is an **active beta**, CLI-first content conversion tool for AI workflow
 
 ---
 
-## Install in 60 Seconds
+## Install from source
 
 ```bash
-# Clone and install
+# Clone and create the project environment
 git clone https://github.com/Enablement-Engineering/gobbler.git
-cd gobbler && make install
+cd gobbler
+uv sync
 
 # Try it
-gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+uv run gobbler doctor --json
+uv run gobbler youtube "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 [:octicons-arrow-right-24: Full installation guide](installation.md)
@@ -97,10 +99,10 @@ gobbler youtube "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 Swap backends without changing your workflow:
 
 ```bash
-# Use local Whisper (default, free, private)
+# Use local faster-whisper (default)
 gobbler audio recording.mp3
 
-# Use OpenAI's API (faster, paid)
+# Use OpenAI's cloud API (paid)
 gobbler audio recording.mp3 --provider openai-whisper
 ```
 
@@ -112,11 +114,14 @@ gobbler audio recording.mp3 --provider openai-whisper
 
 [:octicons-arrow-right-24: Provider documentation](providers.md)
 
+The current local provider requests CPU execution through CTranslate2. Gobbler does not expose a
+CUDA, Metal, or CoreML device selector in the CLI.
+
 ---
 
 ## Output Format
 
-Every conversion produces markdown with YAML frontmatter:
+By default, conversions produce markdown, commonly with YAML frontmatter when metadata is available. `--format json` emits a JSON envelope containing markdown and metadata instead:
 
 ```markdown
 ---
@@ -146,7 +151,7 @@ Content here, ready for AI consumption...
 
 -   :material-console:{ .lg .middle } **CLI Reference**
 
-    All commands and options
+    Current command map and commonly used options
 
     [:octicons-arrow-right-24: CLI Usage](cli.md)
 

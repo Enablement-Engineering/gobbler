@@ -4,204 +4,171 @@ icon: material/download
 
 # Installation
 
-Complete installation guide for Gobbler.
+## Requirements
 
-## Prerequisites
+- Python 3.11 or newer.
+- [uv](https://docs.astral.sh/uv/) for Python environments and tools.
+- ffmpeg for audio/video transcription.
+- Docker Desktop, Colima, or Docker Engine for document and webpage conversion.
+- A Chromium-family browser for the optional extension.
 
-Before installing Gobbler, ensure you have:
+YouTube transcript conversion does not require Docker or ffmpeg.
 
-| Requirement | Version | Check Command | Required |
-|-------------|---------|---------------|----------|
-| Python | 3.11+ | `python3 --version` | Yes |
-| uv | Latest | `uv --version` | Yes |
-| Docker | Latest | `docker --version` | For web/docs |
-| ffmpeg | Latest | `ffmpeg -version` | For video |
-
-### Installing Prerequisites
+## Install prerequisites
 
 === "macOS"
 
     ```bash
-    # Install uv (Python package manager)
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-
-    # Install ffmpeg (for audio extraction from video)
-    brew install ffmpeg
-
-    # Docker Desktop from https://docs.docker.com/desktop/mac/install/
+    brew install uv ffmpeg
     ```
 
-=== "Linux"
+    Choose one Docker runtime:
 
     ```bash
-    # Install uv
+    # Docker Desktop
+    brew install --cask docker
+
+    # Or Colima plus Docker CLI
+    brew install colima docker docker-compose
+    colima start --cpu 5 --memory 10
+    ```
+
+=== "Ubuntu/Debian"
+
+    ```bash
     curl -LsSf https://astral.sh/uv/install.sh | sh
-
-    # Install ffmpeg
-    sudo apt-get install ffmpeg  # Debian/Ubuntu
-    sudo dnf install ffmpeg      # Fedora
-
-    # Docker from https://docs.docker.com/engine/install/
+    sudo apt update
+    sudo apt install -y ffmpeg
+    curl -fsSL https://get.docker.com | sh
     ```
 
 === "Windows"
 
-    ```powershell
-    # Install uv
-    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+    Use WSL2 for the CLI and Docker Desktop with WSL integration. Install uv and ffmpeg inside the WSL distribution. Native Windows has not been the primary tested development path.
 
-    # Install ffmpeg from https://ffmpeg.org/download.html
-
-    # Docker Desktop from https://docs.docker.com/desktop/windows/install/
-    ```
-
-## Installation Steps
-
-### 1. Clone the Repository
+## Source checkout
 
 ```bash
 git clone https://github.com/Enablement-Engineering/gobbler.git
 cd gobbler
+uv sync
+uv run gobbler --version
 ```
 
-### 2. Install Dependencies
+`uv sync` resolves the project dependencies and creates a repository-local `.venv`. This repository does not currently track `uv.lock`, so a clean clone resolves from `pyproject.toml` rather than reproducing a committed lockfile. Use `uv run gobbler ...` to execute that environment.
+
+## Isolated global CLI
+
+From the cloned repository:
 
 ```bash
-# Basic installation
-make install
-
-# With development dependencies (for contributing)
-make dev
-
-# Optional: For browser automation features
-uv run playwright install chromium
+uv tool install .
+gobbler --version
 ```
 
-### 3. Start Docker Services (Optional)
-
-Docker services are needed for:
-
-- **Web scraping** (Crawl4AI)
-- **Document conversion** (Docling)
-
-!!! note "Docker Resource Requirements"
-    - **Docling** needs ~8GB RAM
-    - **Crawl4AI** needs ~2GB RAM
-    - Initial Docker image downloads can be large
+After pulling updates, reinstall the tool:
 
 ```bash
-# Start all services
+uv tool install . --force
+```
+
+The global tool contains the Python CLI. Keep the repository checkout if you also need the unpacked browser extension or repository Skills.
+
+## Development environment
+
+```bash
+uv sync --extra dev
+uv run pre-commit install
+uv run pytest tests/unit/ -q
+```
+
+Documentation dependencies are separate:
+
+```bash
+uv sync --extra docs
+uv run --extra docs mkdocs build --strict
+```
+
+## Start document and webpage services
+
+The Compose file starts two containers:
+
+- Docling on port `5001` for `gobbler document`.
+- Crawl4AI on port `11235` for `gobbler webpage`.
+
+```bash
 make start-docker
+# Equivalent: docker compose up -d
 
-# Check status
+uv run gobbler doctor --json
+```
+
+Useful service commands:
+
+```bash
 make status
+make logs
+make stop
 ```
 
-### 4. Verify Installation
+The Compose stack does **not** contain Redis or a background worker. Gobbler's optional job queue is SQLite-backed; start its worker separately with `gobbler jobs worker start`.
+
+### Compose environment variables
+
+- `CRAWL4AI_API_TOKEN`: token consumed by the Crawl4AI container. The Compose default is `gobbler-local-token`. If you override it, set the same value at `services.crawl4ai.api_token` in `~/.config/gobbler/config.yml`; the Python client does not read this environment variable directly.
+- `GOBBLER_MODELS_PATH`: host path mounted as the Docling model cache; defaults to `~/.gobbler/models`.
+
+## Verify the installation
 
 ```bash
-make verify
+# Broad runtime and dependency report
+uv run gobbler doctor --json
+
+# Conversion-provider readiness
+uv run gobbler status --json
+
+# Runtime provider registry
+uv run gobbler providers list --format json
+
+# No-Docker smoke test
+uv run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o /tmp/gobbler-test.md
 ```
 
-You should see:
+`status --json` writes a diagnostic object even when it exits nonzero because a provider is degraded. Parse stdout before interpreting the exit status.
 
-```
-✅ Python 3.11+ detected
-✅ uv installed
-✅ Gobbler installed
-✅ Crawl4AI: Healthy
-✅ Docling: Healthy
-```
+## Browser extension
 
-## What Works Without Docker
-
-These features work immediately without Docker:
-
-| Feature | Backend |
-|---------|---------|
-| YouTube transcripts | youtube-transcript-api |
-| Audio transcription | faster-whisper (local) |
-| YouTube downloads | yt-dlp |
-
-## AI Agent Integration
-
-Gobbler skills are for CLI-capable AI agents: agents that can read `SKILL.md` files, run shell commands, and inspect output files.
-
-Recommended install path:
+1. Open `chrome://extensions/` in Chrome, Brave, Edge, or another Chromium browser.
+2. Enable **Developer mode**.
+3. Select **Load unpacked** and choose this repository's `browser-extension/` directory.
+4. Open a harmless page such as `https://example.com`, open the extension popup, and click **Allow & Add** or **Add Tab**. The extension creates and stores its own group identity.
+5. Verify:
 
 ```bash
-# Inspect available Gobbler skills without installing
+uv run gobbler relay start
+uv run gobbler browser status
+uv run gobbler browser list
+```
+
+Most browser operations auto-start the local relay on `127.0.0.1:4625`; the read-only `browser status` command does not. See [Browser Extension](browser-extension.md) for the security model and commands.
+
+## Install AI-agent Skills
+
+```bash
 npx skills@latest add Enablement-Engineering/gobbler --list
-
-# Interactive install: choose skills and target agent(s)
 npx skills@latest add Enablement-Engineering/gobbler
-
-# Non-interactive example: install the main conversion skill globally
-npx skills@latest add Enablement-Engineering/gobbler --skill gobbler --global --yes
 ```
 
-The installer handles agent-specific skill directories. It installs skill files only; keep this Gobbler CLI installation available on PATH with `make install` or `uv tool install .`.
+This installs only Markdown Skill files. Install the CLI separately using one of the methods above.
 
-Manual copy/symlink also works if your agent has a custom skill directory:
+## Uninstall
 
 ```bash
-mkdir -p ~/.local/share/gobbler-skills
-cp -R skills/gobbler* ~/.local/share/gobbler-skills/
+# Remove isolated global tool
+uv tool uninstall gobbler
+
+# Stop local containers
+docker compose down
 ```
 
-The top-level skills are `gobbler`, `gobbler-browser`, and `gobbler-setup`; detailed conversion recipes live under `skills/gobbler/references/`.
-
-## Configuration
-
-Gobbler uses a YAML configuration file at `~/.config/gobbler/config.yml`:
-
-```yaml
-services:
-  docling: "http://localhost:5001"
-  crawl4ai: "http://localhost:11235"
-
-storage:
-  type: "sqlite"
-  path: "~/.config/gobbler/jobs.db"
-
-logging:
-  level: "INFO"
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### "Service unavailable"
-
-```bash
-# Start Docker services
-make start-docker
-
-# Check status
-make status
-```
-
-#### "Python 3.11+ required"
-
-Install Python 3.11 or higher from [python.org](https://www.python.org/downloads/).
-
-#### "uv not found"
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### Run Diagnostics
-
-```bash
-make diagnose
-```
-
-This checks all prerequisites and provides actionable fixes.
-
-## Next Steps
-
-- [Quick Start](QUICK_START.md) - Your first conversion
-- [CLI Usage](cli.md) - Command reference
-- [Skills](SKILLS.md) - AI agent integration
+A source checkout's `.venv` can be removed by deleting that directory. User configuration remains under `~/.config/gobbler/` until removed manually.

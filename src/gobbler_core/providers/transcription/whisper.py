@@ -1,7 +1,7 @@
 """Local Whisper transcription provider using faster-whisper.
 
-This provider uses the faster-whisper library for local transcription
-with automatic CoreML acceleration on M-series Macs.
+This provider uses the faster-whisper library and CTranslate2 for local
+transcription. The current provider requests CPU execution.
 """
 
 from __future__ import annotations
@@ -49,8 +49,8 @@ MAX_FILE_SIZE_BYTES: int = 50 * 1024 * 1024
 class WhisperLocalProvider(TranscriptionProvider):
     """Local transcription provider using faster-whisper.
 
-    Uses the faster-whisper library with automatic CoreML acceleration
-    on M-series Macs. Models are cached globally to avoid reloading.
+    Uses the faster-whisper library with CTranslate2 on CPU. Models are
+    cached globally to avoid reloading.
 
     Attributes:
         model_size: Whisper model size (tiny, base, small, medium, large)
@@ -104,8 +104,8 @@ class WhisperLocalProvider(TranscriptionProvider):
             logger.info("Loading Whisper model: %s", self.model_size)
             self._model_cache[self.model_size] = WhisperModel(
                 self.model_size,
-                device="cpu",  # faster-whisper uses CPU/CoreML, not CUDA
-                compute_type="auto",  # Automatically uses CoreML on M-series
+                device="cpu",
+                compute_type="auto",
             )
             logger.info("Whisper model loaded: %s", self.model_size)
 

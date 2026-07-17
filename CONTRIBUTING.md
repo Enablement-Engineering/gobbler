@@ -69,9 +69,16 @@ tests/              # Unit, integration, and end-to-end tests
 
 ## Testing
 
+The blocking pull-request gate mirrors CI:
+
 ```bash
-# All unit tests
-uv run pytest tests/unit -q
+uv run pytest tests/unit/ -v \
+  --cov=src/gobbler_core --cov=src/gobbler_cli \
+  --cov=src/gobbler_relay --cov=src/gobbler_queue \
+  --cov-report=term-missing --cov-fail-under=0
+uv run ruff format --check src/ tests/
+uv run ruff check src/ tests/
+uv run --extra docs mkdocs build --strict
 
 # Single file
 uv run pytest tests/unit/test_youtube_converter.py -v
@@ -80,14 +87,23 @@ uv run pytest tests/unit/test_youtube_converter.py -v
 uv run pytest tests/unit/test_youtube_converter.py::TestVideoIdExtraction::test_extract_video_id_standard_url -v
 ```
 
+`mypy` and integration tests are useful additional checks, but the current GitHub workflow treats them as advisory: mypy uses `continue-on-error`, and integration tests run after pushes to `main`, not on pull requests.
+
 ## Pull Request Checklist
 
 - [ ] Tests pass
 - [ ] Ruff check and format pass
-- [ ] Type checking passes when relevant
+- [ ] Type-checking output was reviewed when relevant (currently advisory in CI)
 - [ ] Security checks pass when relevant
 - [ ] Documentation updated for user-facing changes
 - [ ] Changes are scoped to the requested behavior
+
+## Maintainer Release Checklist
+
+1. Update `CHANGELOG.md` and `docs/changelog.md`.
+2. Keep the version synchronized in `pyproject.toml`, `src/gobbler_core/__init__.py`, `src/gobbler_cli/__init__.py`, `src/gobbler_queue/__init__.py`, `browser-extension/manifest.json`, and `browser-extension/background.js`.
+3. Run the blocking gate above; `tests/unit/test_version_sync.py` detects version drift.
+4. Merge the release commit, tag `vX.Y.Z`, and create the GitHub release from that exact commit.
 
 ## Commit Messages
 

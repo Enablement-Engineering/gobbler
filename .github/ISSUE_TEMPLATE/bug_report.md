@@ -25,12 +25,17 @@ What actually happened.
 - **Python Version**: [e.g., 3.11.5]
 - **Gobbler Version**: [e.g., 0.2.0]
 - **Docker Version** (if applicable): [e.g., 24.0.6]
-- **Installation Method**: [e.g., make install, uv sync]
+- **Installation Method**: [e.g., uv sync, uv tool install]
+- **Browser + Version** (if applicable): [e.g., Chrome 138]
+- **Extension Version** (if applicable): [from chrome://extensions]
+- **Relay Status** (if applicable): [output from `gobbler relay status`]
 
 ## Logs/Output
 ```
 Paste relevant logs or error messages here
 ```
+
+Remove tokens, private URLs, document contents, cookies, and other sensitive data before posting.
 
 ## Screenshots
 If applicable, add screenshots to help explain your problem.

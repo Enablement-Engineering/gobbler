@@ -31,10 +31,10 @@ Describe the tests you ran to verify your changes:
 ## Screenshots (if applicable)
 
 ## Checklist
-- [ ] My code follows the project's code style (ran `ruff format` and `ruff check`)
-- [ ] I have run type checking (`mypy src/gobbler_core src/gobbler_cli src/gobbler_relay src/gobbler_queue`)
+- [ ] Formatting and lint pass (`uv run ruff format --check src/ tests/` and `uv run ruff check src/ tests/`)
+- [ ] I reviewed type-checking output where relevant (mypy is currently advisory in CI)
 - [ ] I have added tests that prove my fix/feature works
-- [ ] All new and existing tests pass (`pytest`)
+- [ ] Unit tests pass (`uv run pytest tests/unit/ -v --cov=src/gobbler_core --cov=src/gobbler_cli --cov=src/gobbler_relay --cov=src/gobbler_queue --cov-report=term-missing --cov-fail-under=0`)
 - [ ] I have updated documentation as needed
 - [ ] My changes generate no new warnings
 - [ ] Any dependent changes have been merged and published

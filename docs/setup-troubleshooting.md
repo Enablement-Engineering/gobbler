@@ -2,246 +2,247 @@
 icon: material/wrench
 ---
 
-# Setup & Troubleshooting
+# Setup and troubleshooting
 
-Complete guide for diagnosing and fixing Gobbler issues.
-
-## Quick Health Check
-
-Run this first to diagnose issues:
+Start with machine-readable diagnostics instead of guessing from a single port:
 
 ```bash
-# Check CLI is installed
+gobbler doctor --json
+gobbler status --json
+```
+
+## What the diagnostics mean
+
+- `doctor`: CLI version, Python executable, ffmpeg, Docker CLI/daemon, effective config, and conversion-service probes.
+- `status`: configured conversion providers, service URLs, proxy/fallback readiness, and Crawl4AI conversion readiness.
+- `status --json` can emit valid JSON and exit nonzero when overall status is degraded.
+
+YouTube and local audio can work while document/webpage services are degraded.
+
+## Installation check
+
+```bash
+python3 --version
+uv --version
+ffmpeg -version
+docker version
+
 gobbler --version
-
-# Check Docker services
-docker ps --filter "name=gobbler" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-
-# Check individual services
-curl -s http://localhost:5001/health && echo " - Docling OK"
-curl -s http://localhost:11235/health && echo " - Crawl4AI OK"
+# From a checkout if no global tool is installed:
+uv run gobbler --version
 ```
 
-## Common Issues & Solutions
-
-### "Server disconnected without sending a response"
-
-**Cause**: Docker service crashed (usually out of memory)
+For a source checkout:
 
 ```bash
-# Check which service crashed
-docker ps -a --filter "name=gobbler"
-
-# For document conversion - disable OCR or increase memory
-gobbler document file.pdf --no-ocr -o output.md
-
-# Or increase memory in docker-compose.yml
-# Change: memory: 4g → memory: 8g
-docker compose up -d docling
+uv sync
+uv run gobbler doctor --json
 ```
 
-### "Connection refused" on port 5001/11235
-
-**Cause**: Docker service not running
+For an isolated global tool:
 
 ```bash
-# Start the services
+uv tool install . --force
+gobbler --version
+```
+
+## Document or webpage service unavailable
+
+```bash
 make start-docker
-
-# Check they're running
-make status
-docker ps -a --filter "name=gobbler"
-
-# View logs if still failing
-docker logs gobbler-docling --tail 50
-docker logs gobbler-crawl4ai --tail 50
+docker compose ps
+gobbler doctor --json
 ```
 
-### "container name is already in use"
-
-**Cause**: A named Gobbler service container already exists outside the current Compose
-project context.
-
-`make start-docker` checks `gobbler-docling` and `gobbler-crawl4ai` before creating
-containers. If both are running and healthy, startup succeeds and reports the services as
-already available.
+Inspect logs:
 
 ```bash
-# Inspect named Gobbler containers directly
-docker ps -a --filter "name=gobbler"
-make status
-
-# Check logs for an unhealthy or stopped container
-docker logs gobbler-docling --tail 50
-docker logs gobbler-crawl4ai --tail 50
+docker compose logs --tail 100 docling
+docker compose logs --tail 100 crawl4ai
 ```
 
-Only after confirming a container is stale, remove it explicitly and retry:
+Default endpoints:
 
 ```bash
-# Stopped stale container
-docker rm <container>
-
-# Running unhealthy stale container
-docker stop <container> && docker rm <container>
-
-make start-docker
+curl -fsS http://localhost:5001/health
+curl -fsS http://localhost:11235/health
 ```
 
-### "Cannot connect to Docker daemon"
+A successful health endpoint does not prove Crawl4AI can complete a conversion; `gobbler doctor --json` includes a real conversion probe.
 
-**Cause**: Docker Desktop not running
+### Docker daemon unavailable
+
+Start Docker Desktop, Colima, or Docker Engine first:
 
 ```bash
-# macOS - Start Docker Desktop
-open -a Docker
+# Colima
+colima start --cpu 5 --memory 10
 
-# Linux
+# Linux service
 sudo systemctl start docker
 
-# Wait 30-60 seconds, then verify
 docker info
 ```
 
-### "command not found: gobbler"
+### Docling disconnects or runs out of memory
 
-**Cause**: CLI not installed or not in PATH
+Use less expensive document settings first:
 
 ```bash
-# Option 1: Run via uv
-cd /path/to/gobbler
-uv run gobbler --version
-
-# Option 2: Install as tool
-uv tool install .
-
-# Option 3: Add to PATH
-export PATH="$PATH:/path/to/gobbler/.venv/bin"
+gobbler document digital.pdf --no-ocr -o output.md
 ```
 
-### YouTube "IP blocked" or "No transcript available"
+The repository Compose file currently reserves up to 8 GB and 4 CPUs for Docling. Increase the Docker runtime's overall allocation if the container is killed despite those limits.
 
-```bash
-# Check if video has captions (view on YouTube)
+### Crawl4AI token mismatch
 
-# Try different language
-gobbler youtube "URL" --language en
+The Compose default token is `gobbler-local-token`. If `CRAWL4AI_API_TOKEN` changes the container token, set the same value in `services.crawl4ai.api_token`:
 
-# Use TranscriptAPI.com (paid, reliable)
-export TRANSCRIPTAPI_KEY=your_key
-gobbler youtube "URL"
+```yaml
+services:
+  crawl4ai:
+    host: localhost
+    port: 11235
+    api_token: your-token
 ```
 
-### Audio transcription slow or failing
+## Audio problems
 
 ```bash
-# Check ffmpeg is installed
 ffmpeg -version
-
-# Use smaller model
-gobbler audio file.mp3 --model tiny
-
-# For faster processing on Apple Silicon
-gobbler audio file.mp3 --model small
+gobbler audio recording.mp3 --model tiny -o recording.md
 ```
 
-### "OCR failed" on document conversion
+The first local Whisper run downloads a model. Current local inference uses faster-whisper/CTranslate2 with `device="cpu"`; there is no CLI `--device` option.
+
+Common causes:
+
+- ffmpeg missing.
+- Unsupported extension.
+- Model download blocked or disk full.
+- Silent/corrupt media.
+- A model too large for available memory.
+
+For OpenAI transcription:
 
 ```bash
-# Disable OCR for digital PDFs
-gobbler document file.pdf --no-ocr -o output.md
-
-# If OCR needed, increase Docker memory
-# Edit docker-compose.yml: memory: 8g
-docker compose up -d docling
+export OPENAI_API_KEY="..."
+gobbler audio recording.mp3 --provider openai-whisper -o recording.md
 ```
 
-## Diagnostic Commands
-
-### Full System Check
+## YouTube transcript problems
 
 ```bash
-echo "=== Gobbler Diagnostics ==="
-
-echo "\n[CLI]"
-gobbler --version 2>/dev/null || echo "CLI not found"
-
-echo "\n[Docker]"
-docker info 2>/dev/null | head -5 || echo "Docker not running"
-
-echo "\n[Services]"
-docker ps --filter "name=gobbler" --format "{{.Names}}: {{.Status}}" 2>/dev/null
-
-echo "\n[Health Checks]"
-curl -s http://localhost:5001/health && echo " - Docling" || echo "Docling: FAILED"
-curl -s http://localhost:11235/health && echo " - Crawl4AI" || echo "Crawl4AI: FAILED"
+gobbler youtube "URL" --language auto
+gobbler status --json
 ```
 
-### View Service Logs
+Possible causes include missing captions, a private/age-restricted video, IP-based rate limiting, or malformed input.
+
+When YouTube blocks direct transcript traffic:
+
+1. Wait and retry.
+2. Try another video or caption language.
+3. Configure `WEBSHARE_USER`/`WEBSHARE_PASS` or `YOUTUBE_PROXY`.
+4. Configure `TRANSCRIPTAPI_KEY` for the documented paid fallback.
+
+Diagnostics sanitize credential-bearing URL components; do not paste live credential URLs into issue reports.
+
+## Queue and worker problems
+
+The current queue is SQLite-backed. Redis/RQ is not part of the active runtime.
 
 ```bash
-# Docling logs
-docker logs gobbler-docling --tail 100
-
-# Crawl4AI logs
-docker logs gobbler-crawl4ai --tail 100
+gobbler jobs worker status
+gobbler jobs list
+gobbler jobs count
 ```
 
-### Reset Everything
+Start the worker:
 
 ```bash
-# Stop all services
+gobbler jobs worker start
+```
+
+Submit work explicitly:
+
+```bash
+gobbler batch webpages urls.txt -o ./pages --queue --json
+```
+
+There is no automatic queue threshold in current command execution. `gobbler daemon` manages the browser relay compatibility surface, not the job worker.
+
+## Browser extension and relay
+
+```bash
+gobbler relay status
+gobbler browser status
+gobbler browser list
+```
+
+If disconnected:
+
+1. Confirm the unpacked extension is enabled.
+2. Confirm the target tab was added with **Allow & Add** or **Add Tab** in the extension popup.
+3. Restart the relay:
+
+```bash
+gobbler relay restart
+gobbler browser status
+```
+
+Most browser operations normally auto-start the relay. `gobbler browser status` is intentionally read-only and only reports current state.
+
+Third-party AI chat commands depend on changing site DOMs. If generic browser commands work but `notebooklm`, `claude`, `chatgpt`, or `gemini` commands fail, inspect extension errors and the page console, then verify the relevant page API still matches the live site.
+
+## Configuration problems
+
+```bash
+gobbler config path
+gobbler config show --format json
+```
+
+The path is `~/.config/gobbler/config.yml`. `GOBBLER_CONFIG` is not currently an alternate-path mechanism. Configuration is loaded per process; restart workers and relays after changing values they use.
+
+The current CLI has no `config validate` command. `config show` confirms what the loader accepted, but it is not a strict nested schema validator.
+
+## JSON troubleshooting
+
+Capture stdout and the exit code separately:
+
+```bash
+set +e
+gobbler status --json > status.json
+code=$?
+set -e
+python -m json.tool status.json
+echo "exit=$code"
+```
+
+For batches, parse each stdout line as a JSON event. The final `batch_complete` event contains the summary.
+
+## Safe reset procedures
+
+Restart services without deleting data or caches:
+
+```bash
 docker compose down
-
-# Remove containers and volumes
-docker compose down -v
-
-# Restart fresh
 docker compose up -d
-
-# Verify
-docker compose ps
+gobbler doctor --json
 ```
 
-## Auto-Start on Login (macOS)
+Do not use `docker compose down -v` unless you intentionally want to remove Compose volumes. Do not delete `~/.local/share/gobbler/jobs.db` unless queued-job history can be discarded.
 
-Create `~/Library/LaunchAgents/com.gobbler.plist`:
+## Report a bug
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.gobbler</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>-c</string>
-        <string>cd /path/to/gobbler && docker compose up -d</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-```
+Include:
 
-Load it:
+- `gobbler --version`
+- Sanitized `gobbler doctor --json`
+- The exact command and exit code
+- The relevant Docker or relay log excerpt
+- Operating system, Python version, and Docker runtime
 
-```bash
-launchctl load ~/Library/LaunchAgents/com.gobbler.plist
-```
+Remove API keys, proxy credentials, private URLs, cookies, and converted private content before posting.
 
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `GOBBLER_LOG_LEVEL` | Logging level | INFO |
-| `TRANSCRIPTAPI_KEY` | TranscriptAPI.com key | - |
-| `GOBBLER_CONFIG` | Config file path | `~/.config/gobbler/config.yaml` |
-
-## Getting Help
-
-- **Run diagnostics**: `make diagnose`
-- **Check logs**: `docker logs gobbler-docling --tail 50`
-- **GitHub Issues**: [Enablement-Engineering/gobbler/issues](https://github.com/Enablement-Engineering/gobbler/issues)
+Issues: <https://github.com/Enablement-Engineering/gobbler/issues>

@@ -9,8 +9,10 @@ Guidelines for AI coding agents. See [CONTRIBUTING.md](CONTRIBUTING.md) for full
 make dev                    # Development install with all extras
 
 # Tests
-make test                   # Unit + integration tests
+make test                   # Unit tests
 make test-unit              # Unit tests only
+make test-integration       # Integration tests
+make test-all               # Unit + integration + end-to-end tests
 uv run pytest tests/unit/test_youtube_converter.py -v                        # Single file
 uv run pytest tests/unit/test_youtube_converter.py::TestVideoIdExtraction -v # Single class
 uv run pytest tests/unit/test_youtube_converter.py::TestVideoIdExtraction::test_extract_video_id_standard_url -v  # Single test
@@ -25,6 +27,9 @@ make typecheck              # Run mypy
 
 # All Checks
 uv run pre-commit run --all-files
+
+# Documentation
+uv run --extra docs mkdocs build --strict
 ```
 
 ## Project Structure
@@ -34,7 +39,7 @@ src/
   gobbler_cli/      # CLI commands (Typer-based)
   gobbler_core/     # Core converters and providers
   gobbler_relay/    # WebSocket relay for browser extension
-  gobbler_queue/    # Background job queue (RQ-based)
+  gobbler_queue/    # SQLite-backed background job queue and worker
 skills/             # AI agent skill definitions
 tests/unit/         # Unit tests
 tests/integration/  # Integration tests
@@ -150,7 +155,7 @@ Runs automatically on commit:
 
 - **Typer**: CLI framework
 - **httpx**: Async HTTP client
-- **RQ**: Background job queue (Redis-based)
-- **Whisper**: Audio transcription
+- **SQLite**: Persistent background job queue
+- **faster-whisper/CTranslate2**: Local audio transcription
 - **Docling**: Document conversion
 - **Crawl4AI**: Web crawling

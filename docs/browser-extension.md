@@ -18,28 +18,31 @@ already open in the browser and have been added to the Gobbler tab group.
 
 ## Installation
 
-### 1. Load Extension in Chrome
+### 1. Load the unpacked extension
 
-1. Open Chrome and go to `chrome://extensions/`
+1. Open Chrome, Brave, Edge, or another Chromium browser and go to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in top right)
 3. Click **Load unpacked**
 4. Select the `browser-extension` directory from the Gobbler repo
 
-### 2. Create Gobbler Tab Group
+### 2. Authorize and add a tab
 
-1. Right-click any tab you want to control
-2. Select **Add to group** → **New group**
-3. Name the group exactly **"Gobbler"**
+1. Open a harmless page such as `https://example.com`.
+2. Open the Gobbler extension popup.
+3. Click **Allow & Add** (first use for an origin) or **Add Tab**.
 
-Only tabs in the "Gobbler" group can be controlled by Gobbler (security feature).
+The extension creates and remembers its own tab group. Authorization uses the stored group ID, not
+the visible group title. Manually creating or renaming another group to "Gobbler" does not authorize
+its tabs.
 
-### 3. Verify Connection
+### 3. Verify the connection
 
 ```bash
+gobbler relay start
 gobbler browser status
 ```
 
-With the extension loaded and connected, this should show `1 browser extension(s) connected`. Without the extension connected, expect `No browser extension connected`.
+`browser status` is intentionally read-only and does not start the relay. Most other browser operations auto-start it on `127.0.0.1:4625`. With the extension connected, status reports the connection count. Without it, expect `No browser extension connected`.
 
 ## How It Works
 
@@ -65,13 +68,17 @@ The extension does not bypass site access controls or bot detection. Sites may s
 block, or detect automated behavior. Use browser automation only on pages the user explicitly asks
 to use.
 
+The popup's configurable **Server URL** applies to its HTTP extraction requests. CLI automation uses
+the extension's WebSocket connection, which is currently fixed to `ws://localhost:4625/ws`; custom
+relay host/port values do not reconfigure that extension WebSocket.
+
 ## Security Model
 
-**Tab Group Isolation**: Only tabs in the "Gobbler" tab group are accessible. This prevents accidental access to sensitive tabs (banking, email, etc.).
+**Extension-managed group isolation**: Only tabs in the extension's stored group are accessible. This prevents accidental access to unrelated tabs.
 
-To add a tab to the group:
-1. Right-click the tab
-2. Select "Add to group" → "Gobbler"
+Site-origin permissions gate scripting-based extraction and page-API injection. They do not gate debugger-based `browser exec`, which only checks membership in the stored group before attaching the debugger.
+
+For a new origin, use **Allow & Add** in the popup so Chrome can display the permission request. After permission has already been granted for that origin, **Add Tab** or the Gobbler context-menu action can add it to the managed group. The context menu cannot request a new origin permission.
 
 To remove a tab:
 1. Right-click the tab
@@ -79,6 +86,10 @@ To remove a tab:
 
 Do not submit forms, send messages, or take account-changing actions unless the user explicitly
 requests that action.
+
+`gobbler browser exec` uses Chrome's debugger permission to evaluate JavaScript. Chrome may show a
+debugging banner, and the debugger attachment can remain until the tab closes or the relay
+disconnects. Treat `browser exec` as arbitrary page-side-effect capability, not read-only extraction.
 
 ## CLI Commands
 
@@ -115,7 +126,7 @@ gobbler browser open "url1" "url2" "url3"
 # Full page
 gobbler browser extract -o page.md
 
-# With selector (experimental)
+# With selector
 gobbler browser extract --selector "article.content" -o article.md
 ```
 
@@ -148,12 +159,13 @@ gobbler browser exec "document.querySelectorAll('h1').length"
 ### "No tabs found"
 
 1. Open the page you want to control
-2. Right-click tab → "Add to group" → "Gobbler"
+2. Use **Allow & Add** or **Add Tab** in the extension popup
 3. Run `gobbler browser list`
 
 ### Commands timeout
 
-- Increase timeout: `--timeout 60`
+- `browser exec` awaits a returned Promise and supports `--timeout`; for example, `gobbler browser exec "slowOperation()" --timeout 60`. Do not use a bare top-level `await`, which is invalid in this evaluation context.
+- `browser extract` does not currently expose a timeout option
 - Check browser tab is active
 - Verify page has loaded completely
 

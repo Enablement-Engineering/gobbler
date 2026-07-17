@@ -6,6 +6,19 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.24] - 2026-07-17
+
+### Changed
+
+- Reconciled installation, CLI, configuration, provider, queue, browser-extension, troubleshooting, contributor, and agent-skill documentation with the current runtime.
+- Documented extension-managed tab scope, automatic page-API injection, relay lifecycle, and browser debugger security boundaries.
+- Synchronized package and extension release versions and added regression coverage for version drift.
+
+### Fixed
+
+- Made `gobbler config init` use the repository's canonical example in source checkouts.
+- Made queued webpage-batch output point to `gobbler jobs get JOB_ID` and the SQLite worker rather than the unrelated legacy daemon wrapper.
+
 ## [0.2.23] - 2026-07-17
 
 ### Fixed
