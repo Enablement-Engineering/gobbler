@@ -18,6 +18,7 @@ from gobbler_cli.commands.convert import (
     WEBPAGE_INVALID_URL_MESSAGE,
     WEBPAGE_INVALID_URL_SUGGESTION,
     _is_valid_webpage_url,
+    _safe_youtube_failure_source,
 )
 from gobbler_cli.knowledge import (
     PREVIEW_ITEM_LIMIT,
@@ -245,17 +246,43 @@ def _is_valid_youtube_playlist_url(url: str) -> bool:
     return any(playlist_id.strip() for playlist_id in playlist_ids)
 
 
+def _safe_youtube_playlist_failure_source(url: str) -> str:
+    """Return a minimal authority-only identity for invalid playlist diagnostics."""
+    if url.startswith("//"):
+        return REDACTED
+
+    safe_source = _safe_youtube_failure_source(url)
+    if safe_source == REDACTED or "://" not in safe_source:
+        return safe_source
+
+    try:
+        scheme, authority = safe_source.split("://", 1)
+        authority = authority.rsplit("@", 1)[-1]
+        parsed = urlparse(f"{scheme}://{authority}")
+        hostname = parsed.hostname
+        port = parsed.port
+        if not scheme or not hostname:
+            return REDACTED
+    except Exception:
+        return REDACTED
+    else:
+        host = f"[{hostname}]" if ":" in hostname else hostname
+        safe_authority = f"{host}:{port}" if port is not None else host
+        return f"{scheme}://{safe_authority}"
+
+
 def _write_invalid_youtube_playlist_url_error(url: str, json_output: bool) -> None:
     """Write stable invalid-input diagnostics for a YouTube playlist URL."""
     if json_output:
+        safe_source = _safe_youtube_playlist_failure_source(url)
         _write_json_line(
             {
                 "type": "invalid_input",
                 "success": False,
                 "error_code": YOUTUBE_PLAYLIST_INVALID_URL_CODE,
                 "error": YOUTUBE_PLAYLIST_INVALID_URL_MESSAGE,
-                "url": url,
-                "source": url,
+                "url": safe_source,
+                "source": safe_source,
                 "suggestion": YOUTUBE_PLAYLIST_INVALID_URL_SUGGESTION,
             }
         )

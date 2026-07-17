@@ -24,6 +24,7 @@ from gobbler_cli.output import (
     write_json_result,
     write_output,
 )
+from gobbler_core.utils.redaction import REDACTED
 from gobbler_queue.models import Job, JobStatus, JobSummary, JobType
 
 # =============================================================================
@@ -1165,12 +1166,12 @@ class TestBatchYoutubePlaylistUrlValidation:
     """Tests for batch YouTube playlist local URL validation."""
 
     @pytest.mark.parametrize(
-        "playlist_url",
+        ("playlist_url", "safe_source"),
         [
-            "not-a-url",
-            "ftp://youtube.com/playlist?list=PL123",
-            "https://example.com/playlist?list=PL123",
-            "https://youtube.com/playlist?list=",
+            ("not-a-url", "not-a-url"),
+            ("ftp://youtube.com/playlist?list=PL123", "ftp://youtube.com"),
+            ("https://example.com/playlist?list=PL123", "https://example.com"),
+            ("https://youtube.com/playlist?list=", "https://youtube.com"),
         ],
     )
     @patch("yt_dlp.YoutubeDL")
@@ -1178,6 +1179,7 @@ class TestBatchYoutubePlaylistUrlValidation:
         self,
         mock_youtube_dl: MagicMock,
         playlist_url: str,
+        safe_source: str,
         runner: CliRunner,
         cli_app,
         tmp_path: Path,
@@ -1202,8 +1204,134 @@ class TestBatchYoutubePlaylistUrlValidation:
         assert result.exit_code == 1
         assert [line["type"] for line in lines] == ["invalid_input", "batch_complete"]
         assert lines[0]["error_code"] == "YOUTUBE_PLAYLIST_INVALID_URL"
-        assert lines[0]["url"] == playlist_url
+        assert lines[0]["url"] == safe_source
+        assert lines[0]["source"] == safe_source
         assert lines[1]["summary"]["outcomes"]["invalid_input"] == 1
+        assert not output_dir.exists()
+        mock_youtube_dl.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("playlist_url", "safe_source", "submitted_fragments"),
+        [
+            (
+                "https://user:pass@evil.example/playlist?list=private-list&token=secret-value"
+                "#private-fragment",
+                "https://evil.example",
+                (
+                    "user:pass",
+                    "evil.example/playlist?list=private-list",
+                    "secret-value",
+                    "private-fragment",
+                ),
+            ),
+            (
+                "youtube.com/playlist?list=private-list&session=secret-value#private-fragment",
+                REDACTED,
+                (
+                    "youtube.com/playlist?list=private-list",
+                    "secret-value",
+                    "private-fragment",
+                ),
+            ),
+            (
+                "//youtube.com/private-path-token?list=private-list#private-fragment",
+                REDACTED,
+                ("private-path-token", "private-list", "private-fragment"),
+            ),
+            (
+                "https://youtube.com/private-path-token",
+                "https://youtube.com",
+                ("private-path-token",),
+            ),
+            (
+                "https://youtube.com\\malformed-private-path-token?list=private-list",
+                REDACTED,
+                ("malformed-private-path-token", "private-list"),
+            ),
+            (
+                "https://[2001:db8::1]:8443/private-path-token?list=private-list",
+                "https://[2001:db8::1]:8443",
+                ("private-path-token", "private-list"),
+            ),
+        ],
+    )
+    @patch("yt_dlp.YoutubeDL")
+    def test_batch_youtube_playlist_json_redacts_marked_invalid_url(
+        self,
+        mock_youtube_dl: MagicMock,
+        playlist_url: str,
+        safe_source: str,
+        submitted_fragments: tuple[str, ...],
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """Credential-bearing or ambiguous invalid URLs fail with safe JSON sources."""
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "batch",
+                "youtube-playlist",
+                playlist_url,
+                "--output",
+                str(output_dir),
+                "--json",
+                "--dry-run",
+            ],
+        )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        invalid_input = lines[0]
+        serialized = json.dumps(invalid_input)
+        assert result.exit_code == 1
+        assert invalid_input["error_code"] == "YOUTUBE_PLAYLIST_INVALID_URL"
+        assert invalid_input["url"] == safe_source
+        assert invalid_input["source"] == safe_source
+        assert "?" not in invalid_input["url"]
+        assert "#" not in invalid_input["url"]
+        for fragment in submitted_fragments:
+            assert fragment not in serialized
+        assert not output_dir.exists()
+        mock_youtube_dl.assert_not_called()
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_batch_youtube_playlist_json_sanitizer_value_error_fails_closed(
+        self,
+        mock_youtube_dl: MagicMock,
+        runner: CliRunner,
+        cli_app,
+        tmp_path: Path,
+    ) -> None:
+        """A sanitizer parsing failure still emits parseable, safely redacted JSON."""
+        playlist_url = "https://example.com/private-path-token?list=private-list#private-fragment"
+        output_dir = tmp_path / "output"
+
+        parsed_url = batch.urlparse(playlist_url)
+        with patch(
+            "gobbler_cli.commands.batch.urlparse",
+            side_effect=[parsed_url, ValueError("bad port")],
+        ) as mock_urlparse:
+            result = runner.invoke(
+                cli_app,
+                [
+                    "batch",
+                    "youtube-playlist",
+                    playlist_url,
+                    "--output",
+                    str(output_dir),
+                    "--json",
+                    "--dry-run",
+                ],
+            )
+
+        lines = [json.loads(line) for line in result.output.strip().split("\n") if line]
+        assert result.exit_code == 1
+        assert lines[0]["url"] == REDACTED
+        assert lines[0]["source"] == REDACTED
+        assert playlist_url not in json.dumps(lines)
+        assert mock_urlparse.call_count == 2
         assert not output_dir.exists()
         mock_youtube_dl.assert_not_called()
 
