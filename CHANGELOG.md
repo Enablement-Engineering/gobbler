@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.25] - 2026-07-18
+
+### Changed
+- Updated every test and security workflow checkout step to `actions/checkout` v7.
+- Added a static workflow dependency regression test so checkout major versions cannot drift between jobs.
+
 ## [0.2.24] - 2026-07-17
 
 ### Changed
@@ -215,7 +221,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.24...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.25...HEAD
+[0.2.25]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.24...v0.2.25
 [0.2.24]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.23...v0.2.24
 [0.2.23]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.22...v0.2.23
 [0.2.22]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.21...v0.2.22

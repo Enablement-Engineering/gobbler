@@ -20,7 +20,7 @@ Usage:
 Converters live in this package and are used by the CLI.
 """
 
-__version__ = "0.2.24"
+__version__ = "0.2.25"
 
 # Convenience imports for common use cases
 from gobbler_core.providers.youtube import (
