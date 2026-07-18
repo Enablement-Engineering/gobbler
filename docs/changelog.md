@@ -6,6 +6,13 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.25] - 2026-07-18
+
+### Changed
+
+- Updated every test and security workflow checkout step to `actions/checkout` v7.
+- Added a static workflow dependency regression test so checkout major versions cannot drift between jobs.
+
 ## [0.2.24] - 2026-07-17
 
 ### Changed
