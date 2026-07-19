@@ -6,6 +6,17 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.26] - 2026-07-19
+
+### Added
+
+- Added deterministic YouTube overview, repeatable exact-timestamp, and repeatable inclusive-range JPEG extraction with durable Markdown and JSON manifests.
+- Added `--frames-only` refinement that bypasses transcript providers, plus explicit and output-derived frame directories.
+
+### Security
+
+- Sanitized yt-dlp/FFmpeg frame failures so signed stream URLs, URL credentials and private components, query values, fragments, and cookie values cannot enter diagnostics or warnings.
+
 ## [0.2.25] - 2026-07-18
 
 ### Changed

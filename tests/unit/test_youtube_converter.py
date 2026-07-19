@@ -2,6 +2,9 @@
 
 import asyncio
 import json
+import sys
+import time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -16,6 +19,14 @@ from gobbler_core.converters.youtube import (
     extract_video_id,
     format_timestamp,
     get_video_metadata,
+)
+from gobbler_core.converters.youtube_frames import (
+    FrameExtractionResult,
+    FrameFailure,
+    VideoFrameArtifact,
+    YouTubeFrameError,
+    YouTubeFrameRequest,
+    YouTubeStreamInfo,
 )
 from gobbler_core.providers.youtube import (
     AutoFallbackProvider,
@@ -790,3 +801,438 @@ class TestYouTubeConversion:
                 provider=mock_provider,
                 timeout=0.01,
             )
+
+    @pytest.mark.asyncio
+    async def test_convert_youtube_augments_transcript_with_frames(self, tmp_path: Path) -> None:
+        """A frame request appends a manifest without changing transcript providers."""
+        provider = create_mock_provider([{"text": "Transcript", "start": 0, "duration": 3}])
+        output = tmp_path / "video.md"
+        artifact = VideoFrameArtifact(
+            5.0,
+            "00:05.000",
+            tmp_path / "video.assets/frames/frame-001-00-00-05-000.jpg",
+            "image/jpeg",
+            "overview",
+        )
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Video",
+                    "channel": "Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                return_value=YouTubeStreamInfo("signed-stream", 10.0),
+            ),
+            patch(
+                "gobbler_core.converters.youtube.extract_youtube_frames",
+                return_value=FrameExtractionResult(frames=[artifact], duration_seconds=10.0),
+            ) as extract_frames,
+        ):
+            markdown, metadata = await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=provider,
+                frame_request=YouTubeFrameRequest(overview_count=1),
+                output_path=output,
+            )
+
+        assert "# Video Transcript" in markdown
+        assert "## Video Frames" in markdown
+        assert metadata["frames"][0]["timestamp"] == "00:05.000"
+        extract_frames.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_combined_markdown_reports_partial_frame_failures_safely(
+        self, tmp_path: Path
+    ) -> None:
+        """Transcript Markdown includes the same sanitized partial-frame warning section."""
+        provider = create_mock_provider([{"text": "Transcript", "start": 0, "duration": 3}])
+        output = tmp_path / "video.md"
+        frame_result = FrameExtractionResult(
+            frames=[
+                VideoFrameArtifact(
+                    5.0,
+                    "00:05.000",
+                    tmp_path / "video.assets/frames/frame-001-00-00-05-000.jpg",
+                    "image/jpeg",
+                    "exact",
+                )
+            ],
+            failures=[
+                FrameFailure(
+                    8.0,
+                    "00:08.000",
+                    "overview",
+                    "ffmpeg_timeout",
+                    (
+                        "raw stderr https://media.invalid/video?signature=signed-secret "
+                        "/Users/example/local-secret"
+                    ),
+                )
+            ],
+            duration_seconds=10.0,
+        )
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Video",
+                    "channel": "Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                return_value=YouTubeStreamInfo("signed-stream", 10.0),
+            ),
+            patch(
+                "gobbler_core.converters.youtube.extract_youtube_frames",
+                return_value=frame_result,
+            ),
+        ):
+            markdown, metadata = await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=provider,
+                frame_request=YouTubeFrameRequest(exact_timestamps=(5.0, 8.0)),
+                output_path=output,
+            )
+
+        assert "# Video Transcript" in markdown
+        assert "## Video Frames" in markdown
+        assert "## Frame Warnings" in markdown
+        assert "00:08.000" in markdown
+        assert "overview" in markdown
+        assert "ffmpeg_timeout" in markdown
+        assert "FFmpeg timed out while extracting this frame" in markdown
+        assert metadata["warnings"][0]["message"] == (
+            "FFmpeg timed out while extracting this frame"
+        )
+        for secret in ("raw stderr", "signed-secret", "local-secret", "media.invalid"):
+            assert secret not in markdown
+            assert secret not in json.dumps(metadata)
+
+    @pytest.mark.asyncio
+    async def test_combined_frames_share_one_overall_timeout_budget(self, tmp_path: Path) -> None:
+        """Transcript work and delayed frame extraction share one timeout budget."""
+        provider = create_mock_provider([{"text": "Transcript", "start": 0, "duration": 3}])
+        transcript_result = provider.fetch.return_value
+
+        def delayed_fetch(*_args, **_kwargs):
+            time.sleep(0.3)
+            return transcript_result
+
+        provider.fetch.side_effect = delayed_fetch
+        extraction_started = False
+        extraction_completed = False
+
+        async def delayed_extraction(*_args, **_kwargs):
+            nonlocal extraction_started, extraction_completed
+            extraction_started = True
+            await asyncio.sleep(0.3)
+            extraction_completed = True
+            return FrameExtractionResult(frames=[], duration_seconds=10.0)
+
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Video",
+                    "channel": "Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                return_value=YouTubeStreamInfo("signed-stream", 10.0),
+            ),
+            patch(
+                "gobbler_core.converters.youtube.extract_youtube_frames",
+                side_effect=delayed_extraction,
+            ),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=provider,
+                timeout=0.5,
+                frame_request=YouTubeFrameRequest(overview_count=1),
+                output_path=tmp_path / "video.md",
+            )
+
+        assert str(exc_info.value) == "YouTube conversion timed out after 0.5s"
+        assert extraction_started is True
+        assert extraction_completed is False
+
+    @pytest.mark.asyncio
+    async def test_convert_youtube_frames_only_never_constructs_provider(
+        self, tmp_path: Path
+    ) -> None:
+        """Frames-only conversion does not construct or call transcript providers."""
+        output = tmp_path / "frames.md"
+        artifact = VideoFrameArtifact(
+            5.0,
+            "00:05.000",
+            tmp_path / "frames.assets/frames/frame-001-00-00-05-000.jpg",
+            "image/jpeg",
+            "exact",
+        )
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Video",
+                    "channel": "Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                return_value=YouTubeStreamInfo("signed-stream", 10.0),
+            ),
+            patch(
+                "gobbler_core.converters.youtube.extract_youtube_frames",
+                return_value=FrameExtractionResult(frames=[artifact], duration_seconds=10.0),
+            ),
+            patch("gobbler_core.converters.youtube.create_provider_from_config") as factory,
+        ):
+            markdown, metadata = await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                frame_request=YouTubeFrameRequest(exact_timestamps=(5.0,)),
+                frames_only=True,
+                output_path=output,
+            )
+
+        factory.assert_not_called()
+        assert "type: youtube_frames" in markdown
+        assert "# Video Frames" in markdown
+        assert "# Video Transcript" not in markdown
+        assert metadata["duration"] == 10.0
+
+    @pytest.mark.asyncio
+    async def test_frames_only_markdown_reports_partial_failures_and_omits_thumbnail_query(
+        self, tmp_path: Path
+    ) -> None:
+        """Default Markdown exposes partial failures without retaining signed metadata URLs."""
+        output = tmp_path / "frames.md"
+        artifact = VideoFrameArtifact(
+            5.0,
+            "00:05.000",
+            tmp_path / "frames.assets/frames/frame-001.jpg",
+            "image/jpeg",
+            "exact",
+        )
+        frame_result = FrameExtractionResult(
+            frames=[artifact],
+            failures=[
+                FrameFailure(
+                    8.0,
+                    "00:08.000",
+                    "range",
+                    "ffmpeg_failed",
+                    "FFmpeg could not decode this frame",
+                )
+            ],
+            duration_seconds=10.0,
+        )
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Video",
+                    "channel": "Channel",
+                    "thumbnail": "https://i.ytimg.com/image.jpg?token=thumbnail-secret",
+                    "description": None,
+                },
+            ),
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                return_value=YouTubeStreamInfo("signed-stream", 10.0),
+            ),
+            patch(
+                "gobbler_core.converters.youtube.extract_youtube_frames",
+                return_value=frame_result,
+            ),
+        ):
+            markdown, _metadata = await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                frame_request=YouTubeFrameRequest(exact_timestamps=(5.0, 8.0)),
+                frames_only=True,
+                output_path=output,
+            )
+
+        assert "## Frame Warnings" in markdown
+        assert "00:08.000" in markdown
+        assert "FFmpeg could not decode this frame" in markdown
+        assert "thumbnail-secret" not in markdown
+
+    def test_frames_only_timeout_does_not_wait_for_stalled_resolver(self, tmp_path: Path) -> None:
+        """The CLI-facing event loop returns promptly after the overall deadline."""
+
+        def stalled_resolver(_url: str) -> YouTubeStreamInfo:
+            time.sleep(1.0)
+            return YouTubeStreamInfo("signed-stream", 10.0)
+
+        started = time.monotonic()
+        with (
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": None,
+                    "channel": None,
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                side_effect=stalled_resolver,
+            ),
+            pytest.raises(RuntimeError, match="timed out"),
+        ):
+            asyncio.run(
+                convert_youtube_to_markdown(
+                    "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                    timeout=0.05,
+                    frame_request=YouTubeFrameRequest(exact_timestamps=(1.0,)),
+                    frames_only=True,
+                    output_path=tmp_path / "frames.md",
+                )
+            )
+
+        assert time.monotonic() - started < 0.5
+
+    def test_frames_only_metadata_timeout_does_not_replace_process_stderr(
+        self, tmp_path: Path
+    ) -> None:
+        """Detached optional metadata work never captures later CLI diagnostics."""
+
+        class SlowYoutubeDL:
+            """Minimal delayed yt-dlp context manager."""
+
+            def __init__(self, *_args, **_kwargs) -> None:
+                """Accept yt-dlp options."""
+
+            def __enter__(self) -> "SlowYoutubeDL":
+                """Enter the fake downloader."""
+                return self
+
+            def __exit__(self, *_args) -> None:
+                """Exit the fake downloader."""
+
+            def extract_info(self, *_args, **_kwargs) -> dict[str, str]:
+                """Delay optional metadata beyond the overall deadline."""
+                time.sleep(1.0)
+                return {"title": "late"}
+
+        original_stderr = sys.stderr
+        with (
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch("gobbler_core.converters.youtube.yt_dlp.YoutubeDL", SlowYoutubeDL),
+            pytest.raises(RuntimeError, match="timed out"),
+        ):
+            asyncio.run(
+                convert_youtube_to_markdown(
+                    "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                    timeout=0.05,
+                    frame_request=YouTubeFrameRequest(exact_timestamps=(1.0,)),
+                    frames_only=True,
+                    output_path=tmp_path / "frames.md",
+                )
+            )
+
+        assert sys.stderr is original_stderr
+
+    @pytest.mark.asyncio
+    async def test_frames_only_shares_one_overall_timeout_budget(self, tmp_path: Path) -> None:
+        """Stream resolution and delayed frame extraction share one timeout budget."""
+        extraction_started = False
+        extraction_completed = False
+
+        def delayed_stream_resolution(_url: str) -> YouTubeStreamInfo:
+            time.sleep(0.3)
+            return YouTubeStreamInfo("signed-stream", 10.0)
+
+        async def delayed_extraction(*_args, **_kwargs):
+            nonlocal extraction_started, extraction_completed
+            extraction_started = True
+            await asyncio.sleep(0.3)
+            extraction_completed = True
+            return FrameExtractionResult(frames=[], duration_seconds=10.0)
+
+        with (
+            patch(
+                "gobbler_core.converters.youtube.get_video_metadata",
+                return_value={
+                    "title": "Video",
+                    "channel": "Channel",
+                    "thumbnail": None,
+                    "description": None,
+                },
+            ),
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available"),
+            patch(
+                "gobbler_core.converters.youtube.resolve_youtube_stream",
+                side_effect=delayed_stream_resolution,
+            ),
+            patch(
+                "gobbler_core.converters.youtube.extract_youtube_frames",
+                side_effect=delayed_extraction,
+            ),
+            patch("gobbler_core.converters.youtube.create_provider_from_config") as factory,
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                timeout=0.5,
+                frame_request=YouTubeFrameRequest(exact_timestamps=(5.0,)),
+                frames_only=True,
+                output_path=tmp_path / "frames.md",
+            )
+
+        assert str(exc_info.value) == "YouTube conversion timed out after 0.5s"
+        assert extraction_started is True
+        assert extraction_completed is False
+        factory.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_convert_youtube_frames_only_requires_selector(self) -> None:
+        """Frames-only mode requires a non-empty typed request."""
+        with pytest.raises(ValueError, match="requires at least one frame selector"):
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                frames_only=True,
+            )
+
+    @pytest.mark.asyncio
+    async def test_missing_ffmpeg_fails_before_transcript_work(self, tmp_path: Path) -> None:
+        """Explicit frame work preflights FFmpeg before touching a provider."""
+        provider = create_mock_provider([{"text": "Transcript", "start": 0, "duration": 3}])
+        error = YouTubeFrameError("FFmpeg is required", {"error_type": "ffmpeg_missing"})
+
+        with (
+            patch("gobbler_core.converters.youtube.ensure_ffmpeg_available", side_effect=error),
+            patch("gobbler_core.converters.youtube.get_video_metadata") as metadata,
+            pytest.raises(YouTubeFrameError, match="FFmpeg is required"),
+        ):
+            await convert_youtube_to_markdown(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                provider=provider,
+                frame_request=YouTubeFrameRequest(overview_count=1),
+                output_path=tmp_path / "video.md",
+            )
+
+        provider.fetch.assert_not_called()
+        metadata.assert_not_called()

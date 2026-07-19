@@ -80,6 +80,7 @@ nav:
     - Setup & Troubleshooting: setup-troubleshooting.md
   - Guide:
     - CLI Usage: cli.md
+    - YouTube Transcripts & Frames: guides/youtube.md
     - Configuration: configuration.md
     - Browser Extension: browser-extension.md
     - Skills Overview: SKILLS.md

@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from rich.console import Console
 from rich.table import Table
@@ -17,6 +20,193 @@ console = Console()
 error_console = Console(stderr=True)
 
 JSON_SCHEMA_VERSION = 1
+
+
+def _fsync_directory(path: Path) -> None:
+    """Fsync a directory after an atomic output rename where supported."""
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+@dataclass
+class _OutputPathLock:
+    """Cross-process advisory lock held for an entire output transaction."""
+
+    handle: BinaryIO
+    released: bool = False
+
+    def release(self) -> None:
+        """Release the platform lock exactly once and close its descriptor."""
+        if self.released:
+            return
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                self.handle.seek(0)
+                msvcrt.locking(  # type: ignore[attr-defined]
+                    self.handle.fileno(),
+                    msvcrt.LK_UNLCK,  # type: ignore[attr-defined]
+                    1,
+                )
+            else:
+                import fcntl
+
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            self.released = True
+            self.handle.close()
+
+
+def _acquire_output_path_lock(target_path: Path) -> _OutputPathLock:
+    """Acquire a blocking cross-process lock for one canonical output path."""
+    lock_path = target_path.parent / f".{target_path.name}.gobbler-output.lock"
+    handle = lock_path.open("a+b")
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+            if handle.read(1) == b"":
+                handle.seek(0)
+                handle.write(b"0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(  # type: ignore[attr-defined]
+                handle.fileno(),
+                msvcrt.LK_LOCK,  # type: ignore[attr-defined]
+                1,
+            )
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        return _OutputPathLock(handle)
+    except BaseException:
+        handle.close()
+        raise
+
+
+def _canonical_output_path(output_path: Path) -> Path:
+    """Resolve an output's actual file target while preserving symlink objects."""
+    if output_path.exists() or output_path.is_symlink():
+        return output_path.resolve(strict=True)
+    return output_path.parent.resolve(strict=False) / output_path.name
+
+
+@dataclass
+class AtomicOutputTransaction:
+    """Persisted output that can be restored until a frame bundle commits."""
+
+    path: Path | None
+    backup_path: Path | None = None
+    created_new: bool = False
+    stdout_content: str | None = None
+    output_lock: _OutputPathLock | None = None
+    completed: bool = False
+
+    def rollback(self) -> None:
+        """Restore the prior output after a failed frame bundle commit."""
+        if self.completed:
+            return
+        try:
+            if self.path is not None:
+                if self.backup_path is not None:
+                    self.backup_path.replace(self.path)
+                elif self.created_new:
+                    self.path.unlink(missing_ok=True)
+                _fsync_directory(self.path.parent)
+        finally:
+            self.stdout_content = None
+            self.completed = True
+            if self.output_lock is not None:
+                self.output_lock.release()
+
+    def finalize(self) -> None:
+        """Remove the prior-output backup after the whole transaction succeeds."""
+        if self.completed:
+            return
+        try:
+            if self.path is None and self.stdout_content is not None:
+                sys.stdout.write(self.stdout_content)
+                if not self.stdout_content.endswith("\n"):
+                    sys.stdout.write("\n")
+                sys.stdout.flush()
+            elif self.backup_path is not None:
+                self.backup_path.unlink(missing_ok=True)
+                _fsync_directory(self.backup_path.parent)
+        finally:
+            self.stdout_content = None
+            self.completed = True
+            if self.output_lock is not None:
+                self.output_lock.release()
+
+
+def persist_text_transactionally(content: str, output_path: Path | None) -> AtomicOutputTransaction:
+    """Durably emit output and retain a rollback copy until explicitly finalized."""
+    if output_path is None:
+        return AtomicOutputTransaction(path=None, stdout_content=content)
+
+    target_path = _canonical_output_path(output_path)
+    output_parent = target_path.parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+    output_lock = _acquire_output_path_lock(target_path)
+    try:
+        temp_descriptor, temp_name = tempfile.mkstemp(
+            prefix=f".{target_path.name}.gobbler-output-", dir=output_parent
+        )
+    except BaseException:
+        output_lock.release()
+        raise
+    temp_path = Path(temp_name)
+    backup_path: Path | None = None
+    replaced = False
+    try:
+        with os.fdopen(temp_descriptor, "w", encoding="utf-8") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if target_path.exists() or target_path.is_symlink():
+            backup_descriptor, backup_name = tempfile.mkstemp(
+                prefix=f".{target_path.name}.gobbler-backup-", dir=output_parent
+            )
+            os.close(backup_descriptor)
+            backup_path = Path(backup_name)
+            shutil.copy2(target_path, backup_path, follow_symlinks=True)
+            with backup_path.open("rb") as backup_stream:
+                os.fsync(backup_stream.fileno())
+        temp_path.replace(target_path)
+        replaced = True
+        _fsync_directory(output_parent)
+        return AtomicOutputTransaction(
+            path=target_path,
+            backup_path=backup_path,
+            created_new=backup_path is None,
+            output_lock=output_lock,
+        )
+    except BaseException:
+        try:
+            temp_path.unlink(missing_ok=True)
+            if replaced:
+                try:
+                    if backup_path is not None:
+                        backup_path.replace(target_path)
+                    else:
+                        target_path.unlink(missing_ok=True)
+                    _fsync_directory(output_parent)
+                except OSError:
+                    # Preserve the backup as the only recoverable prior copy.
+                    pass
+            elif backup_path is not None:
+                backup_path.unlink(missing_ok=True)
+        finally:
+            output_lock.release()
+        raise
 
 
 def _open_command(output_path: Path, platform: str = sys.platform) -> list[str]:

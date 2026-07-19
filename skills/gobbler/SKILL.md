@@ -69,6 +69,10 @@ gobbler doctor --json
 # YouTube transcript, no Docker required
 gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o ./outputs/video.md
 
+# Deterministic visual overview, interpreted by the calling agent
+gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" \
+  --frames-only --frames 8 -o ./outputs/overview.md
+
 # Audio/video transcription
 gobbler audio ./meeting.mp3 --model small -o ./outputs/meeting.md
 
@@ -112,7 +116,7 @@ PY
 
 Load only the relevant reference when needed:
 
-- `references/youtube.md` — YouTube videos/playlists, captions, languages, timestamps.
+- `references/youtube.md` — YouTube videos/playlists, captions, languages, timestamps, and deterministic frame refinement.
 - `references/audio.md` — audio/video files, Whisper models, ffmpeg, timestamps.
 - `references/document.md` — PDFs and office documents, OCR, Docling readiness.
 - `references/webpage.md` — URLs/webpages, selector extraction, Crawl4AI readiness.

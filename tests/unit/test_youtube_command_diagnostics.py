@@ -12,6 +12,12 @@ import typer
 
 from gobbler_cli.commands import convert
 from gobbler_cli.output import OutputFormat
+from gobbler_core.converters.youtube_frames import (
+    FrameRange,
+    YouTubeFrameError,
+    YouTubeFrameRequest,
+    resolve_frame_targets,
+)
 from gobbler_core.providers.youtube import YouTubeTranscriptError, create_youtube_rate_limit_error
 from gobbler_core.utils.redaction import REDACTED
 
@@ -337,6 +343,468 @@ def test_youtube_valid_url_dispatches_to_converter(
             "timeout": 45,
         }
     ]
+
+
+def test_youtube_frame_options_dispatch_typed_request(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Repeatable frame selectors become one typed converter request."""
+    calls: list[dict[str, Any]] = []
+
+    async def fake_convert_youtube_to_markdown(**kwargs: Any) -> tuple[str, dict[str, Any]]:
+        calls.append(kwargs)
+        return "# Video Frames", {"frames": []}
+
+    monkeypatch.setattr(
+        "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+        fake_convert_youtube_to_markdown,
+    )
+    output = tmp_path / "frames.md"
+
+    convert.youtube(
+        url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+        output=output,
+        language="en",
+        timestamps=False,
+        clean=False,
+        output_format=OutputFormat.JSON,
+        timeout=30,
+        skip_if_exists=False,
+        overview_frames=2,
+        frame_at=["00:05.125", "8"],
+        frame_ranges=["00:10-00:20"],
+        range_frames=4,
+        frames_only=True,
+        frames_dir=None,
+    )
+
+    request = calls[0]["frame_request"]
+    assert request.overview_count == 2
+    assert request.exact_timestamps == (5.125, 8.0)
+    assert request.ranges[0].start == 10.0
+    assert request.range_count == 4
+    assert calls[0]["frames_only"] is True
+    assert calls[0]["output_path"] == output
+    assert json.loads(output.read_text(encoding="utf-8"))["success"] is True
+    capsys.readouterr()
+
+
+def test_clean_transcript_preserves_appended_frame_section_byte_for_byte() -> None:
+    """Clean mode changes only transcript prose in combined output."""
+    frame_section = (
+        "\n\n## Video Frames\n\n"
+        "### 00:05.000\n\n"
+        "![Video frame at 00:05.000](combined.assets/frames/frame-001.jpg)\n\n"
+        "### 00:10.000\n\n"
+        "![Video frame at 00:10.000](combined.assets/frames/frame-002.jpg)"
+    )
+    markdown = (
+        "---\ntype: youtube\n---\n\n"
+        "# Video Transcript\n\n"
+        "First caption line.\n\nSecond caption line." + frame_section
+    )
+
+    cleaned = convert._clean_transcript(markdown, preserve_frame_section=True)
+
+    assert cleaned == (
+        "---\ntype: youtube\n---\n\n"
+        "# Video Transcript\n\n"
+        "First caption line. Second caption line." + frame_section
+    )
+
+
+def test_clean_transcript_keeps_transcript_only_behavior() -> None:
+    """Transcript-only clean mode still merges caption blocks."""
+    markdown = "# Video Transcript\n\nFirst caption.\n\nSecond caption."
+
+    assert convert._clean_transcript(markdown) == (
+        "# Video Transcript\n\nFirst caption. Second caption."
+    )
+
+
+@pytest.mark.asyncio
+async def test_clean_combined_conversion_preserves_frame_manifest(tmp_path: Path) -> None:
+    """The command clean path passes combined output through frame-aware cleaning."""
+    frame_section = (
+        "\n\n## Video Frames\n\n"
+        "### 00:05.000\n\n"
+        "![Video frame at 00:05.000](combined.assets/frames/frame-001.jpg)"
+    )
+    markdown = "# Video Transcript\n\nFirst caption.\n\nSecond caption." + frame_section
+    output = tmp_path / "combined.json"
+
+    with patch(
+        "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+        new=AsyncMock(return_value=(markdown, {"word_count": 4})),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=output,
+            language="en",
+            timestamps=False,
+            clean=True,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+            frame_request=YouTubeFrameRequest(overview_count=2),
+            output_path=tmp_path / "combined.md",
+        )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["markdown"] == (
+        "# Video Transcript\n\nFirst caption. Second caption." + frame_section
+    )
+    assert payload["metadata"]["word_count"] == 4
+
+
+@pytest.mark.asyncio
+async def test_frame_commit_failure_restores_previous_json_output(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """The CLI output hook keeps the prior JSON until the frame commit succeeds."""
+    output = tmp_path / "frames.json"
+    output.write_text('{"previous": true}', encoding="utf-8")
+
+    async def fail_after_persistence(**kwargs: Any) -> tuple[str, dict[str, Any]]:
+        writer = kwargs["frame_manifest_writer"]
+        _markdown, _metadata, hooks = writer("# New frames", {"frames": []})
+        assert json.loads(output.read_text(encoding="utf-8"))["success"] is True
+        hooks.rollback()
+        message = "Unable to replace existing YouTube frame artifacts"
+        raise YouTubeFrameError(
+            message,
+            {"error_type": "filesystem_error", "stage": "frame_commit"},
+        )
+
+    with (
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=fail_after_persistence,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=output,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+            frame_request=YouTubeFrameRequest(exact_timestamps=(1.0,)),
+            frames_only=True,
+            output_path=output,
+        )
+
+    assert output.read_text(encoding="utf-8") == '{"previous": true}'
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error_code"] == "YOUTUBE_FRAME_EXTRACTION_ERROR"
+    assert not list(tmp_path.glob(".frames.json.gobbler-backup-*"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("output_format", [OutputFormat.MARKDOWN, OutputFormat.JSON])
+async def test_stdout_frame_commit_failure_emits_only_error_output(
+    capsys: pytest.CaptureFixture[str], output_format: OutputFormat
+) -> None:
+    """Buffered stdout success is discarded when its frame commit fails."""
+
+    async def fail_after_buffering(**kwargs: Any) -> tuple[str, dict[str, Any]]:
+        writer = kwargs["frame_manifest_writer"]
+        _markdown, _metadata, hooks = writer("stale success manifest", {"frames": []})
+        hooks.rollback()
+        message = "Unable to replace existing YouTube frame artifacts"
+        raise YouTubeFrameError(
+            message,
+            {"error_type": "filesystem_error", "stage": "frame_commit"},
+        )
+
+    with (
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=fail_after_buffering,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=output_format,
+            timeout=30,
+            frame_request=YouTubeFrameRequest(exact_timestamps=(1.0,), frames_dir=Path("frames")),
+            frames_only=True,
+        )
+
+    captured = capsys.readouterr()
+    assert "stale success manifest" not in captured.out + captured.err
+    if output_format == OutputFormat.JSON:
+        payload = json.loads(captured.out)
+        assert payload["success"] is False
+        assert payload["error_code"] == "YOUTUBE_FRAME_EXTRACTION_ERROR"
+        assert captured.out.count('"success"') == 1
+        assert captured.err == ""
+    else:
+        assert captured.out == ""
+        assert captured.err.count("Failed to convert YouTube video") == 1
+
+
+@pytest.mark.asyncio
+async def test_frame_markdown_stdout_is_manifest_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Frame manifests printed to stdout contain no Rich progress rendering."""
+    with (
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            new=AsyncMock(return_value=("---\ntype: youtube_frames\n---\n# Video Frames", {})),
+        ),
+        patch("gobbler_cli.commands.convert.ProgressTracker") as progress,
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.MARKDOWN,
+            timeout=30,
+            frame_request=YouTubeFrameRequest(exact_timestamps=(1.0,), frames_dir=Path("frames")),
+            frames_only=True,
+        )
+
+    progress.assert_not_called()
+    assert capsys.readouterr().out.startswith("---\ntype: youtube_frames")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"overview_frames": 1}, "--output or --frames-dir"),
+        ({"frames_only": True}, "at least one frame selector"),
+        ({"range_frames": 4}, "--frame-range"),
+        ({"frame_at": ["bad"]}, "Invalid frame timestamp"),
+        ({"frame_at": ["1"] * 49}, "maximum is 48"),
+    ],
+)
+def test_youtube_invalid_frame_request_fails_before_dispatch(
+    kwargs: dict[str, Any],
+    message: str,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cross-option and selector errors are stable agent-safe JSON failures."""
+    convert_youtube = AsyncMock()
+    monkeypatch.setattr(convert, "_convert_youtube", convert_youtube)
+    options: dict[str, Any] = {
+        "url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+        "output": None,
+        "language": "en",
+        "timestamps": False,
+        "clean": False,
+        "output_format": OutputFormat.JSON,
+        "timeout": 30,
+        "skip_if_exists": False,
+        "overview_frames": 0,
+        "frame_at": [],
+        "frame_ranges": [],
+        "range_frames": None,
+        "frames_only": False,
+        "frames_dir": None,
+    }
+    options.update(kwargs)
+
+    with pytest.raises(typer.Exit):
+        convert.youtube(**options)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error_code"] == "YOUTUBE_INVALID_FRAME_REQUEST"
+    assert message in payload["error"]
+    convert_youtube.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "selector_options",
+    [
+        {"frame_at": ["9" * 10_000]},
+        {"frame_ranges": [f"1-{'9' * 10_000}"]},
+    ],
+)
+def test_youtube_json_oversized_numeric_selector_emits_one_clean_validation_payload(
+    selector_options: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Decimal overflow never escapes the JSON selector-validation contract."""
+    convert_youtube = AsyncMock()
+    monkeypatch.setattr(convert, "_convert_youtube", convert_youtube)
+    options: dict[str, Any] = {
+        "url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+        "output": tmp_path / "frames.json",
+        "language": "en",
+        "timestamps": False,
+        "clean": False,
+        "output_format": OutputFormat.JSON,
+        "timeout": 30,
+        "skip_if_exists": False,
+        "overview_frames": 0,
+        "frame_at": [],
+        "frame_ranges": [],
+        "range_frames": None,
+        "frames_only": True,
+        "frames_dir": None,
+    }
+    options.update(selector_options)
+
+    with pytest.raises(typer.Exit) as exit_info:
+        convert.youtube(**options)
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_info.value.exit_code == 1
+    assert payload["error_code"] == "YOUTUBE_INVALID_FRAME_REQUEST"
+    assert captured.err == ""
+    assert captured.out.count('"error_code"') == 1
+    convert_youtube.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "frame_request_case",
+    [
+        YouTubeFrameRequest(exact_timestamps=(10.0,)),
+        YouTubeFrameRequest(exact_timestamps=(11.0,)),
+        YouTubeFrameRequest(ranges=(FrameRange(8.0, 10.0),), range_count=2),
+        YouTubeFrameRequest(ranges=(FrameRange(8.0, 11.0),), range_count=2),
+        YouTubeFrameRequest(
+            overview_count=24,
+            exact_timestamps=tuple(float(index) for index in range(25)),
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_youtube_json_post_duration_selector_errors_are_invalid_frame_requests(
+    frame_request_case: YouTubeFrameRequest,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Duration bounds and the total cap retain selector classification in JSON mode."""
+
+    async def resolve_then_fail(**kwargs: Any) -> tuple[str, dict[str, Any]]:
+        supplied = kwargs["frame_request"]
+        resolve_frame_targets(
+            duration_seconds=10.0,
+            overview_count=supplied.overview_count,
+            exact_timestamps=supplied.exact_timestamps,
+            ranges=supplied.ranges,
+            range_count=supplied.range_count,
+        )
+        pytest.fail("selector unexpectedly resolved")
+
+    with (
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=resolve_then_fail,
+        ),
+        pytest.raises(typer.Exit) as exit_info,
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+            frame_request=frame_request_case,
+            frames_only=True,
+        )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_info.value.exit_code == 1
+    assert payload["error_code"] == "YOUTUBE_INVALID_FRAME_REQUEST"
+    assert captured.err == ""
+    assert captured.out.count('"error_code"') == 1
+
+
+@pytest.mark.asyncio
+async def test_youtube_human_post_duration_selector_error_uses_validation_path(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Human output reports a clean selector error without a generic conversion wrapper."""
+
+    async def resolve_then_fail(**kwargs: Any) -> tuple[str, dict[str, Any]]:
+        supplied = kwargs["frame_request"]
+        resolve_frame_targets(
+            duration_seconds=10.0,
+            overview_count=supplied.overview_count,
+            exact_timestamps=supplied.exact_timestamps,
+            ranges=supplied.ranges,
+            range_count=supplied.range_count,
+        )
+        pytest.fail("selector unexpectedly resolved")
+
+    with (
+        patch("gobbler_cli.commands.convert.ProgressTracker", _NoopProgress),
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=resolve_then_fail,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.MARKDOWN,
+            timeout=30,
+            frame_request=YouTubeFrameRequest(exact_timestamps=(10.0,)),
+            frames_only=True,
+        )
+
+    captured = capsys.readouterr()
+    assert "before the video duration" in captured.err
+    assert "Failed to convert YouTube video" not in captured.err
+
+
+@pytest.mark.asyncio
+async def test_youtube_unavailable_frame_resolver_error_uses_frame_extraction_code(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Exception identity classifies generic resolver unavailability as a frame failure."""
+    error = YouTubeFrameError(
+        "Unable to resolve the YouTube video for frame extraction",
+        {"error_type": "unavailable", "stage": "stream_resolution"},
+    )
+
+    with (
+        patch(
+            "gobbler_core.converters.youtube.convert_youtube_to_markdown",
+            side_effect=error,
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        await convert._convert_youtube(
+            url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            output=None,
+            language="en",
+            timestamps=False,
+            clean=False,
+            output_format=OutputFormat.JSON,
+            timeout=30,
+            frame_request=YouTubeFrameRequest(exact_timestamps=(1.0,)),
+            frames_only=True,
+        )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["error_code"] == "YOUTUBE_FRAME_EXTRACTION_ERROR"
+    assert captured.err == ""
 
 
 class _NoopProgress:

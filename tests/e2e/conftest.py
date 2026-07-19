@@ -4,6 +4,7 @@ E2E tests run against real services and make actual network calls.
 Use markers to skip tests when required services are unavailable.
 """
 
+import shutil
 import subprocess
 import tempfile
 from collections.abc import Generator
@@ -62,6 +63,11 @@ def is_gobbler_cli_available() -> bool:
         return result.returncode == 0
 
 
+def is_ffmpeg_available() -> bool:
+    """Check whether system FFmpeg is available for media artifact tests."""
+    return shutil.which("ffmpeg") is not None
+
+
 # ============================================================================
 # Pytest configuration
 # ============================================================================
@@ -72,6 +78,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "requires_network: test requires internet access")
     config.addinivalue_line("markers", "requires_crawl4ai: test requires Crawl4AI Docker container")
     config.addinivalue_line("markers", "requires_docling: test requires Docling Docker container")
+    config.addinivalue_line("markers", "requires_ffmpeg: test requires system ffmpeg")
     config.addinivalue_line("markers", "slow: test takes more than 30 seconds")
 
 
@@ -95,6 +102,10 @@ def skip_by_marker(request):
         "requires_docling": (
             is_docling_available,
             "Docling not running (docker compose up docling)",
+        ),
+        "requires_ffmpeg": (
+            is_ffmpeg_available,
+            "FFmpeg not installed",
         ),
     }
 

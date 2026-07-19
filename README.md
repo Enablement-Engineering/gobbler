@@ -26,7 +26,7 @@ Websites and AI chat products can change their DOM without notice, so browser in
 
 ## Install from source
 
-Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/). Docker is optional for document/webpage conversion; ffmpeg is required for audio/video transcription.
+Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/). Docker is optional for document/webpage conversion; ffmpeg is required for audio/video transcription and YouTube frame extraction.
 
 ```bash
 git clone https://github.com/Enablement-Engineering/gobbler.git
@@ -53,6 +53,16 @@ For local development, use `uv sync --extra dev`. See the [installation guide](h
 # YouTube transcript; URL can also come from stdin
 uv run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" -o transcript.md
 
+# Deterministic visual overview; no transcript provider is called
+uv run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" \
+  --frames-only --frames 8 -o overview.md
+
+# Repeat exact timestamps or refine an inclusive range
+uv run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" \
+  --frames-only --frame-at 24:16.500 --frame-at 24:18.200 -o exact.md
+uv run gobbler youtube "https://youtube.com/watch?v=VIDEO_ID" \
+  --frames-only --frame-range 24:12-24:24 --range-frames 5 -o refinement.md
+
 # Local faster-whisper transcription
 uv run gobbler audio meeting.mp3 --model small -o meeting.md
 
@@ -64,6 +74,8 @@ uv run gobbler webpage "https://example.com" --no-proxy -o page.md
 ```
 
 Without `-o`, normal Markdown output is written to stdout. `--format json` produces a single JSON object for individual conversions. Batch commands use `--json` for newline-delimited JSON events.
+
+Frame requests require durable storage through `--output` or `--frames-dir`. Gobbler writes deterministic JPEG files under `<output-stem>.assets/frames/` by default and returns timestamped Markdown/JSON manifests. Gobbler extracts the requested frames; the calling human or agent interprets them. This release does not add frame extraction for playlists or local video files. See the [YouTube frame workflow](https://enablement-engineering.github.io/gobbler/guides/youtube/).
 
 ## Service readiness
 
