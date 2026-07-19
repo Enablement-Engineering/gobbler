@@ -293,6 +293,9 @@ async def test_extract_youtube_frames_partial_success_and_refresh(
             target.selector,
         )
 
+    monkeypatch.setattr(
+        "gobbler_core.converters.youtube_frames.ensure_ffmpeg_available", lambda: None
+    )
     monkeypatch.setattr("gobbler_core.converters.youtube_frames._extract_frame", fake_extract)
 
     result = await extract_youtube_frames(
@@ -333,6 +336,9 @@ async def test_refresh_failure_preserves_initially_successful_frames(
         message = "refresh transport detail"
         raise RuntimeError(message)
 
+    monkeypatch.setattr(
+        "gobbler_core.converters.youtube_frames.ensure_ffmpeg_available", lambda: None
+    )
     monkeypatch.setattr("gobbler_core.converters.youtube_frames._extract_frame", fake_extract)
 
     result = await extract_youtube_frames(
@@ -917,6 +923,9 @@ async def test_extract_youtube_frames_all_failed_raises(
 
     previous_frame = tmp_path / "frame-001-00-00-01-000.jpg"
     previous_frame.write_bytes(b"previous")
+    monkeypatch.setattr(
+        "gobbler_core.converters.youtube_frames.ensure_ffmpeg_available", lambda: None
+    )
     monkeypatch.setattr("gobbler_core.converters.youtube_frames._extract_frame", fail_extract)
     with pytest.raises(YouTubeFrameError, match="No YouTube frames"):
         await extract_youtube_frames(
