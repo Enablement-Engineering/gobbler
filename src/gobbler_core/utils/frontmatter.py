@@ -137,7 +137,7 @@ def create_youtube_frontmatter(
     Returns:
         YAML frontmatter string
     """
-    metadata = {
+    metadata: dict[str, Any] = {
         "source": video_url,
         "type": "youtube_transcript",
         "video_id": video_id,
@@ -163,6 +163,48 @@ def create_youtube_frontmatter(
         }
     )
 
+    return create_frontmatter(metadata)
+
+
+def create_youtube_frames_frontmatter(
+    video_url: str,
+    video_id: str,
+    duration: float,
+    title: str | None = None,
+    channel: str | None = None,
+    thumbnail: str | None = None,
+) -> str:
+    """Create frontmatter for a YouTube frame-only artifact.
+
+    Args:
+        video_url: Canonical public YouTube video URL.
+        video_id: YouTube video ID.
+        duration: Authoritative video duration in seconds.
+        title: Video title when available.
+        channel: Channel name when available.
+        thumbnail: Thumbnail URL when available.
+
+    Returns:
+        YAML frontmatter string without transcript-specific fields.
+    """
+    metadata: dict[str, Any] = {
+        "source": video_url,
+        "type": "youtube_frames",
+        "video_id": video_id,
+    }
+    if title:
+        metadata["title"] = title
+    if channel:
+        metadata["channel"] = channel
+    if thumbnail:
+        metadata["thumbnail"] = thumbnail
+    metadata.update(
+        {
+            "duration": duration,
+            "duration_human": format_duration(int(duration)),
+            "converted_at": get_iso8601_timestamp(),
+        }
+    )
     return create_frontmatter(metadata)
 
 

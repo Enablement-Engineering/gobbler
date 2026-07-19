@@ -307,6 +307,25 @@ class TestYouTubeFrontmatter:
         assert '"https://example.com/thumb.jpg"' in result  # URLs are quoted
         assert "description: Test description" in result
 
+    @patch("gobbler_core.utils.frontmatter.get_iso8601_timestamp")
+    def test_create_youtube_frames_frontmatter_omits_transcript_fields(self, mock_timestamp):
+        """Frame-only frontmatter uses distinct provenance and no transcript fields."""
+        from gobbler_core.utils.frontmatter import create_youtube_frames_frontmatter
+
+        mock_timestamp.return_value = "2026-07-19T00:00:00Z"
+        result = create_youtube_frames_frontmatter(
+            video_url="https://youtube.com/watch?v=test123",
+            video_id="test123",
+            duration=12.5,
+            title="Test Video",
+            channel="Test Channel",
+        )
+
+        assert "type: youtube_frames" in result
+        assert "duration: 12.5" in result
+        assert "language:" not in result
+        assert "word_count:" not in result
+
 
 class TestWebpageFrontmatter:
     """Test webpage-specific frontmatter generation."""

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import time
 from contextlib import nullcontext
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import urlparse
@@ -13,6 +15,7 @@ from urllib.parse import urlparse
 import typer
 
 if TYPE_CHECKING:
+    from gobbler_core.converters.youtube_frames import FrameCommitHooks, YouTubeFrameRequest
     from gobbler_core.providers.document import DocumentProvider
     from gobbler_core.providers.transcription import TranscriptionProvider
     from gobbler_core.providers.webpage import WebPageProvider
@@ -23,6 +26,7 @@ from gobbler_cli.output import (
     format_json_error,
     format_json_success,
     open_output_file,
+    persist_text_transactionally,
     print_error,
     print_success,
     print_warning,
@@ -34,11 +38,13 @@ from gobbler_cli.progress import ProgressTracker
 from gobbler_core.utils.redaction import REDACTED, redact_value
 
 YOUTUBE_TIMEOUT_DEFAULT = 120
+YOUTUBE_MIN_RANGE_FRAMES = 2
 YOUTUBE_INVALID_URL_MESSAGE = (
     "Invalid YouTube URL: expected https://youtube.com/watch?v=VIDEO_ID "
     "or https://youtu.be/VIDEO_ID."
 )
 YOUTUBE_INVALID_URL_CODE = "YOUTUBE_INVALID_URL"
+YOUTUBE_INVALID_FRAME_REQUEST_CODE = "YOUTUBE_INVALID_FRAME_REQUEST"
 YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_CODE = "YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED"
 YOUTUBE_TRANSCRIPTAPI_PAYMENT_REQUIRED_STATUS_CODE = 402
 YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_SUGGESTION = (
@@ -83,6 +89,80 @@ def _webpage_success_receipt(
 
 
 app = typer.Typer(help="Convert individual content items to markdown")
+
+
+@dataclass
+class _YouTubeFrameManifestPersistence:
+    """Persist the exact CLI manifest before its frame bundle becomes visible."""
+
+    url: str
+    output: Path | None
+    output_format: OutputFormat
+    clean: bool
+    timestamps: bool
+    frames_only: bool
+    persisted: bool = False
+
+    def __call__(
+        self, markdown: str, metadata: dict[str, Any]
+    ) -> tuple[str, dict[str, Any], FrameCommitHooks]:
+        """Write one durable manifest and return its rollback/finalize hooks."""
+        from gobbler_core.converters.youtube_frames import (
+            FrameCommitHooks,
+            _frame_error,
+            _raise_sanitized_frame_error,
+        )
+
+        if self.clean and not self.timestamps and not self.frames_only:
+            markdown = _clean_transcript(markdown, preserve_frame_section=True)
+        try:
+            if self.output_format == OutputFormat.JSON:
+                safe_source = _safe_youtube_failure_source(self.url)
+                payload = format_json_success(markdown, metadata, source=safe_source)
+                serialized = json.dumps(payload, indent=2, ensure_ascii=False)
+            else:
+                serialized = markdown
+            output_transaction = persist_text_transactionally(serialized, self.output)
+        except OSError:
+            _raise_sanitized_frame_error(
+                _frame_error(
+                    "Unable to persist the YouTube frame manifest",
+                    "filesystem_error",
+                    stage="output_persistence",
+                )
+            )
+        self.persisted = True
+        return (
+            markdown,
+            metadata,
+            FrameCommitHooks(
+                rollback=output_transaction.rollback,
+                finalize=output_transaction.finalize,
+            ),
+        )
+
+
+def _write_youtube_success_output(
+    *,
+    result: str,
+    metadata: dict[str, Any],
+    success_source: str,
+    output: Path | None,
+    output_format: OutputFormat,
+    frame_manifest_persisted: bool,
+) -> None:
+    """Finish a YouTube success without rewriting a transactional frame manifest."""
+    if frame_manifest_persisted:
+        if output and output_format != OutputFormat.JSON:
+            print_success("YouTube video converted successfully")
+        return
+    if output_format == OutputFormat.JSON:
+        json_result = format_json_success(result, metadata, source=success_source)
+        write_json_result(json_result, output)
+        return
+    write_output(result, output, output_format)
+    if output:
+        print_success("YouTube video converted successfully")
 
 
 def _read_stdin_url() -> str | None:
@@ -142,7 +222,9 @@ def _is_transcriptapi_billing_required_error(
 
 
 def _youtube_error_response_metadata(
-    error_text: str, diagnostics: dict[str, Any] | None
+    error: Exception,
+    error_text: str,
+    diagnostics: dict[str, Any] | None,
 ) -> tuple[str, str | None]:
     """Return the stable JSON error code and suggestion for a YouTube failure."""
     if _is_transcriptapi_billing_required_error(error_text, diagnostics):
@@ -150,6 +232,14 @@ def _youtube_error_response_metadata(
             YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_CODE,
             YOUTUBE_TRANSCRIPTAPI_BILLING_REQUIRED_SUGGESTION,
         )
+    from gobbler_core.converters.youtube_frames import YouTubeFrameError
+
+    if isinstance(error, YouTubeFrameError):
+        return "YOUTUBE_FRAME_EXTRACTION_ERROR", None
+    if diagnostics and str(diagnostics.get("error_type", "")).startswith(
+        ("ffmpeg", "stream", "all_frames", "missing_", "private", "age_", "live_")
+    ):
+        return "YOUTUBE_FRAME_EXTRACTION_ERROR", None
     return "YOUTUBE_CONVERSION_ERROR", None
 
 
@@ -518,6 +608,85 @@ def _validate_youtube_url(url: str, output_format: OutputFormat) -> None:
     raise typer.Exit(1)
 
 
+def _build_youtube_frame_request(
+    *,
+    overview_frames: int,
+    frame_at: list[str],
+    frame_ranges: list[str],
+    range_frames: int | None,
+    frames_dir: Path | None,
+    frames_only: bool,
+    output: Path | None,
+) -> YouTubeFrameRequest | None:
+    """Parse and validate the CLI frame selector contract."""
+    from gobbler_core.converters.youtube_frames import (
+        MAX_FRAMES_PER_SELECTOR,
+        MAX_RAW_FRAME_SELECTORS,
+        YouTubeFrameRequest,
+        parse_frame_range,
+        parse_frame_timestamp,
+    )
+
+    if not 0 <= overview_frames <= MAX_FRAMES_PER_SELECTOR:
+        message = f"--frames must be between 0 and {MAX_FRAMES_PER_SELECTOR}"
+        raise ValueError(message)
+    if len(frame_at) + len(frame_ranges) > MAX_RAW_FRAME_SELECTORS:
+        message = (
+            f"Frame request has too many raw selectors; the maximum is {MAX_RAW_FRAME_SELECTORS}"
+        )
+        raise ValueError(message)
+    if range_frames is not None and not frame_ranges:
+        message = "--range-frames requires at least one --frame-range"
+        raise ValueError(message)
+    effective_range_frames = 6 if range_frames is None else range_frames
+    if not YOUTUBE_MIN_RANGE_FRAMES <= effective_range_frames <= MAX_FRAMES_PER_SELECTOR:
+        message = (
+            f"--range-frames must be between {YOUTUBE_MIN_RANGE_FRAMES} and "
+            f"{MAX_FRAMES_PER_SELECTOR}"
+        )
+        raise ValueError(message)
+
+    exact_timestamps = tuple(parse_frame_timestamp(value) for value in frame_at)
+    ranges = tuple(parse_frame_range(value) for value in frame_ranges)
+    selectors_requested = bool(overview_frames or exact_timestamps or ranges)
+    if frames_only and not selectors_requested:
+        message = "--frames-only requires at least one frame selector"
+        raise ValueError(message)
+    if selectors_requested and output is None and frames_dir is None:
+        message = "Frame extraction requires --output or --frames-dir"
+        raise ValueError(message)
+    if not selectors_requested:
+        return None
+    return YouTubeFrameRequest(
+        overview_count=overview_frames,
+        exact_timestamps=exact_timestamps,
+        ranges=ranges,
+        range_count=effective_range_frames,
+        frames_dir=frames_dir,
+    )
+
+
+def _write_invalid_frame_request_error(
+    error: ValueError,
+    output_format: OutputFormat,
+) -> None:
+    """Write a stable frame-selector validation error."""
+    message = _safe_error_text(error)
+    if output_format == OutputFormat.JSON:
+        write_json_result(
+            format_json_error(
+                message,
+                YOUTUBE_INVALID_FRAME_REQUEST_CODE,
+                suggestion=(
+                    "Provide --frames, --frame-at, or --frame-range with durable --output "
+                    "or --frames-dir storage."
+                ),
+            )
+        )
+    else:
+        print_error(message)
+
+
 @app.command()
 def youtube(
     url: Annotated[
@@ -549,6 +718,32 @@ def youtube(
         int,
         typer.Option("--timeout", "-t", help="Timeout in seconds for the full YouTube conversion"),
     ] = YOUTUBE_TIMEOUT_DEFAULT,
+    overview_frames: Annotated[
+        int,
+        typer.Option("--frames", help="Overview frames sampled across the complete video (max 24)"),
+    ] = 0,
+    frame_at: Annotated[
+        list[str] | None,
+        typer.Option("--frame-at", help="Exact frame timestamp; repeat for multiple frames"),
+    ] = None,
+    frame_ranges: Annotated[
+        list[str] | None,
+        typer.Option("--frame-range", help="Inclusive START-END range; repeat for multiple ranges"),
+    ] = None,
+    range_frames: Annotated[
+        int | None,
+        typer.Option("--range-frames", help="Frames per --frame-range (default 6, range 2..24)"),
+    ] = None,
+    frames_only: Annotated[
+        bool,
+        typer.Option(
+            "--frames-only", help="Skip transcript providers and emit only frame artifacts"
+        ),
+    ] = False,
+    frames_dir: Annotated[
+        Path | None,
+        typer.Option("--frames-dir", help="Explicit durable directory for extracted JPEG frames"),
+    ] = None,
     skip_if_exists: Annotated[
         bool,
         typer.Option("--skip-if-exists", help="Skip conversion if output file already exists"),
@@ -589,30 +784,62 @@ def youtube(
 
     _validate_youtube_url(actual_url, output_format)
 
-    asyncio.run(
-        _convert_youtube(
-            url=actual_url,
+    try:
+        frame_request = _build_youtube_frame_request(
+            overview_frames=overview_frames,
+            frame_at=frame_at or [],
+            frame_ranges=frame_ranges or [],
+            range_frames=range_frames,
+            frames_dir=frames_dir,
+            frames_only=frames_only,
             output=output,
-            language=language,
-            timestamps=timestamps,
-            clean=clean,
-            output_format=output_format,
-            timeout=timeout,
-            skip_if_exists=skip_if_exists,
         )
-    )
+    except ValueError as error:
+        _write_invalid_frame_request_error(error, output_format)
+        raise typer.Exit(1) from None
+
+    if frame_request is None:
+        asyncio.run(
+            _convert_youtube(
+                url=actual_url,
+                output=output,
+                language=language,
+                timestamps=timestamps,
+                clean=clean,
+                output_format=output_format,
+                timeout=timeout,
+                skip_if_exists=skip_if_exists,
+            )
+        )
+    else:
+        asyncio.run(
+            _convert_youtube(
+                url=actual_url,
+                output=output,
+                language=language,
+                timestamps=timestamps,
+                clean=clean,
+                output_format=output_format,
+                timeout=timeout,
+                skip_if_exists=skip_if_exists,
+                frame_request=frame_request,
+                frames_only=frames_only,
+                output_path=output,
+            )
+        )
     if open_result and output and not (skip_if_exists and output_existed):
         _open_output_or_warn(output)
 
 
-def _clean_transcript(text: str) -> str:
+def _clean_transcript(text: str, *, preserve_frame_section: bool = False) -> str:
     """Merge choppy caption lines into flowing paragraphs.
 
     YouTube captions are often broken into short 2-5 second segments.
     This function merges them into natural paragraphs.
 
     Args:
-        text: Raw transcript with many short lines
+        text: Raw transcript with many short lines.
+        preserve_frame_section: Preserve an appended generated frame manifest unchanged.
 
     Returns:
         Cleaned transcript with flowing paragraphs
@@ -627,9 +854,18 @@ def _clean_transcript(text: str) -> str:
 
     frontmatter_and_header = parts[0] + "# Video Transcript\n\n"
     content = parts[1]
+    if preserve_frame_section:
+        transcript_content, frame_separator, frame_content = content.rpartition(
+            "\n\n## Video Frames"
+        )
+    else:
+        transcript_content, frame_separator, frame_content = content, "", ""
+    if preserve_frame_section and not frame_separator:
+        transcript_content = content
+        frame_content = ""
 
     # Split into lines and merge
-    lines = content.split("\n\n")
+    lines = transcript_content.split("\n\n")
 
     # Merge lines into sentences/paragraphs
     merged = []
@@ -657,7 +893,7 @@ def _clean_transcript(text: str) -> str:
     # Join paragraphs with double newlines
     cleaned_content = "\n\n".join(merged)
 
-    return frontmatter_and_header + cleaned_content
+    return frontmatter_and_header + cleaned_content + frame_separator + frame_content
 
 
 async def _convert_youtube(
@@ -669,6 +905,9 @@ async def _convert_youtube(
     output_format: OutputFormat,
     timeout: int,
     skip_if_exists: bool = False,
+    frame_request: YouTubeFrameRequest | None = None,
+    frames_only: bool = False,
+    output_path: Path | None = None,
 ) -> None:
     """Async implementation of YouTube conversion."""
     try:
@@ -680,40 +919,76 @@ async def _convert_youtube(
         # Import here to avoid circular imports and defer heavy imports
         from gobbler_core.converters.youtube import convert_youtube_to_markdown
 
+        frame_manifest_persistence = _YouTubeFrameManifestPersistence(
+            url=url,
+            output=output,
+            output_format=output_format,
+            clean=clean,
+            timestamps=timestamps,
+            frames_only=frames_only,
+        )
+
         progress_context = (
             nullcontext()
-            if output_format == OutputFormat.JSON
+            if output_format == OutputFormat.JSON or output is None
             else ProgressTracker("Converting YouTube video")
         )
         with progress_context:
-            result, metadata = await convert_youtube_to_markdown(
-                video_url=url,
-                language=language,
-                include_timestamps=timestamps,
-                timeout=timeout,
-            )
+            if frame_request is None:
+                result, metadata = await convert_youtube_to_markdown(
+                    video_url=url,
+                    language=language,
+                    include_timestamps=timestamps,
+                    timeout=timeout,
+                )
+            else:
+                result, metadata = await convert_youtube_to_markdown(
+                    video_url=url,
+                    language=language,
+                    include_timestamps=timestamps,
+                    timeout=timeout,
+                    frame_request=frame_request,
+                    frames_only=frames_only,
+                    output_path=output_path,
+                    frame_manifest_writer=frame_manifest_persistence,
+                )
 
         # Apply clean mode if requested (incompatible with timestamps)
-        if clean and not timestamps:
-            result = _clean_transcript(result)
+        if (
+            clean
+            and not timestamps
+            and not frames_only
+            and not frame_manifest_persistence.persisted
+        ):
+            result = _clean_transcript(
+                result,
+                preserve_frame_section=frame_request is not None,
+            )
             # Recalculate word count after cleaning
             from gobbler_core.utils.frontmatter import count_words
 
-            metadata["word_count"] = count_words(result)
+            if frame_request is None:
+                metadata["word_count"] = count_words(result)
 
-        if output_format == OutputFormat.JSON:
-            json_result = format_json_success(result, metadata, source=url)
-            write_json_result(json_result, output)
-        else:
-            write_output(result, output, output_format)
-            if output:
-                print_success("YouTube video converted successfully")
+        _write_youtube_success_output(
+            result=result,
+            metadata=metadata,
+            success_source=_safe_youtube_failure_source(url) if frame_request else url,
+            output=output,
+            output_format=output_format,
+            frame_manifest_persisted=frame_manifest_persistence.persisted,
+        )
     except Exception as e:
+        from gobbler_core.converters.youtube_frames import YouTubeFrameRequestError
+
+        if isinstance(e, YouTubeFrameRequestError):
+            _write_invalid_frame_request_error(e, output_format)
+            raise typer.Exit(1) from None
         error_text = _safe_error_text(e)
         diagnostics = _safe_error_diagnostics(e)
         if output_format == OutputFormat.JSON:
             safe_source = _safe_youtube_failure_source(url)
-            error_code, suggestion = _youtube_error_response_metadata(error_text, diagnostics)
+            error_code, suggestion = _youtube_error_response_metadata(e, error_text, diagnostics)
             json_result = format_json_error(
                 error_text,
                 error_code,

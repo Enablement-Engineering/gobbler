@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.26] - 2026-07-19
+
+### Added
+- Added deterministic YouTube overview, repeatable exact-timestamp, and repeatable inclusive-range JPEG extraction with durable Markdown and JSON manifests.
+- Added `--frames-only` refinement that bypasses transcript providers, plus explicit and output-derived frame directories.
+
+### Security
+- Classified and sanitized yt-dlp/FFmpeg failures so signed stream URLs, URL credentials and private components, query values, fragments, and cookie values cannot enter frame diagnostics or warnings.
+
 ## [0.2.25] - 2026-07-18
 
 ### Changed
@@ -221,7 +230,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.25...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.26...HEAD
+[0.2.26]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.25...v0.2.26
 [0.2.25]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.24...v0.2.25
 [0.2.24]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.23...v0.2.24
 [0.2.23]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.22...v0.2.23

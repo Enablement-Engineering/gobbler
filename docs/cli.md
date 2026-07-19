@@ -46,6 +46,8 @@ gobbler youtube "URL" --clean --timeout 90 -o transcript.md
 printf '%s\n' "URL" | gobbler youtube -o transcript.md
 ```
 
+For deterministic overview, exact-timestamp, range, and `--frames-only` JPEG extraction, see [YouTube transcripts and deterministic frames](guides/youtube.md).
+
 Important options:
 
 - `-o, --output PATH`: output file; stdout when omitted for transcript mode.

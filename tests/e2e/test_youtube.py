@@ -4,6 +4,8 @@ These tests make real API calls to YouTube and require network access.
 No Docker services required.
 """
 
+from pathlib import Path
+
 import pytest
 
 from .helpers import get_first_url, has_timestamps, validate_markdown_output
@@ -96,6 +98,32 @@ class TestYouTubeSingleVideo:
         )
 
         assert result.returncode != 0, "Should fail for nonexistent video"
+
+    @pytest.mark.requires_ffmpeg
+    def test_extract_one_overview_frame(self, run_gobbler, temp_output_dir: Path):
+        """Frame-only extraction emits a durable JPEG and timestamp manifest."""
+        output_file = temp_output_dir / "overview.md"
+        result = run_gobbler(
+            [
+                "youtube",
+                "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+                "--frames-only",
+                "--frames",
+                "1",
+                "-o",
+                str(output_file),
+            ],
+            timeout=90,
+        )
+
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        markdown = output_file.read_text(encoding="utf-8")
+        frame_files = list((temp_output_dir / "overview.assets" / "frames").glob("*.jpg"))
+        assert "type: youtube_frames" in markdown
+        assert "# Video Frames" in markdown
+        assert len(frame_files) == 1
+        assert frame_files[0].read_bytes().startswith(b"\xff\xd8\xff")
+        assert "googlevideo.com" not in (result.stdout + result.stderr + markdown)
 
 
 class TestYouTubeConferenceTalks:
