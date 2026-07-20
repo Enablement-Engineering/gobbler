@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.27] - 2026-07-20
+
+### Changed
+
+- Updated the Codecov v7 upload configuration to use its supported plural `files` input.
+
 ## [0.2.26] - 2026-07-19
 
 ### Added
