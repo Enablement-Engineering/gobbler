@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.27] - 2026-07-20
+
+### Changed
+- Updated the Codecov v7 upload configuration to use its supported plural `files` input.
+
 ## [0.2.26] - 2026-07-19
 
 ### Added
@@ -230,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.26...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.27...HEAD
+[0.2.27]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.25...v0.2.26
 [0.2.25]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.24...v0.2.25
 [0.2.24]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.23...v0.2.24
