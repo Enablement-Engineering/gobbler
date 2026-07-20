@@ -45,7 +45,7 @@ dependencies = [
     "aiohttp>=3.9.0",
     "aiofiles>=24.0.0",
     # CLI
-    "typer>=0.26.7",
+    "typer>=0.27.0",
     "rich>=15.0.0",
     # Configuration & monitoring
     "pyyaml>=6.0.1",
