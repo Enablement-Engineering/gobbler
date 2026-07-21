@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.28] - 2026-07-21
+
+### Changed
+- Refreshed the supported minimum versions for ten Python dependencies and `actions/setup-python` from the current Dependabot proposals.
+- Grouped major, minor, and patch Python dependency updates into one bounded weekly Dependabot PR.
+
 ## [0.2.27] - 2026-07-20
 
 ### Changed
@@ -235,7 +241,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.27...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.28...HEAD
+[0.2.28]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.25...v0.2.26
 [0.2.25]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.24...v0.2.25

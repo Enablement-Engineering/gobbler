@@ -16,11 +16,12 @@ updates:
       - "dependencies"
       - "python"
     groups:
-      # Group minor and patch updates together
-      python-minor-updates:
+      # Keep the weekly Python refresh bounded, including pre-1.0 major updates.
+      python-updates:
         patterns:
           - "*"
         update-types:
+          - "major"
           - "minor"
           - "patch"
   # GitHub Actions
