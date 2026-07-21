@@ -6,6 +6,13 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.28] - 2026-07-21
+
+### Changed
+
+- Refreshed the supported minimum versions for ten Python dependencies and `actions/setup-python` from the current Dependabot proposals.
+- Grouped major, minor, and patch Python dependency updates into one bounded weekly Dependabot PR.
+
 ## [0.2.27] - 2026-07-20
 
 ### Changed

@@ -6,6 +6,22 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = ROOT / ".github" / "workflows"
+DEPENDABOT_PATH = ROOT / ".github" / "dependabot.yml"
+
+
+def test_dependabot_groups_all_python_update_types() -> None:
+    """Python dependency updates should stay in one bounded weekly group."""
+    config = yaml.safe_load(DEPENDABOT_PATH.read_text())
+    python_updates = next(
+        update
+        for update in config["updates"]
+        if update["package-ecosystem"] == "pip" and update["directory"] == "/"
+    )
+    groups = python_updates["groups"]
+
+    assert set(groups) == {"python-updates"}
+    assert groups["python-updates"]["patterns"] == ["*"]
+    assert set(groups["python-updates"]["update-types"]) == {"major", "minor", "patch"}
 
 
 def test_checkout_action_uses_supported_major_everywhere() -> None:
