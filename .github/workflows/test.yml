@@ -58,18 +58,6 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    services:
-      crawl4ai:
-        image: unclecode/crawl4ai:latest
-        ports:
-          - 11235:11235
-        options: >-
-          --health-cmd "curl -f http://localhost:11235/health || exit 1"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -86,11 +74,5 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev
 
-      - name: Wait for services
-        run: |
-          echo "Waiting for Crawl4AI..."
-          timeout 60 bash -c 'until curl -f http://localhost:11235/health; do sleep 2; done' || echo "Crawl4AI may not be ready"
-
       - name: Run integration tests
         run: uv run pytest tests/integration/ -v -m integration
-        continue-on-error: true

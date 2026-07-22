@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.29] - 2026-07-22
+
+### Changed
+- Updated the supported minimum versions of `aiohttp`, `pytest`, and Ruff.
+- Excluded Typer 0.27.0 because that release's wheel omits its public CLI API.
+
+### Fixed
+- Replaced stale browser-extension scripts with real relay protocol integration tests covering WebSocket registration, heartbeat, and HTTP-to-WebSocket command round trips.
+- Made integration tests run on pull requests and fail CI normally instead of collecting zero tests behind `continue-on-error`.
+- Isolated positive webpage E2E cases from ambient proxy configuration by exercising the explicit direct-provider path.
+
 ## [0.2.28] - 2026-07-21
 
 ### Changed
@@ -241,7 +252,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.28...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.29...HEAD
+[0.2.29]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.28...v0.2.29
 [0.2.28]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.26...v0.2.27
 [0.2.26]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.25...v0.2.26

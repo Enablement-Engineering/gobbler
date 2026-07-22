@@ -19,7 +19,7 @@ class TestSingleWebpage:
         url = get_first_url("webpages", "documentation.txt")
 
         result = run_gobbler(
-            ["webpage", url],
+            ["webpage", url, "--no-proxy"],
             timeout=60,
         )
 
@@ -34,7 +34,7 @@ class TestSingleWebpage:
         url = get_first_url("webpages", "government.txt")
 
         result = run_gobbler(
-            ["webpage", url],
+            ["webpage", url, "--no-proxy"],
             timeout=60,
         )
 
@@ -48,7 +48,7 @@ class TestSingleWebpage:
         url = get_first_url("webpages", "wikipedia.txt")
 
         result = run_gobbler(
-            ["webpage", url],
+            ["webpage", url, "--no-proxy"],
             timeout=60,
         )
 
@@ -65,7 +65,7 @@ class TestSingleWebpage:
         url = get_first_url("webpages", "blogs.txt")
 
         result = run_gobbler(
-            ["webpage", url],
+            ["webpage", url, "--no-proxy"],
             timeout=60,
         )
 
@@ -80,7 +80,7 @@ class TestSingleWebpage:
         output_file = temp_output_dir / "page.md"
 
         result = run_gobbler(
-            ["webpage", url, "-o", str(output_file)],
+            ["webpage", url, "--no-proxy", "-o", str(output_file)],
             timeout=60,
         )
 
@@ -96,7 +96,7 @@ class TestSingleWebpage:
         url = get_first_url("webpages", "documentation.txt")
 
         result = run_gobbler(
-            ["webpage", url, "--no-images"],
+            ["webpage", url, "--no-proxy", "--no-images"],
             timeout=60,
         )
 
@@ -163,6 +163,7 @@ class TestBatchWebpages:
                 str(url_file),
                 "-o",
                 str(temp_output_dir / "output"),
+                "--no-proxy",
             ],
             timeout=180,
         )
@@ -191,6 +192,7 @@ class TestBatchWebpages:
                 str(temp_output_dir / "output"),
                 "--concurrency",
                 "2",
+                "--no-proxy",
             ],
             timeout=180,
         )

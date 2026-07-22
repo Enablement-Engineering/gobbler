@@ -1,5 +1,6 @@
 """Static contracts for GitHub Actions dependency versions."""
 
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -7,6 +8,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = ROOT / ".github" / "workflows"
 DEPENDABOT_PATH = ROOT / ".github" / "dependabot.yml"
+PYPROJECT_PATH = ROOT / "pyproject.toml"
 
 
 def test_dependabot_groups_all_python_update_types() -> None:
@@ -64,3 +66,30 @@ def test_codecov_v7_uses_supported_files_input() -> None:
         assert isinstance(inputs, dict)
         assert inputs.get("files") == "./coverage.xml"
         assert "file" not in inputs
+
+
+def test_integration_tests_are_required_and_run_on_pull_requests() -> None:
+    """Relay integration tests should execute as a required, untolerated job."""
+    workflow = yaml.safe_load((WORKFLOW_DIR / "test.yml").read_text())
+    integration_job = workflow["jobs"]["integration"]
+
+    assert "if" not in integration_job
+    assert "services" not in integration_job
+    test_steps = [
+        step for step in integration_job["steps"] if step.get("name") == "Run integration tests"
+    ]
+    assert len(test_steps) == 1
+    assert test_steps[0]["run"] == "uv run pytest tests/integration/ -v -m integration"
+    assert "continue-on-error" not in test_steps[0]
+
+
+def test_typer_excludes_broken_0270_wheel() -> None:
+    """The CLI dependency should avoid Typer's incomplete 0.27.0 wheel."""
+    config = tomllib.loads(PYPROJECT_PATH.read_text())
+    typer_requirements = [
+        requirement
+        for requirement in config["project"]["dependencies"]
+        if requirement.startswith("typer")
+    ]
+
+    assert typer_requirements == ["typer>=0.26.8,!=0.27.0"]
