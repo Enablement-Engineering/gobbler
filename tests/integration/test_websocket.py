@@ -1,88 +1,21 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["websockets>=12.0"]
-# ///
-"""
-Test WebSocket connection to Gobbler HTTP server.
+"""Integration tests for the relay WebSocket protocol."""
 
-This tests the actual WebSocket protocol used by the browser extension.
-"""
+import pytest
 
-import asyncio
-import json
-import logging
-import sys
-import uuid
+from gobbler_core import __version__
 
-import websockets
-
-# Configure logging for test output
-logging.basicConfig(level=logging.INFO, format="%(message)s")
-logger = logging.getLogger(__name__)
+pytestmark = pytest.mark.integration
 
 
-async def test_websocket():
-    """Test WebSocket connection and command execution."""
-    uri = "ws://localhost:4625/ws"
+async def test_websocket_registration_and_ping(relay_client):
+    """A real WebSocket client can register and exchange a heartbeat."""
+    websocket = await relay_client.ws_connect("/ws")
 
-    logger.info("Connecting to %s...", uri)
+    await websocket.send_json({"type": "register"})
+    registration = await websocket.receive_json(timeout=2)
+    assert registration == {"type": "registered", "server_version": __version__}
 
-    try:
-        async with websockets.connect(uri) as websocket:
-            logger.info("✓ WebSocket connected")
+    await websocket.send_json({"type": "ping"})
+    assert await websocket.receive_json(timeout=2) == {"type": "pong"}
 
-            # Register with server
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "register",
-                    }
-                )
-            )
-            logger.info("✓ Sent registration")
-
-            # Wait for registration response
-            response = await websocket.recv()
-            data = json.loads(response)
-            logger.info("✓ Received: %s", data)
-
-            # Try to send a command (this simulates what CLI browser commands do)
-            command_id = str(uuid.uuid4())
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "command",
-                        "command_id": command_id,
-                        "command": "list_gobbler_tabs",
-                        "params": {},
-                    }
-                )
-            )
-            logger.info("✓ Sent command 'list_gobbler_tabs' (id: %s)", command_id)
-
-            # Wait for response (with timeout)
-            try:
-                response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                data = json.loads(response)
-                logger.info("✓ Received response: %s", json.dumps(data, indent=2))
-            except TimeoutError:
-                logger.info("✗ Timeout waiting for command response")
-                logger.info("\nNote: This is expected if no browser extension is connected.")
-                logger.info(
-                    "The WebSocket connection works, but commands need the extension to respond."
-                )
-
-    except ConnectionRefusedError:
-        logger.info("✗ Connection refused - is the relay server running?")
-        return False
-    except Exception as e:
-        logger.info("✗ Error: %s", e)
-        return False
-
-    return True
-
-
-if __name__ == "__main__":
-    success = asyncio.run(test_websocket())
-    sys.exit(0 if success else 1)
+    await websocket.close()

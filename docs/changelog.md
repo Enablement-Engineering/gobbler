@@ -6,6 +6,19 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.29] - 2026-07-22
+
+### Changed
+
+- Updated the supported minimum versions of `aiohttp`, `pytest`, and Ruff.
+- Excluded Typer 0.27.0 because that release's wheel omits its public CLI API.
+
+### Fixed
+
+- Replaced stale browser-extension scripts with real relay protocol integration tests covering WebSocket registration, heartbeat, and HTTP-to-WebSocket command round trips.
+- Made integration tests run on pull requests and fail CI normally instead of collecting zero tests behind `continue-on-error`.
+- Isolated positive webpage E2E cases from ambient proxy configuration by exercising the explicit direct-provider path.
+
 ## [0.2.28] - 2026-07-21
 
 ### Changed
