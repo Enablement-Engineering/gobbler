@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.31] - 2026-07-23
+
+### Fixed
+
+- Restored cloning of empty mutable containers in user configuration overrides so merged configuration cannot mutate the caller's input graph.
+
 ## [0.2.30] - 2026-07-23
 
 ### Fixed

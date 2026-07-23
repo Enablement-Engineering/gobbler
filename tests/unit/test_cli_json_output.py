@@ -1214,8 +1214,10 @@ class TestBatchYoutubePlaylistUrlValidation:
         ("playlist_url", "safe_source", "submitted_fragments"),
         [
             (
-                "https://user:pass@evil.example/playlist?list=private-list&token=secret-value"
-                "#private-fragment",
+                (
+                    "https://user:pass@evil.example/playlist?list=private-list&token=secret-value"
+                    "#private-fragment"
+                ),
                 "https://evil.example",
                 (
                     "user:pass",

@@ -1058,6 +1058,32 @@ class TestDeepMerge:
         assert Config._has_container_cycle(nodes[0], cache)
         assert all(cache[id(node)] for node in nodes)
 
+    def test_deep_merge_clones_shared_empty_mutable_overrides(self) -> None:
+        """Test empty mutable override containers are cloned once without mutating input."""
+        shared_list: list[object] = []
+        shared_mapping: dict[str, object] = {}
+        override = {
+            "first_list": shared_list,
+            "second_list": shared_list,
+            "first_mapping": shared_mapping,
+            "second_mapping": shared_mapping,
+        }
+
+        merged = Config._deep_merge({}, override)
+        merged["first_list"].append("changed")
+        merged["first_mapping"]["changed"] = True
+
+        assert merged["first_list"] is merged["second_list"]
+        assert merged["first_mapping"] is merged["second_mapping"]
+        assert merged["first_list"] is not shared_list
+        assert merged["first_mapping"] is not shared_mapping
+        assert override == {
+            "first_list": [],
+            "second_list": [],
+            "first_mapping": {},
+            "second_mapping": {},
+        }
+
     def test_deep_merge_preserves_tuple_list_cycles(self) -> None:
         """Test immutable tuple nodes retain cycles routed through mutable lists."""
         link: list[object] = []
