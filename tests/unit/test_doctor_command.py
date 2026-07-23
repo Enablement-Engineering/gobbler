@@ -185,6 +185,49 @@ def test_collect_doctor_report_redacts_config_secrets(monkeypatch, tmp_path: Pat
     assert values["services"]["crawl4ai"]["api_token"] == REDACTED
 
 
+def test_doctor_reports_only_lexical_fallback_on_as_canonical(monkeypatch, tmp_path: Path) -> None:
+    """Doctor preserves non-``on`` keys while reporting documented fallback schema."""
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(
+        "providers:\n"
+        "  youtube:\n"
+        "    youtube-transcript-api:\n"
+        "      fallback: {provider: transcriptapi, on: [rate_limited]}\n"
+        "numeric:\n"
+        "  fallback: {provider: numeric-provider, 1: keep-numeric}\n"
+        "boolean:\n"
+        "  fallback: {provider: boolean-provider, true: keep-boolean}\n"
+        "unrelated:\n"
+        "  fallback: {on: keep-coerced-without-provider}\n"
+        "metadata:\n"
+        "  fallback: {provider: metadata-provider, on: keep-unrelated}\n"
+        "provider_metadata: {provider: metadata-provider, on: keep-unrelated}\n"
+    )
+    config = Config(config_path=config_path)
+    monkeypatch.setattr(doctor, "get_config", lambda: config)
+    monkeypatch.setattr(doctor, "get_ffmpeg_status", lambda: {"available": False, "path": None})
+    monkeypatch.setattr(
+        doctor,
+        "get_docker_status",
+        lambda: {"available": False, "path": None, "daemon_available": False},
+    )
+    monkeypatch.setattr(
+        doctor,
+        "_check_service_health",
+        lambda _url: (False, "connection refused"),
+    )
+
+    values = doctor.collect_doctor_report()["config"]["values"]
+    fallback = values["providers"]["youtube"]["youtube-transcript-api"]["fallback"]
+
+    assert fallback == {"provider": "transcriptapi", "on": ["rate_limited"]}
+    assert values["numeric"]["fallback"][1] == "keep-numeric"
+    assert values["boolean"]["fallback"][True] == "keep-boolean"
+    assert values["unrelated"]["fallback"][True] == "keep-coerced-without-provider"
+    assert values["metadata"]["fallback"][True] == "keep-unrelated"
+    assert values["provider_metadata"][True] == "keep-unrelated"
+
+
 def test_collect_doctor_report_separates_webpage_health_from_probe_failure(
     monkeypatch,
     tmp_path: Path,

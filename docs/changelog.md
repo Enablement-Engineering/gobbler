@@ -6,6 +6,13 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.30] - 2026-07-23
+
+### Fixed
+
+- Canonicalized documented unquoted `fallback.on` configuration keys during loading so `gobbler doctor --json` reports the same effective fallback schema that provider selection consumes.
+- Preserved normal YAML boolean values and the existing runtime compatibility path for previously constructed coerced fallback mappings.
+
 ## [0.2.29] - 2026-07-22
 
 ### Changed

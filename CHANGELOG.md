@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.30] - 2026-07-23
+
+### Fixed
+- Canonicalized documented unquoted `fallback.on` configuration keys during loading so `gobbler doctor --json` reports the same effective fallback schema that provider selection consumes.
+- Preserved normal YAML boolean values and the existing runtime compatibility path for previously constructed coerced fallback mappings.
+
 ## [0.2.29] - 2026-07-22
 
 ### Changed
@@ -252,7 +258,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.29...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.30...HEAD
+[0.2.30]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.29...v0.2.30
 [0.2.29]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.28...v0.2.29
 [0.2.28]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.27...v0.2.28
 [0.2.27]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.26...v0.2.27
