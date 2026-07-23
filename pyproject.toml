@@ -1,6 +1,6 @@
 [project]
 name = "gobbler"
-version = "0.2.30"
+version = "0.2.31"
 description = "Universal content conversion fabric - convert YouTube, web, documents, audio/video to markdown via CLI and skills"
 authors = [
     {name = "Dylan Isaac", email = "dylan@enablement.engineering"}
@@ -193,6 +193,7 @@ ignore = [
     "S607",  # Partial executable path - standard for system utilities like ffmpeg
     "PLC0415", # Import not at top-level - needed for circular dep avoidance and optional deps
     "PLR0913", # Too many arguments to function call
+    "PLR0917", # Too many positional arguments (CLI and converter APIs are intentionally broad)
     "TRY003", # Avoid specifying long messages outside the exception class
     "TRY301", # Abstract raise to inner function - overly pedantic
 ]

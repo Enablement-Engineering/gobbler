@@ -109,14 +109,16 @@ audio_file = FIXTURES / "audio" / "test_short.wav"
 pdf_file = FIXTURES / "documents" / "pdf" / "irs_form_w4.pdf"
 docx_file = FIXTURES / "documents" / "docx" / "kitchen_sink.docx"
 
+
 # URLs
 def load_urls(category: str, filename: str) -> list[str]:
     path = FIXTURES / "urls" / category / filename
     return [
-        line.strip() 
+        line.strip()
         for line in path.read_text().splitlines()
         if line.strip() and not line.startswith("#")
     ]
+
 
 youtube_urls = load_urls("youtube", "ted_talks.txt")
 webpage_urls = load_urls("webpages", "documentation.txt")
@@ -127,18 +129,18 @@ webpage_urls = load_urls("webpages", "documentation.txt")
 ```python
 import pytest
 
+
 # Skip if service unavailable
 @pytest.mark.requires_docling
-def test_pdf_conversion():
-    ...
+def test_pdf_conversion(): ...
 
-@pytest.mark.requires_crawl4ai  
-def test_webpage_fetch():
-    ...
+
+@pytest.mark.requires_crawl4ai
+def test_webpage_fetch(): ...
+
 
 @pytest.mark.requires_network
-def test_youtube_transcribe():
-    ...
+def test_youtube_transcribe(): ...
 ```
 
 ## Test Coverage Matrix

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.31] - 2026-07-23
+
+### Fixed
+- Restored cloning of empty mutable containers in user configuration overrides so merged configuration cannot mutate the caller's input graph.
+
 ## [0.2.30] - 2026-07-23
 
 ### Fixed
@@ -258,7 +263,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.30...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.31...HEAD
+[0.2.31]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.30...v0.2.31
 [0.2.30]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.29...v0.2.30
 [0.2.29]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.28...v0.2.29
 [0.2.28]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.27...v0.2.28

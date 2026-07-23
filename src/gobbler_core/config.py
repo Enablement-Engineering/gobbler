@@ -569,11 +569,10 @@ class Config:
             current_id = id(current)
             if current_id in active or current_id in cloned or current_id in marked:
                 continue
-            children = _ConfigLoader._container_children(current)
-            if not children:
+            if not isinstance(current, (dict, list, tuple)):
                 continue
             marked.add(current_id)
-            stack.extend(children)
+            stack.extend(_ConfigLoader._container_children(current))
 
         memo = {**cloned, **active}
         result = _ConfigLoader._clone_marked_containers(value, marked, memo)

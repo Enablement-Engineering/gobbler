@@ -45,8 +45,7 @@ from gobbler_core.converters import convert_youtube_to_markdown
 
 # Convert YouTube video to markdown
 markdown, metadata = await convert_youtube_to_markdown(
-    "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    include_timestamps=True
+    "https://www.youtube.com/watch?v=dQw4w9WgXcQ", include_timestamps=True
 )
 ```
 
