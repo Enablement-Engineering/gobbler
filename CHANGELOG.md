@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.32] - 2026-07-24
+
+### Changed
+- Reused replacement-closure results while cloning repeated acyclic configuration aliases, reducing traversal work from quadratic to linear without changing merge identity or isolation semantics.
+
 ## [0.2.31] - 2026-07-23
 
 ### Fixed
@@ -263,7 +268,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.31...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.32...HEAD
+[0.2.32]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.31...v0.2.32
 [0.2.31]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.30...v0.2.31
 [0.2.30]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.29...v0.2.30
 [0.2.29]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.28...v0.2.29

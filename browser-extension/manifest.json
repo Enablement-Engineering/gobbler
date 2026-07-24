@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gobbler",
-  "version": "0.2.31",
+  "version": "0.2.32",
   "description": "Extract, navigate, and automate tabs in Gobbler's managed browser group",
   "permissions": [
     "activeTab",

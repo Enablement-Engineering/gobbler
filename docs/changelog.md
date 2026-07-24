@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.32] - 2026-07-24
+
+### Changed
+
+- Reused replacement-closure results while cloning repeated acyclic configuration aliases, reducing traversal work from quadratic to linear without changing merge identity or isolation semantics.
+
 ## [0.2.31] - 2026-07-23
 
 ### Fixed

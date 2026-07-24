@@ -589,9 +589,14 @@ class Config:
         active: dict[int, dict[str, Any]],
         shared: dict[int, Any],
         projection: dict[int, Any],
+        replacement_cache: dict[int, set[int]],
     ) -> Any:
         """Clone a value, isolating only paths that reference an active merge projection."""
-        marked = _ConfigLoader._replacement_closure(value, active)
+        value_id = id(value)
+        marked = replacement_cache.get(value_id)
+        if marked is None:
+            marked = _ConfigLoader._replacement_closure(value, active)
+            replacement_cache[value_id] = marked
         if id(value) not in marked:
             return Config._clone_override_value(value, active, shared)
 
@@ -689,11 +694,19 @@ class Config:
                 int,
                 dict[str, Any],
                 dict[int, Any],
+                dict[int, set[int]],
                 tuple[int, int] | None,
             ]
-        ] = [(iter(override.items()), override_id, result, {}, None)]
+        ] = [(iter(override.items()), override_id, result, {}, {}, None)]
         while stack:
-            iterator, current_override_id, target, projection, completed_key = stack[-1]
+            (
+                iterator,
+                current_override_id,
+                target,
+                projection,
+                replacement_cache,
+                completed_key,
+            ) = stack[-1]
             try:
                 key, value = next(iterator)
             except StopIteration:
@@ -727,6 +740,7 @@ class Config:
                         value_id,
                         child,
                         {},
+                        {},
                         pair if cacheable else None,
                     )
                 )
@@ -737,6 +751,7 @@ class Config:
                 active,
                 cloned,
                 projection,
+                replacement_cache,
             )
         return result
 
