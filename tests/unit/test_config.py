@@ -1058,6 +1058,55 @@ class TestDeepMerge:
         assert Config._has_container_cycle(nodes[0], cache)
         assert all(cache[id(node)] for node in nodes)
 
+    def test_deep_merge_clones_shared_acyclic_payload_once(self) -> None:
+        """Test repeated aliases do not retraverse an already cloned payload."""
+
+        class CountingList(list[object]):
+            yielded = 0
+
+            def __iter__(self):
+                for item in super().__iter__():
+                    type(self).yielded += 1
+                    yield item
+
+        alias_count = 80
+        payload = CountingList([[] for _index in range(alias_count)])
+
+        merged = Config._deep_merge(
+            {},
+            {str(index): payload for index in range(alias_count)},
+        )
+
+        assert all(merged[str(index)] is merged["0"] for index in range(alias_count))
+        assert merged["0"] is not payload
+        assert CountingList.yielded <= alias_count * 5
+
+    def test_deep_merge_reuses_alias_scan_after_sibling_mapping_merges(self) -> None:
+        """Test sibling merge frames do not evict an outer frame's alias scan."""
+
+        class CountingList(list[object]):
+            yielded = 0
+
+            def __iter__(self):
+                for item in super().__iter__():
+                    type(self).yielded += 1
+                    yield item
+
+        alias_count = 80
+        payload = CountingList([[] for _index in range(alias_count)])
+        base: dict[str, object] = {}
+        override: dict[str, object] = {}
+        for index in range(alias_count):
+            override[f"alias_{index}"] = payload
+            base[f"merge_{index}"] = {"base": index}
+            override[f"merge_{index}"] = {"override": index}
+
+        merged = Config._deep_merge(base, override)
+
+        assert all(merged[f"alias_{index}"] is merged["alias_0"] for index in range(alias_count))
+        assert merged["alias_0"] is not payload
+        assert CountingList.yielded <= alias_count * 5
+
     def test_deep_merge_clones_shared_empty_mutable_overrides(self) -> None:
         """Test empty mutable override containers are cloned once without mutating input."""
         shared_list: list[object] = []
