@@ -42,7 +42,7 @@ dependencies = [
     "openpyxl>=3.1.5",
     # HTTP & Async
     "httpx>=0.27.0",
-    "aiohttp>=3.14.2",
+    "aiohttp>=3.14.3",
     "aiofiles>=24.0.0",
     # CLI
     # Typer 0.27.0's wheel omits the public package API (including Typer).
