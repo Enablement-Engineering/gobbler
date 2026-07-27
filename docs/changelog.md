@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.33] - 2026-07-25
+
+### Fixed
+
+- Made `gobbler doctor --json` promote sanitized Crawl4AI proxy-isolation advice into the top-level webpage `fix` field when the failed conversion probe provides an actionable `--no-proxy` command.
+
 ## [0.2.32] - 2026-07-24
 
 ### Changed

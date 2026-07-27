@@ -21,6 +21,10 @@ app = typer.Typer(help="Run agent-friendly diagnostics")
 
 SERVICE_TIMEOUT_SECONDS = 1.0
 WEBPAGE_PROBE_TIMEOUT_SECONDS = 8.0
+WEBPAGE_PROBE_GENERIC_FIX = (
+    "Check Crawl4AI container logs and proxy configuration; "
+    "/health is passing but /crawl is not ready."
+)
 
 
 def _run_command(args: list[str], timeout: float = 2.0) -> tuple[bool, str | None]:
@@ -147,6 +151,13 @@ def _webpage_conversion_probe(crawl4ai_url: str, config: Config) -> dict[str, An
     )
 
 
+def _webpage_probe_fix(web_probe: dict[str, Any]) -> str:
+    """Return top-level webpage fix guidance for a failed conversion probe."""
+    if web_probe.get("suggested_command_fragment") and web_probe.get("advice"):
+        return str(redact_value(web_probe["advice"]))
+    return WEBPAGE_PROBE_GENERIC_FIX
+
+
 def _collect_services(config: Config, ffmpeg: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Collect conversion service readiness and suggested next actions."""
     next_actions: list[str] = []
@@ -234,10 +245,7 @@ def _collect_services(config: Config, ffmpeg: dict[str, Any]) -> tuple[dict[str,
         services["webpage"].update(
             {
                 "error": web_probe.get("error", "Crawl4AI /crawl probe failed"),
-                "fix": (
-                    "Check Crawl4AI container logs and proxy configuration; "
-                    "/health is passing but /crawl is not ready."
-                ),
+                "fix": _webpage_probe_fix(web_probe),
             }
         )
         next_actions.append(

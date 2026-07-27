@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.33] - 2026-07-25
+
+### Fixed
+- Made `gobbler doctor --json` promote sanitized Crawl4AI proxy-isolation advice into the top-level webpage `fix` field when the failed conversion probe provides an actionable `--no-proxy` command.
+
 ## [0.2.32] - 2026-07-24
 
 ### Changed
@@ -268,7 +273,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.32...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.33...HEAD
+[0.2.33]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.32...v0.2.33
 [0.2.32]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.31...v0.2.32
 [0.2.31]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.30...v0.2.31
 [0.2.30]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.29...v0.2.30

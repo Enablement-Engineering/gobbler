@@ -284,6 +284,96 @@ def test_collect_doctor_report_separates_webpage_health_from_probe_failure(
     assert any("/crawl" in action for action in report["next_actions"])
 
 
+def test_doctor_promotes_redacted_actionable_webpage_probe_advice(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Doctor promotes safe proxy-isolation advice into the top-level fix."""
+    config = make_config(
+        tmp_path,
+        {
+            "providers": {
+                "youtube": {"default": "youtube-transcript-api"},
+                "transcription": {"default": "whisper-local"},
+            },
+            "services": {
+                "docling": {"host": "localhost", "port": 5001},
+                "crawl4ai": {"host": "localhost", "port": 11235},
+            },
+        },
+    )
+    monkeypatch.setattr(doctor, "get_config", lambda: config)
+    monkeypatch.setattr(doctor, "get_ffmpeg_status", lambda: {"available": True})
+    monkeypatch.setattr(doctor, "get_docker_status", lambda: {"available": True})
+    monkeypatch.setattr(doctor, "_check_service_health", lambda _url: (True, None))
+    monkeypatch.setattr(
+        doctor,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "failed",
+            "ok": False,
+            "error": "proxy path failed",
+            "proxy_configured": True,
+            "advice": (
+                "Retry gobbler webpage "
+                "https://probe-user:probe-pass@example.com/?token=probe-secret "
+                "--no-proxy."
+            ),
+            "suggested_command_fragment": "gobbler webpage https://example.com/ --no-proxy",
+        },
+    )
+
+    report = doctor.collect_doctor_report()
+    webpage = report["services"]["webpage"]
+    dumped = json.dumps(report)
+
+    assert webpage["fix"] == webpage["conversion_probe"]["advice"]
+    assert "--no-proxy" in webpage["fix"]
+    assert REDACTED in webpage["fix"]
+    for secret in ("probe-user", "probe-pass", "probe-secret"):
+        assert secret not in dumped
+
+
+def test_doctor_keeps_generic_fix_without_actionable_webpage_probe_command(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Doctor keeps service guidance when probe advice has no safe command fragment."""
+    config = make_config(
+        tmp_path,
+        {
+            "providers": {
+                "youtube": {"default": "youtube-transcript-api"},
+                "transcription": {"default": "whisper-local"},
+            },
+            "services": {
+                "docling": {"host": "localhost", "port": 5001},
+                "crawl4ai": {"host": "localhost", "port": 11235},
+            },
+        },
+    )
+    monkeypatch.setattr(doctor, "get_config", lambda: config)
+    monkeypatch.setattr(doctor, "get_ffmpeg_status", lambda: {"available": True})
+    monkeypatch.setattr(doctor, "get_docker_status", lambda: {"available": True})
+    monkeypatch.setattr(doctor, "_check_service_health", lambda _url: (True, None))
+    monkeypatch.setattr(
+        doctor,
+        "_webpage_conversion_probe",
+        lambda *_args, **_kwargs: {
+            "status": "failed",
+            "ok": False,
+            "error": "local navigation failed",
+            "proxy_configured": True,
+            "advice": "Inspect Crawl4AI navigation logs.",
+        },
+    )
+
+    webpage = doctor.collect_doctor_report()["services"]["webpage"]
+
+    assert "container logs and proxy configuration" in webpage["fix"]
+    assert "--no-proxy" not in webpage["fix"]
+
+
 def test_doctor_json_command_outputs_valid_json(monkeypatch, tmp_path: Path) -> None:
     """The command emits parseable JSON for agents."""
     config = make_config(
