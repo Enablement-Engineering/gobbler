@@ -5,28 +5,38 @@ and automatically falls back to an alternative provider when specified condition
 are met (e.g., errors, timeouts, rate limiting).
 
 Example:
-    from gobbler_core.providers.fallback import FallbackProvider, FallbackCondition
-    from gobbler_core.providers import ProviderRegistry
-
-    primary = ProviderRegistry.create("webpage", "crawl4ai")
-    fallback = ProviderRegistry.create("webpage", "httpx-simple")
-
-    provider = FallbackProvider(
-        primary=primary,
-        fallback=fallback,
-        conditions=[FallbackCondition.TIMEOUT, FallbackCondition.RATE_LIMITED],
-    )
-
-    result = await provider.fetch("https://example.com")
+    def with_fallback(
+        primary: ContentProvider,
+        fallback: ContentProvider,
+    ) -> FallbackProvider:
+        return FallbackProvider(
+            primary=primary,
+            fallback=fallback,
+            conditions=[FallbackCondition.TIMEOUT, FallbackCondition.RATE_LIMITED],
+        )
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeAlias, TypeVar
 
 from gobbler_core.providers.base import ContentProvider, ProviderResult
+from gobbler_core.providers.document.base import DocumentProvider, DocumentResult
+from gobbler_core.providers.registry import (
+    ContentProviderProtocol,
+    DocumentProviderProtocol,
+    TranscriptionProviderProtocol,
+    WebPageProviderProtocol,
+)
+from gobbler_core.providers.transcription.base import (
+    TranscriptionProvider,
+    TranscriptionResult,
+)
+from gobbler_core.providers.webpage.base import WebPageProvider, WebPageResult
 
 if TYPE_CHECKING:
     from gobbler_core.config import Config
@@ -160,111 +170,82 @@ def matches_condition(exception: Exception, condition: str) -> bool:
     return False
 
 
-class FallbackProvider(ContentProvider):
-    """A provider wrapper that falls back to an alternative on specific conditions.
-
-    This class wraps a primary ContentProvider and attempts to use a fallback
-    provider when the primary fails with errors matching the specified conditions.
-
-    Attributes:
-        primary: The primary content provider to try first.
-        fallback: The fallback content provider to use on failure.
-        conditions: List of FallbackCondition values that trigger fallback.
-
-    Example:
-        provider = FallbackProvider(
-            primary=Crawl4AIProvider(),
-            fallback=SimpleHTTPProvider(),
-            conditions=["timeout", "rate_limited"],
-        )
-        result = await provider.fetch("https://example.com")
-    """
-
-    def __init__(
-        self,
-        primary: ContentProvider,
-        fallback: ContentProvider,
-        conditions: list[str],
-    ) -> None:
-        """Initialize the fallback provider wrapper.
-
-        Args:
-            primary: The primary content provider to try first.
-            fallback: The fallback content provider to use on failure.
-            conditions: List of FallbackCondition values (e.g., ["timeout", "error"])
-                that trigger fallback to the alternative provider.
-        """
-        self._primary = primary
-        self._fallback = fallback
-        self._conditions = conditions
+class _NamedProvider(Protocol):
+    """Common provider behavior required by fallback orchestration."""
 
     @property
     def name(self) -> str:
-        """Return combined provider name.
+        """Return the provider name."""
 
-        Returns:
-            A name combining primary and fallback provider names.
-        """
+
+class _MetadataResult(Protocol):
+    """Result carrying metadata that can record fallback details."""
+
+    metadata: dict[str, Any]
+
+
+_ProviderT = TypeVar("_ProviderT", bound=_NamedProvider)
+_ResultT = TypeVar("_ResultT", bound=_MetadataResult)
+
+
+class _FallbackBase(Generic[_ProviderT]):
+    """Shared exception matching and metadata enrichment for typed wrappers."""
+
+    def __init__(
+        self,
+        primary: _ProviderT,
+        fallback: _ProviderT,
+        conditions: list[str],
+    ) -> None:
+        """Initialize shared fallback state."""
+        if not conditions or any(
+            not isinstance(condition, str) or not condition.strip() for condition in conditions
+        ):
+            msg = "Fallback conditions must be a nonempty list of nonempty strings"
+            raise TypeError(msg)
+        self._primary = primary
+        self._fallback = fallback
+        self._conditions = tuple(conditions)
+
+    @property
+    def name(self) -> str:
+        """Return a name combining the primary and fallback providers."""
         return f"{self._primary.name}+{self._fallback.name}"
 
     @property
-    def primary(self) -> ContentProvider:
+    def primary(self) -> _ProviderT:
         """Return the primary provider."""
         return self._primary
 
     @property
-    def fallback(self) -> ContentProvider:
+    def fallback(self) -> _ProviderT:
         """Return the fallback provider."""
         return self._fallback
 
     @property
     def conditions(self) -> list[str]:
-        """Return the fallback conditions."""
-        return self._conditions.copy()
+        """Return a copy of the configured fallback conditions."""
+        return list(self._conditions)
 
-    def supports(self, source: str) -> bool:
-        """Check if either provider supports the source.
-
-        Args:
-            source: URL, file path, or identifier to check.
-
-        Returns:
-            True if either primary or fallback provider supports the source.
-        """
-        return self._primary.supports(source) or self._fallback.supports(source)
-
-    async def fetch(self, source: str, **options: Any) -> ProviderResult:
-        """Fetch content, falling back on matching error conditions.
-
-        Tries the primary provider first. If it raises an exception that
-        matches any of the configured fallback conditions, tries the
-        fallback provider.
-
-        Args:
-            source: URL, file path, or identifier to fetch content from.
-            **options: Provider-specific options passed to both providers.
-
-        Returns:
-            ProviderResult from whichever provider succeeds.
-
-        Note:
-            If the primary provider returns a ProviderResult with success=False,
-            it is returned directly without attempting fallback. Fallback is
-            only triggered by exceptions.
-        """
-        primary_error: Exception | None = None
-        matching_condition: str | None = None
-
+    async def _run_with_fallback(
+        self,
+        operation_name: str,
+        primary_call: Callable[[], Awaitable[_ResultT]],
+        fallback_call: Callable[[], Awaitable[_ResultT]],
+    ) -> _ResultT:
+        """Run a provider operation and fall back on a matching exception."""
+        primary_error: Exception
         try:
-            logger.debug("Attempting fetch with primary provider: %s", self._primary.name)
-            return await self._primary.fetch(source, **options)
-
+            logger.debug(
+                "Attempting %s with primary provider: %s",
+                operation_name,
+                self._primary.name,
+            )
+            return await primary_call()
         except Exception as exc:
             primary_error = exc
             matching_condition = self._find_matching_condition(exc)
-
             if matching_condition is None:
-                # No condition matched, re-raise the original exception
                 logger.debug(
                     "Primary provider '%s' failed with non-matching error: %s",
                     self._primary.name,
@@ -272,7 +253,6 @@ class FallbackProvider(ContentProvider):
                 )
                 raise
 
-        # Condition matched, try fallback
         logger.info(
             "Falling back from '%s' to '%s' due to %s condition (error: %s)",
             self._primary.name,
@@ -282,82 +262,279 @@ class FallbackProvider(ContentProvider):
         )
 
         try:
-            result = await self._fallback.fetch(source, **options)
+            result = await fallback_call()
         except Exception:
-            # Both providers failed
             logger.exception(
                 "Both providers failed. Primary '%s': %s. Fallback '%s' also failed.",
                 self._primary.name,
                 primary_error,
                 self._fallback.name,
             )
-            # Re-raise the fallback error as it's the most recent
             raise
 
-        # Add metadata about the fallback
         result.metadata["fallback_used"] = True
         result.metadata["fallback_reason"] = matching_condition
         result.metadata["primary_provider"] = self._primary.name
         result.metadata["fallback_provider"] = self._fallback.name
-
         return result
 
     def _find_matching_condition(self, exception: Exception) -> str | None:
-        """Find the first matching fallback condition for an exception.
+        """Return the first configured condition matching an exception."""
+        return next(
+            (
+                condition
+                for condition in self._conditions
+                if matches_condition(exception, condition)
+            ),
+            None,
+        )
 
-        Args:
-            exception: The exception to check.
 
-        Returns:
-            The matching condition string, or None if no condition matches.
-        """
-        for condition in self._conditions:
-            if matches_condition(exception, condition):
-                return condition
-        return None
+class FallbackProvider(_FallbackBase[ContentProviderProtocol], ContentProvider):
+    """Fallback wrapper for the generic ``ContentProvider`` interface."""
+
+    def supports(self, source: str) -> bool:
+        """Return whether either provider supports the source."""
+        return self._primary.supports(source) or self._fallback.supports(source)
+
+    async def fetch(self, source: str, **options: Any) -> ProviderResult:
+        """Fetch content, falling back on a matching primary exception."""
+        return await self._run_with_fallback(
+            "fetch",
+            lambda: self._primary.fetch(source, **options),
+            lambda: self._fallback.fetch(source, **options),
+        )
+
+
+class FallbackWebPageProvider(_FallbackBase[WebPageProviderProtocol], WebPageProvider):
+    """Fallback wrapper for the ``WebPageProvider`` interface."""
+
+    async def fetch(
+        self,
+        url: str,
+        timeout: int = 30,
+        **options: Any,
+    ) -> WebPageResult:
+        """Fetch a webpage, falling back on a matching primary exception."""
+        return await self._run_with_fallback(
+            "fetch",
+            lambda: self._primary.fetch(url, timeout=timeout, **options),
+            lambda: self._fallback.fetch(url, timeout=timeout, **options),
+        )
+
+
+class FallbackDocumentProvider(_FallbackBase[DocumentProviderProtocol], DocumentProvider):
+    """Fallback wrapper for the ``DocumentProvider`` interface."""
+
+    def supports_format(self, file_extension: str) -> bool:
+        """Return whether either provider supports the document format."""
+        return self._primary.supports_format(file_extension) or self._fallback.supports_format(
+            file_extension
+        )
+
+    async def convert(
+        self,
+        file_path: Path,
+        ocr: bool = True,
+        **options: Any,
+    ) -> DocumentResult:
+        """Convert a document, falling back on a matching primary exception."""
+        return await self._run_with_fallback(
+            "convert",
+            lambda: self._primary.convert(file_path, ocr=ocr, **options),
+            lambda: self._fallback.convert(file_path, ocr=ocr, **options),
+        )
+
+
+class FallbackTranscriptionProvider(
+    _FallbackBase[TranscriptionProviderProtocol],
+    TranscriptionProvider,
+):
+    """Fallback wrapper for the ``TranscriptionProvider`` interface."""
+
+    def supports_format(self, file_extension: str) -> bool:
+        """Return whether either provider supports the audio format."""
+        return self._primary.supports_format(file_extension) or self._fallback.supports_format(
+            file_extension
+        )
+
+    async def transcribe(
+        self,
+        audio_path: Path,
+        language: str = "auto",
+        **options: Any,
+    ) -> TranscriptionResult:
+        """Transcribe audio, falling back on a matching primary exception."""
+        return await self._run_with_fallback(
+            "transcribe",
+            lambda: self._primary.transcribe(audio_path, language=language, **options),
+            lambda: self._fallback.transcribe(audio_path, language=language, **options),
+        )
+
+
+FallbackCapableProvider: TypeAlias = (
+    ContentProviderProtocol
+    | WebPageProviderProtocol
+    | DocumentProviderProtocol
+    | TranscriptionProviderProtocol
+)
+
+
+def _provider_config_kwargs(provider_config: dict[str, Any]) -> dict[str, Any]:
+    """Remove fallback orchestration settings from provider constructor arguments."""
+    return {key: value for key, value in provider_config.items() if key != "fallback"}
+
+
+def _validate_category_provider(
+    provider: object,
+    category: str,
+    provider_name: str,
+) -> FallbackCapableProvider:
+    """Validate a registry result against its category-specific interface."""
+    expected_types: dict[str, type[FallbackCapableProvider]] = {
+        "content": ContentProviderProtocol,
+        "webpage": WebPageProviderProtocol,
+        "document": DocumentProviderProtocol,
+        "transcription": TranscriptionProviderProtocol,
+    }
+    expected_type = expected_types.get(category)
+    expected_names = {
+        "content": "ContentProvider",
+        "webpage": "WebPageProvider",
+        "document": "DocumentProvider",
+        "transcription": "TranscriptionProvider",
+    }
+    if expected_type is None:
+        msg = (
+            f"Provider category '{category}' is incompatible with fallback handling; "
+            "expected one of: content, webpage, document, transcription"
+        )
+        raise TypeError(msg)
+    if not isinstance(provider, expected_type):
+        msg = (
+            f"Provider '{provider_name}' in category '{category}' is incompatible with "
+            f"fallback handling: expected {expected_names[category]}, "
+            f"got {type(provider).__name__}"
+        )
+        raise TypeError(msg)
+    return provider
+
+
+def _validate_fallback_config(
+    fallback_config: object,
+    category: str,
+    provider_name: str,
+) -> tuple[str, list[str]]:
+    """Validate fallback provider and condition values from configuration."""
+    if not isinstance(fallback_config, dict) or not all(
+        isinstance(key, str) for key in fallback_config
+    ):
+        msg = (
+            f"Fallback configuration for '{category}/{provider_name}' must be "
+            "a string-keyed dictionary"
+        )
+        raise TypeError(msg)
+
+    fallback_provider_name = fallback_config.get("provider")
+    conditions_value = fallback_config.get("on")
+
+    if not isinstance(fallback_provider_name, str) or not fallback_provider_name.strip():
+        msg = (
+            f"Fallback configuration for '{category}/{provider_name}' requires "
+            "a nonempty string 'provider'"
+        )
+        raise TypeError(msg)
+
+    if isinstance(conditions_value, str):
+        conditions = [conditions_value]
+    elif isinstance(conditions_value, list) and all(
+        isinstance(condition, str) for condition in conditions_value
+    ):
+        conditions = conditions_value
+    else:
+        msg = (
+            f"Fallback configuration for '{category}/{provider_name}' requires "
+            "'on' to be a nonempty string or list of nonempty strings"
+        )
+        raise TypeError(msg)
+
+    if not conditions or any(not condition.strip() for condition in conditions):
+        msg = (
+            f"Fallback configuration for '{category}/{provider_name}' requires "
+            "'on' to be a nonempty string or list of nonempty strings"
+        )
+        raise TypeError(msg)
+    return fallback_provider_name, conditions
+
+
+def _wrap_providers(
+    primary: FallbackCapableProvider,
+    fallback: FallbackCapableProvider,
+    conditions: list[str],
+    category: str,
+) -> FallbackCapableProvider:
+    """Create the wrapper matching two already category-validated providers."""
+    if category == "content":
+        if isinstance(primary, ContentProviderProtocol) and isinstance(
+            fallback, ContentProviderProtocol
+        ):
+            return FallbackProvider(primary, fallback, conditions)
+    elif category == "webpage":
+        if isinstance(primary, WebPageProviderProtocol) and isinstance(
+            fallback, WebPageProviderProtocol
+        ):
+            return FallbackWebPageProvider(primary, fallback, conditions)
+    elif category == "document":
+        if isinstance(primary, DocumentProviderProtocol) and isinstance(
+            fallback, DocumentProviderProtocol
+        ):
+            return FallbackDocumentProvider(primary, fallback, conditions)
+    elif (
+        category == "transcription"
+        and isinstance(primary, TranscriptionProviderProtocol)
+        and isinstance(fallback, TranscriptionProviderProtocol)
+    ):
+        return FallbackTranscriptionProvider(primary, fallback, conditions)
+
+    msg = (
+        f"Primary and fallback providers in category '{category}' expose "
+        f"incompatible interfaces: {type(primary).__name__} and {type(fallback).__name__}"
+    )
+    raise TypeError(msg)
 
 
 def create_fallback_provider(
     config: Config,
     category: str,
     provider_name: str,
-) -> ContentProvider:
-    """Create a provider with fallback if configured.
-
-    This factory function creates a provider instance and wraps it in a
-    FallbackProvider if fallback configuration exists for the provider.
+) -> FallbackCapableProvider:
+    """Create a category-native provider with an optional typed fallback wrapper.
 
     Args:
         config: Configuration object with provider settings.
-        category: Provider category (e.g., "transcription", "document", "webpage").
+        category: One of ``content``, ``webpage``, ``document``, or ``transcription``.
         provider_name: Name of the primary provider.
 
     Returns:
-        Either the primary provider directly, or a FallbackProvider wrapping
-        the primary with a configured fallback.
+        A provider exposing the interface native to the requested category.
 
-    Example:
-        config = get_config()
-        provider = create_fallback_provider(config, "webpage", "crawl4ai")
-
-    Configuration format:
-        providers:
-          webpage:
-            crawl4ai:
-              timeout: 30
-              fallback:
-                provider: httpx-simple
-                on: [timeout, rate_limited]
+    Raises:
+        TypeError: If configuration or registry results do not match the category.
     """
     from gobbler_core.providers.registry import ProviderRegistry
 
-    # Get provider configuration and create primary provider
     provider_config = config.get_provider_config(category, provider_name)
-    primary = ProviderRegistry.create(category, provider_name, **provider_config)
+    primary = _validate_category_provider(
+        ProviderRegistry.create(
+            category,
+            provider_name,
+            **_provider_config_kwargs(provider_config),
+        ),
+        category,
+        provider_name,
+    )
 
-    # Check for fallback configuration
     fallback_config = config.get_provider_fallback(category, provider_name)
-
     if fallback_config is None:
         logger.debug(
             "No fallback configured for %s/%s, returning primary provider",
@@ -366,17 +543,21 @@ def create_fallback_provider(
         )
         return primary
 
-    # Create fallback provider
-    fallback_provider_name = fallback_config["provider"]
-    fallback_conditions = fallback_config["on"]
-
-    # Ensure conditions is a list
-    if isinstance(fallback_conditions, str):
-        fallback_conditions = [fallback_conditions]
-
-    # Get fallback provider config and create it
+    fallback_provider_name, fallback_conditions = _validate_fallback_config(
+        fallback_config,
+        category,
+        provider_name,
+    )
     fallback_provider_config = config.get_provider_config(category, fallback_provider_name)
-    fallback = ProviderRegistry.create(category, fallback_provider_name, **fallback_provider_config)
+    fallback = _validate_category_provider(
+        ProviderRegistry.create(
+            category,
+            fallback_provider_name,
+            **_provider_config_kwargs(fallback_provider_config),
+        ),
+        category,
+        fallback_provider_name,
+    )
 
     logger.info(
         "Created fallback provider: %s -> %s (on: %s)",
@@ -384,9 +565,4 @@ def create_fallback_provider(
         fallback_provider_name,
         fallback_conditions,
     )
-
-    return FallbackProvider(
-        primary=primary,
-        fallback=fallback,
-        conditions=fallback_conditions,
-    )
+    return _wrap_providers(primary, fallback, fallback_conditions, category)

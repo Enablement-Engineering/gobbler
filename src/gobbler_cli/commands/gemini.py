@@ -6,7 +6,7 @@ import asyncio
 import base64
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -118,7 +118,7 @@ GET_CHAT_HISTORY_JS = """
 """
 
 
-async def _get_gemini_tabs() -> list[dict]:
+async def _get_gemini_tabs() -> list[dict[str, Any]]:
     """Get list of Gemini tabs in the Gobbler group."""
     from gobbler_relay.client import list_tabs
 

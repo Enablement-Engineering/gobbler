@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -114,7 +114,7 @@ GET_CHAT_HISTORY_JS = """
 """
 
 
-async def _get_claude_tabs() -> list[dict]:
+async def _get_claude_tabs() -> list[dict[str, Any]]:
     """Get list of Claude.ai tabs in the Gobbler group."""
     from gobbler_relay.client import list_tabs
 

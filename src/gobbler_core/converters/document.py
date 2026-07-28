@@ -20,7 +20,7 @@ import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aiofiles
 
@@ -30,7 +30,7 @@ from gobbler_core.utils.http_client import RetryableHTTPClient
 from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
-    from gobbler_core.providers.document import DocumentProvider
+    from gobbler_core.providers.registry import DocumentProviderProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +77,8 @@ async def convert_document_to_markdown(
     service_url: str = "http://localhost:5001",
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
-    provider: DocumentProvider | None = None,
-) -> tuple[str, dict]:
+    provider: DocumentProviderProtocol | None = None,
+) -> tuple[str, dict[str, Any]]:
     """Convert document to markdown using a document conversion provider.
 
     Uses a pluggable document conversion provider for the actual conversion.
@@ -250,7 +250,7 @@ def _convert_xls_to_xlsx(xls_path: Path) -> Path:
         raise RuntimeError(msg) from e
 
 
-def _process_docling_response(result: dict) -> tuple[str, int, int]:
+def _process_docling_response(result: dict[str, Any]) -> tuple[str, int, int]:
     """Process Docling API response and extract markdown content.
 
     Args:

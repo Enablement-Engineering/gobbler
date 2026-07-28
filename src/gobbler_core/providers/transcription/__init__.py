@@ -28,6 +28,9 @@ Example:
     result = await provider.transcribe(Path("audio.mp3"), language="en")
 """
 
+from typing import Any
+
+from gobbler_core.providers.registry import TranscriptionProviderProtocol
 from gobbler_core.providers.transcription.base import (
     TranscriptionProvider,
     TranscriptionResult,
@@ -46,7 +49,7 @@ __all__ = [
 ]
 
 
-def get_default_provider(**kwargs) -> TranscriptionProvider:
+def get_default_provider(**kwargs: Any) -> TranscriptionProviderProtocol:
     """Get the default transcription provider based on configuration.
 
     Args:
@@ -62,4 +65,11 @@ def get_default_provider(**kwargs) -> TranscriptionProvider:
     # Config integration will be added when we update the config schema
     provider_name = kwargs.pop("provider", "whisper-local")
 
-    return ProviderRegistry.create("transcription", provider_name, **kwargs)
+    provider = ProviderRegistry.create("transcription", provider_name, **kwargs)
+    if not isinstance(provider, TranscriptionProviderProtocol):
+        msg = (
+            f"Registry provider 'transcription/{provider_name}' must be a "
+            f"TranscriptionProvider, got {type(provider).__name__}"
+        )
+        raise TypeError(msg)
+    return provider

@@ -34,7 +34,10 @@ from .base import ContentProvider, ProviderResult
 # Fallback provider wrapper
 from .fallback import (
     FallbackCondition,
+    FallbackDocumentProvider,
     FallbackProvider,
+    FallbackTranscriptionProvider,
+    FallbackWebPageProvider,
     create_fallback_provider,
     matches_condition,
 )
@@ -65,7 +68,10 @@ __all__ = [
     "AutoFallbackProvider",
     "ContentProvider",
     "FallbackCondition",
+    "FallbackDocumentProvider",
     "FallbackProvider",
+    "FallbackTranscriptionProvider",
+    "FallbackWebPageProvider",
     "ProviderNotFoundError",
     "ProviderRegistry",
     "ProviderResult",

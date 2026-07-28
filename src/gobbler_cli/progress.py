@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from types import TracebackType
+from typing import Any
+
 from rich.progress import (
     BarColumn,
     Progress,
@@ -70,7 +73,12 @@ class ProgressTracker:
         self.task_id = self.progress.add_task(self.description, total=self.total)
         return self
 
-    def __exit__(self, exc_type: type, exc_val: Exception, exc_tb: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Stop progress tracking."""
         if self.progress:
             self.progress.__exit__(exc_type, exc_val, exc_tb)
@@ -83,7 +91,7 @@ class ProgressTracker:
             description: Optional new description
         """
         if self.progress and self.task_id is not None:
-            kwargs = {"advance": advance}
+            kwargs: dict[str, Any] = {"advance": advance}
             if description:
                 kwargs["description"] = description
             self.progress.update(self.task_id, **kwargs)

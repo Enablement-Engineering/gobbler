@@ -6,7 +6,7 @@ import asyncio
 import logging
 import re
 import time
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -30,7 +30,7 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
     timeout: int = 30,
     use_stealth: bool = False,
     use_proxy: bool = True,
-) -> tuple[str, dict]:
+) -> tuple[str, dict[str, Any]]:
     """Convert web page to markdown with CSS/XPath selector extraction.
 
     Args:
@@ -121,6 +121,9 @@ async def convert_webpage_with_selector(  # noqa: C901, PLR0912, PLR0915
                     msg = "Crawl4AI returned no results"
                     raise RuntimeError(msg)
                 result = results[0]
+                if not isinstance(result, dict):
+                    msg = "Crawl4AI returned an invalid result; expected a dictionary"
+                    raise RuntimeError(msg)
             elif task_data.get("task_id"):
                 result = await _poll_for_result(
                     client=client,
@@ -224,7 +227,11 @@ async def _poll_for_result(
             if not results:
                 msg = "Crawl4AI returned no results"
                 raise RuntimeError(msg)
-            return results[0]
+            result = results[0]
+            if not isinstance(result, dict):
+                msg = "Crawl4AI returned an invalid result; expected a dictionary"
+                raise RuntimeError(msg)
+            return result
 
         if task_status.get("status") == "failed":
             error = task_status.get("error", "Unknown error")
@@ -245,7 +252,7 @@ def _get_markdown_content(result: dict[str, Any]) -> str:
     elif isinstance(result.get("markdown"), str):
         markdown_content = result["markdown"]
 
-    if not markdown_content:
+    if not isinstance(markdown_content, str) or not markdown_content.strip():
         msg = "No markdown content in Crawl4AI response"
         raise RuntimeError(msg)
 
@@ -357,7 +364,7 @@ def _html_to_simple_markdown(element: Any) -> str:  # noqa: C901, PLR0912
                 lines.append(f"\n```\n{text}\n```\n")
 
     if not lines:
-        return element.get_text(separator="\n", strip=True)
+        return cast("str", element.get_text(separator="\n", strip=True))
 
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines))
 

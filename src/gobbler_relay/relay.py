@@ -32,8 +32,9 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict, cast
 
 import httpx
 from aiohttp import web
@@ -43,6 +44,7 @@ from markdownify import markdownify as md
 
 from gobbler_core import __version__
 from gobbler_core.utils.frontmatter import count_words, create_webpage_frontmatter
+from gobbler_relay.validation import require_string_field, require_string_keyed_dict
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +59,26 @@ AUTO_SHUTDOWN_TIMEOUT = 14400  # 4 hours
 
 # Global WebSocket connections and command queue
 websocket_connections: "set[web.WebSocketResponse]" = set()
-pending_commands: "dict[str, dict]" = {}  # command_id -> {event: asyncio.Event, response: dict}
+
+
+class PendingCommand(TypedDict):
+    """State for a command awaiting a browser-extension response."""
+
+    event: asyncio.Event
+    response: dict[str, Any] | None
+
+
+pending_commands: dict[str, PendingCommand] = {}
 
 # App keys for type-safe app storage
-shutdown_event_key: AppKey[asyncio.Event] = AppKey("shutdown_event", asyncio.Event)
+shutdown_event_key: AppKey[asyncio.Event | None] = AppKey(
+    "shutdown_event",
+    cast("type[asyncio.Event | None]", asyncio.Event),
+)
 
 # Activity tracking for auto-shutdown
 last_activity_time: float = 0.0
-auto_shutdown_task: asyncio.Task | None = None
+auto_shutdown_task: asyncio.Task[None] | None = None
 
 
 async def extract_handler(request: web.Request) -> web.Response:
@@ -170,6 +184,43 @@ async def health_handler(_request: web.Request) -> web.Response:
     return web.json_response({"status": "ok", "websocket_connections": len(websocket_connections)})
 
 
+async def _handle_websocket_text(
+    ws: web.WebSocketResponse,
+    raw_message: str,
+) -> None:
+    """Validate and handle one text message from a browser extension."""
+    try:
+        data = require_string_keyed_dict(
+            json.loads(raw_message),
+            "WebSocket message",
+        )
+        message_type = data.get("type")
+
+        if message_type == "command_response":
+            command_id = require_string_field(
+                data,
+                "command_id",
+                "WebSocket command_response",
+            )
+            result = require_string_keyed_dict(
+                data.get("result"),
+                "WebSocket command_response.result",
+            )
+            if command_id in pending_commands:
+                pending_commands[command_id]["response"] = result
+                pending_commands[command_id]["event"].set()
+
+        elif message_type == "ping":
+            await ws.send_json({"type": "pong"})
+
+        elif message_type == "register":
+            await ws.send_json({"type": "registered", "server_version": __version__})
+            logger.info("Extension registered via WebSocket")
+
+    except (json.JSONDecodeError, RuntimeError) as exc:
+        logger.warning("Ignoring malformed WebSocket message: %s", exc)
+
+
 async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """Handle WebSocket connections from browser extension.
 
@@ -185,28 +236,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     try:
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
-                try:
-                    data = json.loads(msg.data)
-                    message_type = data.get("type")
-
-                    if message_type == "command_response":
-                        # Handle response to a command we sent
-                        command_id = data.get("command_id")
-                        if command_id in pending_commands:
-                            pending_commands[command_id]["response"] = data.get("result", {})
-                            pending_commands[command_id]["event"].set()
-
-                    elif message_type == "ping":
-                        # Respond to ping with pong
-                        await ws.send_json({"type": "pong"})
-
-                    elif message_type == "register":
-                        # Extension registered successfully
-                        await ws.send_json({"type": "registered", "server_version": __version__})
-                        logger.info("Extension registered via WebSocket")
-
-                except json.JSONDecodeError:
-                    logger.exception("Invalid JSON received: %s", msg.data)
+                await _handle_websocket_text(ws, msg.data)
 
             elif msg.type == web.WSMsgType.ERROR:
                 logger.error("WebSocket error: %s", ws.exception())
@@ -220,9 +250,9 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
 
 async def send_command_to_extension(
     command: str,
-    params: dict | None = None,
+    params: dict[str, Any] | None = None,
     timeout: float = 30.0,
-) -> dict:
+) -> dict[str, Any]:
     """Send a command to the browser extension and wait for response.
 
     Args:
@@ -342,8 +372,10 @@ def create_app(
     # Add CORS middleware to allow browser extension requests
     @web.middleware
     async def cors_middleware(
-        request: web.Request, handler: web.RequestHandler
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
     ) -> web.StreamResponse:
+        response: web.StreamResponse
         if request.method == "OPTIONS":
             response = web.Response()
         else:
@@ -361,7 +393,8 @@ def create_app(
 
         @web.middleware
         async def activity_middleware(
-            request: web.Request, handler: web.RequestHandler
+            request: web.Request,
+            handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
         ) -> web.StreamResponse:
             # Track activity on command requests (not health checks or WebSocket)
             if request.path in ("/command", "/extract"):

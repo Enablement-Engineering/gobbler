@@ -7,12 +7,42 @@ import threading
 from collections import ChainMap
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeGuard
 
 import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode
 
 logger = logging.getLogger(__name__)
+
+
+def _is_string_keyed_dict(value: Any) -> TypeGuard[dict[str, Any]]:
+    """Return whether a value is a dictionary whose keys are all strings."""
+    return isinstance(value, dict) and all(isinstance(key, str) for key in value)
+
+
+def _normalize_fallback_config(value: Any) -> dict[str, Any] | None:
+    """Validate and normalize a provider fallback configuration."""
+    if not isinstance(value, dict):
+        return None
+
+    normalized: dict[str, Any] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            normalized[key] = item
+        elif type(key) is bool and key is True and "on" not in value:
+            normalized["on"] = item
+        else:
+            return None
+
+    fallback_provider = normalized.get("provider")
+    conditions = normalized.get("on")
+    provider_valid = isinstance(fallback_provider, str) and bool(fallback_provider.strip())
+    conditions_valid = (isinstance(conditions, str) and bool(conditions.strip())) or (
+        isinstance(conditions, list)
+        and bool(conditions)
+        and all(isinstance(condition, str) and bool(condition.strip()) for condition in conditions)
+    )
+    return normalized if provider_valid and conditions_valid else None
 
 
 class _BackrefRewriter:
@@ -797,9 +827,18 @@ class Config:
         Returns:
             Provider name.
         """
-        return self.get(f"providers.{category}.default", self._default_provider(category))
+        setting = f"providers.{category}.default"
+        provider_name = self.get(setting, self._default_provider(category))
+        if not isinstance(provider_name, str):
+            msg = f"Configuration value '{setting}' must be a string"
+            raise TypeError(msg)
+        return provider_name
 
-    def get_provider_config(self, category: str, provider_name: str | None = None) -> dict:
+    def get_provider_config(
+        self,
+        category: str,
+        provider_name: str | None = None,
+    ) -> dict[str, Any]:
         """Get configuration for a specific provider.
 
         Args:
@@ -812,7 +851,12 @@ class Config:
         if provider_name is None:
             provider_name = self.get_provider_name(category)
 
-        return self.get(f"providers.{category}.{provider_name}", {})
+        setting = f"providers.{category}.{provider_name}"
+        provider_config = self.get(setting, {})
+        if not _is_string_keyed_dict(provider_config):
+            msg = f"Configuration value '{setting}' must be a dictionary with string keys"
+            raise TypeError(msg)
+        return provider_config
 
     @staticmethod
     def _default_provider(category: str) -> str:
@@ -832,7 +876,7 @@ class Config:
         }
         return defaults.get(category, "")
 
-    def get_proxy_service(self, service_name: str) -> dict | None:
+    def get_proxy_service(self, service_name: str) -> dict[str, Any] | None:
         """Get proxy service configuration by name.
 
         Args:
@@ -841,9 +885,20 @@ class Config:
         Returns:
             Proxy service configuration dictionary, or None if not found.
         """
-        return self.get(f"proxy_services.{service_name}")
+        setting = f"proxy_services.{service_name}"
+        proxy_config = self.get(setting)
+        if proxy_config is None:
+            return None
+        if not _is_string_keyed_dict(proxy_config):
+            msg = f"Configuration value '{setting}' must be a dictionary with string keys"
+            raise TypeError(msg)
+        return proxy_config
 
-    def get_provider_proxy(self, category: str, provider_name: str | None = None) -> dict | None:
+    def get_provider_proxy(
+        self,
+        category: str,
+        provider_name: str | None = None,
+    ) -> dict[str, Any] | None:
         """Get proxy configuration for a provider.
 
         Args:
@@ -862,7 +917,11 @@ class Config:
 
         return self.get_proxy_service(proxy_service_name)
 
-    def get_provider_fallback(self, category: str, provider_name: str | None = None) -> dict | None:
+    def get_provider_fallback(
+        self,
+        category: str,
+        provider_name: str | None = None,
+    ) -> dict[str, Any] | None:
         """Get fallback configuration for a provider.
 
         Args:
@@ -876,21 +935,7 @@ class Config:
             provider_name = self.get_provider_name(category)
 
         fallback = self.get(f"providers.{category}.{provider_name}.fallback")
-        if fallback is None:
-            return None
-
-        if (
-            isinstance(fallback, dict)
-            and "provider" in fallback
-            and "on" not in fallback
-            and any(type(key) is bool and key is True for key in fallback)
-        ):
-            fallback = {**fallback, "on": fallback[True]}
-
-        if not isinstance(fallback, dict) or "provider" not in fallback or "on" not in fallback:
-            return None
-
-        return fallback
+        return _normalize_fallback_config(fallback)
 
     def reload(self) -> None:
         """Reload configuration from file."""

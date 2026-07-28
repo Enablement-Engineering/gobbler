@@ -26,7 +26,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from faster_whisper import WhisperModel
 
@@ -35,7 +35,8 @@ from gobbler_core.utils.frontmatter import count_words, create_audio_frontmatter
 from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
-    from gobbler_core.providers.transcription import TranscriptionProvider, TranscriptionResult
+    from gobbler_core.providers.registry import TranscriptionProviderProtocol
+    from gobbler_core.providers.transcription import TranscriptionResult
 
 logger = logging.getLogger(__name__)
 
@@ -182,8 +183,8 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
     include_timestamps: bool = False,
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
-    provider: TranscriptionProvider | None = None,
-) -> tuple[str, dict]:
+    provider: TranscriptionProviderProtocol | None = None,
+) -> tuple[str, dict[str, Any]]:
     """Transcribe audio/video to markdown using a transcription provider.
 
     Uses a pluggable transcription provider for the actual transcription.

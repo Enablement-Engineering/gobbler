@@ -30,7 +30,7 @@ from gobbler_core.utils.http_client import RetryableHTTPClient
 from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
-    from gobbler_core.providers.webpage import WebPageProvider
+    from gobbler_core.providers.registry import WebPageProviderProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def _extract_markdown_content(result: dict[str, Any]) -> str:
     elif isinstance(result.get("markdown"), str):
         markdown_content = result["markdown"]
 
-    if not markdown_content:
+    if not isinstance(markdown_content, str) or not markdown_content.strip():
         msg = "No markdown content in Crawl4AI response"
         raise RuntimeError(msg)
 
@@ -102,7 +102,11 @@ async def _poll_for_task_completion(
             if not results or len(results) == 0:
                 msg = "Crawl4AI returned no results"
                 raise RuntimeError(msg)
-            return results[0]
+            result = results[0]
+            if not isinstance(result, dict):
+                msg = "Crawl4AI returned an invalid result; expected a dictionary"
+                raise RuntimeError(msg)
+            return result
 
         if task_status.get("status") == "failed":
             error = task_status.get("error", "Unknown error")
@@ -121,9 +125,9 @@ async def convert_webpage_to_markdown(
     api_token: str = "gobbler-local-token",  # noqa: S107
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
-    provider: WebPageProvider | None = None,
+    provider: WebPageProviderProtocol | None = None,
     use_proxy: bool = True,
-) -> tuple[str, dict]:
+) -> tuple[str, dict[str, Any]]:
     """Convert web page to markdown using a webpage provider.
 
     Uses a pluggable webpage provider for the actual scraping and conversion.
