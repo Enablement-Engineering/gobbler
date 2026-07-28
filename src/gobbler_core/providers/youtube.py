@@ -49,7 +49,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
+from youtube_transcript_api.proxies import (
+    GenericProxyConfig,
+    ProxyConfig,
+    WebshareProxyConfig,
+)
 
 from gobbler_core.utils.redaction import redact_value
 
@@ -273,7 +277,7 @@ class TranscriptProvider(ABC):
 class YouTubeTranscriptAPIProvider(TranscriptProvider):
     """Provider using youtube-transcript-api (free, may get IP blocked)."""
 
-    def __init__(self, proxy_config=None):
+    def __init__(self, proxy_config: ProxyConfig | None = None) -> None:
         """Initialize provider.
 
         Args:
@@ -432,7 +436,11 @@ class TranscriptAPIProvider(TranscriptProvider):
 class AutoFallbackProvider(TranscriptProvider):
     """Try free provider first, fall back to paid API if blocked."""
 
-    def __init__(self, api_key: str, proxy_config=None):
+    def __init__(
+        self,
+        api_key: str,
+        proxy_config: ProxyConfig | None = None,
+    ) -> None:
         """Initialize provider.
 
         Args:
@@ -467,7 +475,7 @@ def create_proxy_config(
     webshare_user: str | None = None,
     webshare_pass: str | None = None,
     proxy_url: str | None = None,
-):
+) -> ProxyConfig | None:
     """Create proxy configuration for youtube-transcript-api.
 
     .. deprecated::
@@ -518,13 +526,13 @@ def create_proxy_config(
     )
 
     # Delegate to unified proxy abstraction
-    return get_youtube_proxy_config()
+    return cast("ProxyConfig | None", get_youtube_proxy_config())
 
 
 def create_provider(
     provider_name: str = "auto",
     api_key: str | None = None,
-    proxy_config=None,
+    proxy_config: ProxyConfig | None = None,
     config: Config | None = None,
 ) -> TranscriptProvider:
     """Create the appropriate transcript provider.

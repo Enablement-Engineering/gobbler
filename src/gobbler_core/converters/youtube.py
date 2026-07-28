@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, NoReturn
 
-import yt_dlp  # type: ignore[import-untyped]
+import yt_dlp
 
 from gobbler_core.config import get_config
 from gobbler_core.converters.youtube_frames import (

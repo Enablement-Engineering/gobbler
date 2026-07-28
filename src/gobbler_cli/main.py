@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
+from click.core import Command
 
 from gobbler_cli import __version__
 
@@ -55,25 +56,37 @@ def completion(
     """
     from typer.main import get_command
 
-    click_app = get_command(app)
+    click_app = cast("Command", get_command(app))
 
     # Use click-shell-completion for generating completion scripts
     try:
         if shell == "bash":
             from click.shell_completion import BashComplete
 
-            complete = BashComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
-            completion_script = complete.source()
+            completion_script = BashComplete(
+                click_app,
+                {},
+                "gobbler",
+                "_GOBBLER_COMPLETE",
+            ).source()
         elif shell == "zsh":
             from click.shell_completion import ZshComplete
 
-            complete = ZshComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
-            completion_script = complete.source()
+            completion_script = ZshComplete(
+                click_app,
+                {},
+                "gobbler",
+                "_GOBBLER_COMPLETE",
+            ).source()
         elif shell == "fish":
             from click.shell_completion import FishComplete
 
-            complete = FishComplete(click_app, {}, "gobbler", "_GOBBLER_COMPLETE")
-            completion_script = complete.source()
+            completion_script = FishComplete(
+                click_app,
+                {},
+                "gobbler",
+                "_GOBBLER_COMPLETE",
+            ).source()
         elif shell == "powershell":
             typer.echo(
                 "PowerShell completion not supported. Use --install-completion.",

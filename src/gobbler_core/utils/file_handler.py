@@ -66,7 +66,10 @@ def validate_output_path(file_path: str) -> str | None:
     return None
 
 
-def validate_input_path(file_path: str, allowed_extensions: tuple) -> str | None:
+def validate_input_path(
+    file_path: str,
+    allowed_extensions: tuple[str, ...],
+) -> str | None:
     """Validate input file path.
 
     Args:

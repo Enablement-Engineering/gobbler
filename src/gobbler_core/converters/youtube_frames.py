@@ -21,7 +21,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, BinaryIO, Literal, NoReturn, cast
 from urllib.parse import quote
 
-import yt_dlp  # type: ignore[import-untyped]
+import yt_dlp
 
 FrameSelector = Literal["overview", "exact", "range"]
 

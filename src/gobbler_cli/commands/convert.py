@@ -67,6 +67,22 @@ YOUTUBE_URL_PATTERN = re.compile(
 )
 
 
+def _require_registry_provider(
+    provider: object,
+    expected_type: type[Any],
+    category: str,
+    provider_name: str,
+) -> Any:
+    """Return a registry result after validating its category interface."""
+    if not isinstance(provider, expected_type):
+        msg = (
+            f"Registry provider '{category}/{provider_name}' must be a "
+            f"{expected_type.__name__}, got {type(provider).__name__}"
+        )
+        raise TypeError(msg)
+    return provider
+
+
 def _webpage_success_receipt(
     *,
     url: str,
@@ -1096,10 +1112,15 @@ async def _convert_audio(
         transcription_provider: TranscriptionProvider | None = None
         if provider_name:
             try:
-                # Registry returns ContentProvider, cast to specific type
-                transcription_provider = cast(
-                    "TranscriptionProvider",
+                from gobbler_core.providers.transcription.base import (
+                    TranscriptionProvider as RuntimeTranscriptionProvider,
+                )
+
+                transcription_provider = _require_registry_provider(
                     ProviderRegistry.create("transcription", provider_name, model=model),
+                    RuntimeTranscriptionProvider,
+                    "transcription",
+                    provider_name,
                 )
             except ProviderNotFoundError as e:
                 _write_provider_not_found_error(
@@ -1224,10 +1245,15 @@ async def _convert_document(
         document_provider: DocumentProvider
         if provider_name:
             try:
-                # Registry returns ContentProvider, cast to specific type
-                document_provider = cast(
-                    "DocumentProvider",
+                from gobbler_core.providers.document.base import (
+                    DocumentProvider as RuntimeDocumentProvider,
+                )
+
+                document_provider = _require_registry_provider(
                     ProviderRegistry.create("document", provider_name),
+                    RuntimeDocumentProvider,
+                    "document",
+                    provider_name,
                 )
             except ProviderNotFoundError as e:
                 _write_provider_not_found_error(
@@ -1427,10 +1453,15 @@ async def _convert_webpage(  # noqa: PLR0915
             webpage_provider: WebPageProvider
             if provider_name:
                 try:
-                    # Registry returns ContentProvider, cast to specific type
-                    webpage_provider = cast(
-                        "WebPageProvider",
+                    from gobbler_core.providers.webpage.base import (
+                        WebPageProvider as RuntimeWebPageProvider,
+                    )
+
+                    webpage_provider = _require_registry_provider(
                         ProviderRegistry.create("webpage", provider_name),
+                        RuntimeWebPageProvider,
+                        "webpage",
+                        provider_name,
                     )
                 except ProviderNotFoundError as e:
                     _write_provider_not_found_error(

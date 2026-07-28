@@ -1,9 +1,13 @@
 """Unit tests for the provider registry."""
 
+from typing import get_type_hints
+from unittest.mock import patch
+
 import pytest
 
 from gobbler_core.providers.base import ContentProvider, ProviderResult
 from gobbler_core.providers.registry import ProviderNotFoundError, ProviderRegistry
+from gobbler_core.providers.transcription import get_default_provider
 
 
 class MockProvider(ContentProvider):
@@ -159,6 +163,33 @@ class TestProviderRegistry:
         ProviderRegistry.clear()
 
         assert ProviderRegistry.list_categories() == []
+
+    def test_public_registry_type_hints_resolve_at_runtime(self) -> None:
+        """Test heterogeneous provider annotations do not depend on TYPE_CHECKING."""
+        register_hints = get_type_hints(ProviderRegistry.register)
+        get_hints = get_type_hints(ProviderRegistry.get)
+        create_hints = get_type_hints(ProviderRegistry.create)
+
+        assert "provider_class" in register_hints
+        assert "return" in get_hints
+        assert "return" in create_hints
+
+    def test_transcription_default_rejects_wrong_registry_type(self) -> None:
+        """Test the transcription factory validates heterogeneous registry results."""
+        with (
+            patch(
+                "gobbler_core.providers.registry.ProviderRegistry.create",
+                return_value=object(),
+            ),
+            pytest.raises(
+                TypeError,
+                match=(
+                    "Registry provider 'transcription/whisper-local' must be a "
+                    "TranscriptionProvider, got object"
+                ),
+            ),
+        ):
+            get_default_provider()
 
 
 class TestProviderNotFoundError:

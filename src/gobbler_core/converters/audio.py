@@ -26,7 +26,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from faster_whisper import WhisperModel
 
@@ -183,7 +183,7 @@ async def convert_audio_to_markdown(  # noqa: C901, PLR0912, PLR0915
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
     provider: TranscriptionProvider | None = None,
-) -> tuple[str, dict]:
+) -> tuple[str, dict[str, Any]]:
     """Transcribe audio/video to markdown using a transcription provider.
 
     Uses a pluggable transcription provider for the actual transcription.

@@ -7,7 +7,9 @@ import pytest
 from gobbler_core.converters.webpage_selector import (
     _extract_links,
     _extract_selector_content,
+    _get_markdown_content,
     _html_to_simple_markdown,
+    _poll_for_result,
     convert_webpage_with_selector,
 )
 
@@ -203,6 +205,47 @@ async def test_convert_webpage_selector_can_bypass_configured_proxy(mock_crawl4a
 
     mock_proxy.assert_not_called()
     assert "proxy_config" not in crawl_request["crawler_config"]["params"]
+
+
+@pytest.mark.asyncio
+async def test_poll_for_result_rejects_non_dictionary_completed_entry() -> None:
+    """Selector polling does not return a malformed completed result entry."""
+    get_response = MagicMock()
+    get_response.json.return_value = {
+        "status": "completed",
+        "results": ["not-a-dictionary"],
+    }
+    get_response.raise_for_status = MagicMock()
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=get_response)
+
+    with (
+        patch("gobbler_core.converters.webpage_selector.asyncio.sleep", new=AsyncMock()),
+        pytest.raises(RuntimeError, match="expected a dictionary"),
+    ):
+        await _poll_for_result(
+            client,
+            "http://crawl.local",
+            "task-1",
+            {},
+            1,
+        )
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {"markdown": 7},
+        {"markdown": "   "},
+        {"markdown": {"fit_markdown": {"bad": "shape"}, "raw_markdown": None}},
+    ],
+)
+def test_get_markdown_content_rejects_non_string_or_blank_value(
+    result: dict[str, object],
+) -> None:
+    """Selector conversion rejects malformed markdown content."""
+    with pytest.raises(RuntimeError, match="No markdown content"):
+        _get_markdown_content(result)
 
 
 def test_extract_links():

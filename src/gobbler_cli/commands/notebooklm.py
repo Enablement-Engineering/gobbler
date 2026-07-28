@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -217,7 +217,7 @@ def _clean_response(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-async def _get_notebooklm_tabs() -> list[dict]:
+async def _get_notebooklm_tabs() -> list[dict[str, Any]]:
     """Get list of NotebookLM tabs in the Gobbler group."""
     from gobbler_relay.client import list_tabs
 

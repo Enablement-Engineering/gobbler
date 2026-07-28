@@ -11,6 +11,7 @@ import shlex
 import signal
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -79,7 +80,7 @@ def format_job_table(jobs: list[JobSummary]) -> str:
         return "No jobs found."
 
     # Column definitions: (header, width, getter)
-    columns = [
+    columns: list[tuple[str, int, Callable[[JobSummary], str]]] = [
         ("ID", 36, lambda j: j.id[:36]),
         ("Type", 14, lambda j: j.job_type.value),
         ("Status", 10, lambda j: j.status.value),

@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from gobbler_core.providers.base import ContentProvider, ProviderResult
+from gobbler_core.providers.document.base import DocumentProvider, DocumentResult
 from gobbler_core.providers.fallback import (
     FallbackCondition,
+    FallbackDocumentProvider,
     FallbackProvider,
+    FallbackTranscriptionProvider,
+    FallbackWebPageProvider,
     create_fallback_provider,
     matches_condition,
 )
+from gobbler_core.providers.transcription.base import (
+    TranscriptionProvider,
+    TranscriptionResult,
+)
+from gobbler_core.providers.webpage.base import WebPageProvider, WebPageResult
 
 
 class MockProvider(ContentProvider):
@@ -50,6 +60,110 @@ class MockProvider(ContentProvider):
         if self._exception:
             raise self._exception
         return self._result
+
+
+class MockWebPageProvider(WebPageProvider):
+    """Mock webpage provider for typed fallback tests."""
+
+    def __init__(self, name: str, exception: Exception | None = None) -> None:
+        """Initialize the mock."""
+        self._name = name
+        self._exception = exception
+        self.fetch_count = 0
+
+    @property
+    def name(self) -> str:
+        """Return provider name."""
+        return self._name
+
+    async def fetch(
+        self,
+        url: str,
+        timeout: int = 30,
+        **options: Any,
+    ) -> WebPageResult:
+        """Return a webpage result or raise the configured exception."""
+        self.fetch_count += 1
+        if self._exception is not None:
+            raise self._exception
+        return WebPageResult(
+            markdown=f"# {self.name}",
+            title=self.name,
+            url=url,
+            metadata={"timeout": timeout, **options},
+        )
+
+
+class MockDocumentProvider(DocumentProvider):
+    """Mock document provider for typed fallback tests."""
+
+    def __init__(self, name: str, exception: Exception | None = None) -> None:
+        """Initialize the mock."""
+        self._name = name
+        self._exception = exception
+        self.convert_count = 0
+
+    @property
+    def name(self) -> str:
+        """Return provider name."""
+        return self._name
+
+    def supports_format(self, file_extension: str) -> bool:
+        """Support PDF files."""
+        return file_extension == ".pdf"
+
+    async def convert(
+        self,
+        file_path: Path,
+        ocr: bool = True,
+        **options: Any,
+    ) -> DocumentResult:
+        """Return a document result or raise the configured exception."""
+        self.convert_count += 1
+        if self._exception is not None:
+            raise self._exception
+        return DocumentResult(
+            markdown=f"# {self.name}",
+            pages=1,
+            metadata={"path": str(file_path), "ocr": ocr, **options},
+        )
+
+
+class MockTranscriptionProvider(TranscriptionProvider):
+    """Mock transcription provider for typed fallback tests."""
+
+    def __init__(self, name: str, exception: Exception | None = None) -> None:
+        """Initialize the mock."""
+        self._name = name
+        self._exception = exception
+        self.transcribe_count = 0
+
+    @property
+    def name(self) -> str:
+        """Return provider name."""
+        return self._name
+
+    def supports_format(self, file_extension: str) -> bool:
+        """Support MP3 files."""
+        return file_extension == ".mp3"
+
+    async def transcribe(
+        self,
+        audio_path: Path,
+        language: str = "auto",
+        **options: Any,
+    ) -> TranscriptionResult:
+        """Return a transcription result or raise the configured exception."""
+        self.transcribe_count += 1
+        if self._exception is not None:
+            raise self._exception
+        return TranscriptionResult(
+            text=self.name,
+            segments=[],
+            language=language,
+            duration=1.0,
+            metadata={"path": str(audio_path), **options},
+        )
 
 
 class TestFallbackCondition:
@@ -273,6 +387,25 @@ class TestFallbackProvider:
 class TestCreateFallbackProvider:
     """Tests for create_fallback_provider factory function."""
 
+    def test_rejects_incompatible_primary_registry_result(self) -> None:
+        """Test that registry results must match the requested category."""
+        mock_config = MagicMock()
+        mock_config.get_provider_config.return_value = {}
+
+        with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
+            mock_registry.create.return_value = object()
+
+            with pytest.raises(
+                TypeError,
+                match=(
+                    "Provider 'crawl4ai' in category 'webpage' is incompatible with "
+                    "fallback handling: expected WebPageProvider, got object"
+                ),
+            ):
+                create_fallback_provider(mock_config, "webpage", "crawl4ai")
+
+        mock_config.get_provider_fallback.assert_not_called()
+
     def test_returns_primary_when_no_fallback_configured(self) -> None:
         """Test that primary provider is returned when no fallback is configured."""
         mock_config = MagicMock()
@@ -280,7 +413,7 @@ class TestCreateFallbackProvider:
         mock_config.get_provider_fallback.return_value = None
 
         with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
-            mock_primary = MockProvider(name="crawl4ai")
+            mock_primary = MockWebPageProvider(name="crawl4ai")
             mock_registry.create.return_value = mock_primary
 
             result = create_fallback_provider(mock_config, "webpage", "crawl4ai")
@@ -288,8 +421,28 @@ class TestCreateFallbackProvider:
             assert result is mock_primary
             mock_registry.create.assert_called_once_with("webpage", "crawl4ai")
 
-    def test_returns_fallback_provider_when_configured(self) -> None:
-        """Test that FallbackProvider is returned when fallback is configured."""
+    def test_webpage_category_wins_for_provider_with_overlapping_interfaces(self) -> None:
+        """Test wrapper dispatch follows category rather than runtime match ordering."""
+        mock_config = MagicMock()
+        mock_config.get_provider_config.side_effect = lambda _cat, _name: {}
+        mock_config.get_provider_fallback.return_value = {
+            "provider": "backup",
+            "on": ["error"],
+        }
+
+        with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
+            mock_registry.create.side_effect = [
+                MockProvider(name="primary"),
+                MockProvider(name="backup"),
+            ]
+
+            result = create_fallback_provider(mock_config, "webpage", "primary")
+
+        assert isinstance(result, FallbackWebPageProvider)
+
+    @pytest.mark.asyncio
+    async def test_preserves_webpage_fetch_fallback_behavior(self) -> None:
+        """Test the documented webpage factory path delegates ``fetch`` correctly."""
         mock_config = MagicMock()
         mock_config.get_provider_config.side_effect = lambda _cat, _name: {}
         mock_config.get_provider_fallback.return_value = {
@@ -298,32 +451,132 @@ class TestCreateFallbackProvider:
         }
 
         with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
-            mock_primary = MockProvider(name="crawl4ai")
-            mock_fallback = MockProvider(name="httpx-simple")
+            mock_primary = MockWebPageProvider(
+                name="crawl4ai",
+                exception=TimeoutError("timed out"),
+            )
+            mock_fallback = MockWebPageProvider(name="httpx-simple")
             mock_registry.create.side_effect = [mock_primary, mock_fallback]
 
             result = create_fallback_provider(mock_config, "webpage", "crawl4ai")
 
-            assert isinstance(result, FallbackProvider)
+            assert isinstance(result, FallbackWebPageProvider)
             assert result.primary is mock_primary
             assert result.fallback is mock_fallback
             assert result.conditions == ["timeout", "rate_limited"]
+            webpage_result = await result.fetch(
+                "https://example.com",
+                timeout=17,
+                include_images=True,
+            )
 
-    def test_handles_single_condition_as_string(self) -> None:
-        """Test that a single condition as string is converted to list."""
+        assert webpage_result.title == "httpx-simple"
+        assert webpage_result.metadata["timeout"] == 17
+        assert webpage_result.metadata["include_images"] is True
+        assert webpage_result.metadata["fallback_used"] is True
+        assert webpage_result.metadata["fallback_reason"] == "timeout"
+
+    def test_rejects_incompatible_fallback_registry_result(self) -> None:
+        """Test that mixed category interfaces are rejected before wrapping."""
         mock_config = MagicMock()
         mock_config.get_provider_config.side_effect = lambda _cat, _name: {}
         mock_config.get_provider_fallback.return_value = {
-            "provider": "httpx-simple",
-            "on": "timeout",  # Single string, not a list
+            "provider": "whisper",
+            "on": ["error"],
         }
 
         with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
-            mock_primary = MockProvider(name="crawl4ai")
-            mock_fallback = MockProvider(name="httpx-simple")
+            mock_registry.create.side_effect = [
+                MockDocumentProvider(name="docling"),
+                MockTranscriptionProvider(name="whisper"),
+            ]
+
+            with pytest.raises(
+                TypeError,
+                match=(
+                    "Provider 'whisper' in category 'document' is incompatible with "
+                    "fallback handling: expected DocumentProvider, "
+                    "got MockTranscriptionProvider"
+                ),
+            ):
+                create_fallback_provider(mock_config, "document", "docling")
+
+    @pytest.mark.asyncio
+    async def test_document_wrapper_delegates_convert_and_enriches_metadata(self) -> None:
+        """Test document fallback uses ``convert`` and preserves its arguments."""
+        mock_config = MagicMock()
+        mock_config.get_provider_config.side_effect = lambda _cat, _name: {}
+        mock_config.get_provider_fallback.return_value = {
+            "provider": "backup-docling",
+            "on": "timeout",
+        }
+
+        with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
+            mock_primary = MockDocumentProvider(
+                name="docling",
+                exception=TimeoutError("timed out"),
+            )
+            mock_fallback = MockDocumentProvider(name="backup-docling")
             mock_registry.create.side_effect = [mock_primary, mock_fallback]
 
-            result = create_fallback_provider(mock_config, "webpage", "crawl4ai")
+            provider = create_fallback_provider(mock_config, "document", "docling")
+            assert isinstance(provider, FallbackDocumentProvider)
+            result = await provider.convert(Path("report.pdf"), ocr=False, tables=True)
 
-            assert isinstance(result, FallbackProvider)
-            assert result.conditions == ["timeout"]
+        assert result.metadata["ocr"] is False
+        assert result.metadata["tables"] is True
+        assert result.metadata["fallback_provider"] == "backup-docling"
+
+    @pytest.mark.asyncio
+    async def test_transcription_wrapper_delegates_transcribe(self) -> None:
+        """Test transcription fallback uses ``transcribe``."""
+        mock_config = MagicMock()
+        mock_config.get_provider_config.side_effect = lambda _cat, _name: {}
+        mock_config.get_provider_fallback.return_value = {
+            "provider": "backup-whisper",
+            "on": ["error"],
+        }
+
+        with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
+            mock_registry.create.side_effect = [
+                MockTranscriptionProvider("whisper", RuntimeError("failed")),
+                MockTranscriptionProvider("backup-whisper"),
+            ]
+            provider = create_fallback_provider(
+                mock_config,
+                "transcription",
+                "whisper",
+            )
+            assert isinstance(provider, FallbackTranscriptionProvider)
+            result = await provider.transcribe(Path("audio.mp3"), language="en")
+
+        assert result.text == "backup-whisper"
+        assert result.language == "en"
+        assert result.metadata["fallback_used"] is True
+
+    @pytest.mark.parametrize(
+        ("fallback_config", "message"),
+        [
+            (42, "must be a string-keyed dictionary"),
+            ({"provider": "", "on": ["error"]}, "nonempty string 'provider'"),
+            ({"provider": "backup", "on": 42}, "'on' to be a nonempty string"),
+            ({"provider": "backup", "on": [""]}, "'on' to be a nonempty string"),
+        ],
+    )
+    def test_rejects_invalid_fallback_config_before_creating_wrapper(
+        self,
+        fallback_config: object,
+        message: str,
+    ) -> None:
+        """Test malformed fallback settings never reach a wrapper."""
+        mock_config = MagicMock()
+        mock_config.get_provider_config.return_value = {}
+        mock_config.get_provider_fallback.return_value = fallback_config
+
+        with patch("gobbler_core.providers.registry.ProviderRegistry") as mock_registry:
+            mock_registry.create.return_value = MockWebPageProvider("crawl4ai")
+
+            with pytest.raises(TypeError, match=message):
+                create_fallback_provider(mock_config, "webpage", "crawl4ai")
+
+        mock_registry.create.assert_called_once()

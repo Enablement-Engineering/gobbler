@@ -20,7 +20,7 @@ import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aiofiles
 
@@ -78,7 +78,7 @@ async def convert_document_to_markdown(
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
     provider: DocumentProvider | None = None,
-) -> tuple[str, dict]:
+) -> tuple[str, dict[str, Any]]:
     """Convert document to markdown using a document conversion provider.
 
     Uses a pluggable document conversion provider for the actual conversion.
@@ -250,7 +250,7 @@ def _convert_xls_to_xlsx(xls_path: Path) -> Path:
         raise RuntimeError(msg) from e
 
 
-def _process_docling_response(result: dict) -> tuple[str, int, int]:
+def _process_docling_response(result: dict[str, Any]) -> tuple[str, int, int]:
     """Process Docling API response and extract markdown content.
 
     Args:

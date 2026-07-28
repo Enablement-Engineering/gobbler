@@ -22,6 +22,8 @@ Example:
     result = await provider.convert(Path("document.pdf"), ocr=True)
 """
 
+from typing import Any
+
 from gobbler_core.providers.document.base import (
     DocumentProvider,
     DocumentResult,
@@ -36,7 +38,7 @@ __all__ = [
 ]
 
 
-def get_default_provider(**kwargs) -> DocumentProvider:
+def get_default_provider(**kwargs: Any) -> DocumentProvider:
     """Get the default document provider based on configuration.
 
     Reads service URL from config file. Falls back to defaults if

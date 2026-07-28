@@ -707,6 +707,20 @@ class Crawl4AIProvider(WebPageProvider):
                             response_keys=sorted(str(key) for key in task_data),
                         )
                     result = results[0]
+                    if not isinstance(result, dict):
+                        raise _build_diagnostic_error(
+                            message=(
+                                "Crawl4AI /crawl returned an invalid result; expected a "
+                                "dictionary. Service health may still pass while conversion "
+                                "is failing."
+                            ),
+                            stage="crawl_result",
+                            endpoint="/crawl",
+                            service_url=self.service_url,
+                            source_url=url,
+                            proxy_configured=self.proxy_url is not None,
+                            response_keys=sorted(str(key) for key in task_data),
+                        )
                 elif task_data.get("task_id"):
                     # Old API (v0.3.x) - poll for completion
                     task_id = task_data["task_id"]
@@ -852,7 +866,22 @@ class Crawl4AIProvider(WebPageProvider):
                         response_error=_extract_response_error(task_status, sensitive),
                         response_keys=sorted(str(key) for key in task_status),
                     )
-                return results[0]
+                result = results[0]
+                if not isinstance(result, dict):
+                    raise _build_diagnostic_error(
+                        message=(
+                            "Crawl4AI task completed with an invalid result; expected a "
+                            "dictionary. Service health may still pass while conversion "
+                            "is failing."
+                        ),
+                        stage="task_result",
+                        endpoint=f"/task/{task_id}",
+                        service_url=self.service_url,
+                        source_url=source_url,
+                        proxy_configured=self.proxy_url is not None,
+                        response_keys=sorted(str(key) for key in task_status),
+                    )
+                return result
 
             if status == "failed":
                 error = task_status.get("error", "Unknown error")
@@ -901,7 +930,7 @@ class Crawl4AIProvider(WebPageProvider):
         elif isinstance(result.get("markdown"), str):
             markdown_content = result["markdown"]
 
-        if not markdown_content:
+        if not isinstance(markdown_content, str) or not markdown_content.strip():
             msg = "No markdown content in Crawl4AI response"
             raise RuntimeError(msg)
 

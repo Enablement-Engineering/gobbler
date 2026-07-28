@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 import yaml
@@ -47,6 +47,7 @@ def get_config(
     from gobbler_core.config import get_config
 
     config = get_config()
+    value: Any
 
     if key is None:
         # Show all config

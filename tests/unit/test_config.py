@@ -5,6 +5,8 @@ from collections.abc import Iterator, Mapping
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
+import pytest
+
 from gobbler_core.config import Config, _ConfigLoader, get_config
 
 
@@ -876,6 +878,66 @@ class TestConfigGet:
 
         assert config.get("level1.level2.level3", "default") == "default"
 
+    def test_provider_accessors_preserve_missing_defaults(self) -> None:
+        """Test typed provider accessors preserve their missing-value defaults."""
+        config = create_test_config({})
+
+        assert config.get_provider_name("webpage") == "crawl4ai"
+        assert config.get_provider_config("webpage", "crawl4ai") == {}
+        assert config.get_proxy_service("missing") is None
+
+    def test_provider_accessors_preserve_valid_config_dictionaries(self) -> None:
+        """Test valid typed configuration dictionaries are returned unchanged."""
+        provider_config = {"timeout": 30}
+        proxy_config = {"url": "http://proxy.example"}
+        config = create_test_config(
+            {
+                "providers": {"webpage": {"crawl4ai": provider_config}},
+                "proxy_services": {"residential": proxy_config},
+            }
+        )
+
+        assert config.get_provider_config("webpage", "crawl4ai") is provider_config
+        assert config.get_proxy_service("residential") is proxy_config
+
+    def test_get_provider_name_rejects_non_string_value(self) -> None:
+        """Test a malformed configured provider name is not hidden by a cast."""
+        config = create_test_config({"providers": {"webpage": {"default": 42}}})
+
+        with pytest.raises(
+            TypeError,
+            match=r"Configuration value 'providers\.webpage\.default' must be a string",
+        ):
+            config.get_provider_name("webpage")
+
+    @pytest.mark.parametrize("provider_config", [["not", "a", "dict"], {True: "bad key"}])
+    def test_get_provider_config_rejects_malformed_value(self, provider_config: object) -> None:
+        """Test provider settings must be dictionaries with string keys."""
+        config = create_test_config({"providers": {"webpage": {"crawl4ai": provider_config}}})
+
+        with pytest.raises(
+            TypeError,
+            match=(
+                r"Configuration value 'providers\.webpage\.crawl4ai' must be a "
+                "dictionary with string keys"
+            ),
+        ):
+            config.get_provider_config("webpage", "crawl4ai")
+
+    @pytest.mark.parametrize("proxy_config", ["not-a-dict", {1: "bad key"}])
+    def test_get_proxy_service_rejects_malformed_value(self, proxy_config: object) -> None:
+        """Test proxy service settings must be dictionaries with string keys."""
+        config = create_test_config({"proxy_services": {"residential": proxy_config}})
+
+        with pytest.raises(
+            TypeError,
+            match=(
+                r"Configuration value 'proxy_services\.residential' must be a "
+                "dictionary with string keys"
+            ),
+        ):
+            config.get_proxy_service("residential")
+
     def test_get_provider_fallback_accepts_legacy_boolean_on_key(self) -> None:
         """Test compatibility with mappings constructed before load canonicalization."""
         config = create_test_config(
@@ -896,7 +958,6 @@ class TestConfigGet:
 
         assert config.get_provider_fallback("youtube") == {
             "provider": "transcriptapi",
-            True: ["ip_blocked", "rate_limited"],
             "on": ["ip_blocked", "rate_limited"],
         }
 
@@ -916,6 +977,36 @@ class TestConfigGet:
         )
 
         assert config.get_provider_fallback("youtube") is None
+
+    @pytest.mark.parametrize(
+        "fallback",
+        [
+            {"provider": "", "on": ["error"]},
+            {"provider": 7, "on": ["error"]},
+            {"provider": "backup", "on": 42},
+            {"provider": "backup", "on": ""},
+            {"provider": "backup", "on": []},
+            {"provider": "backup", "on": ["error", ""]},
+            {"provider": "backup", "on": ["error", 42]},
+        ],
+    )
+    def test_get_provider_fallback_rejects_invalid_value_shapes(
+        self,
+        fallback: dict[str, object],
+    ) -> None:
+        """Test invalid fallback values are consistently treated as unconfigured."""
+        config = create_test_config(
+            {
+                "providers": {
+                    "webpage": {
+                        "default": "crawl4ai",
+                        "crawl4ai": {"fallback": fallback},
+                    }
+                }
+            }
+        )
+
+        assert config.get_provider_fallback("webpage") is None
 
 
 class TestServiceUrl:

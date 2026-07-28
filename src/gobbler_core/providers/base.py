@@ -62,7 +62,7 @@ class ContentProvider(ABC):
         """
 
     @abstractmethod
-    async def fetch(self, source: str, **options) -> ProviderResult:
+    async def fetch(self, source: str, **options: Any) -> ProviderResult:
         """Fetch content from the source.
 
         Args:

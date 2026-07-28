@@ -9,7 +9,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 class Database:
@@ -79,7 +79,7 @@ class Database:
             # Use Row factory for dict-like access
             conn.row_factory = sqlite3.Row
             self._local.connection = conn
-        return self._local.connection
+        return cast("sqlite3.Connection", self._local.connection)
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
@@ -166,7 +166,7 @@ class Database:
         """
         with self.connect() as conn:
             cursor = conn.execute(query, params) if params else conn.execute(query)
-            return cursor.fetchone()
+            return cast("sqlite3.Row | None", cursor.fetchone())
 
     def fetch_all(
         self,

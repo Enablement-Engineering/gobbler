@@ -225,6 +225,51 @@ class TestWebSocketMessageHandling:
     """Tests for WebSocket message handling."""
 
     @pytest.mark.asyncio
+    async def test_malformed_command_responses_do_not_wake_pending_command(
+        self,
+        mock_websocket,
+        caplog,
+    ):
+        """Test malformed response envelopes are logged and ignored."""
+        event = asyncio.Event()
+        relay.pending_commands["expected-id"] = {"event": event, "response": None}
+
+        await relay._handle_websocket_text(mock_websocket, "{")
+        await relay._handle_websocket_text(mock_websocket, "[]")
+        await relay._handle_websocket_text(
+            mock_websocket,
+            '{"type": "command_response", "command_id": 123, "result": {"success": true}}',
+        )
+        await relay._handle_websocket_text(
+            mock_websocket,
+            '{"type": "command_response", "command_id": "expected-id", '
+            '"result": ["not", "a", "dict"]}',
+        )
+
+        pending = relay.pending_commands["expected-id"]
+        assert pending["response"] is None
+        assert not event.is_set()
+        assert "Ignoring malformed WebSocket message" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_valid_command_response_wakes_matching_pending_command(
+        self,
+        mock_websocket,
+    ):
+        """Test a validated command result is stored before waking its waiter."""
+        event = asyncio.Event()
+        relay.pending_commands["expected-id"] = {"event": event, "response": None}
+
+        await relay._handle_websocket_text(
+            mock_websocket,
+            '{"type": "command_response", "command_id": "expected-id", '
+            '"result": {"success": true}}',
+        )
+
+        assert event.is_set()
+        assert relay.pending_commands["expected-id"]["response"] == {"success": True}
+
+    @pytest.mark.asyncio
     async def test_send_command_raises_when_no_connection(self):
         """Test that send_command_to_extension raises when no extension connected."""
         relay.websocket_connections.clear()

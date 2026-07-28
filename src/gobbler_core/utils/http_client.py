@@ -1,6 +1,7 @@
 """HTTP client wrapper with retry logic for service communication."""
 
 import logging
+from types import TracebackType
 from typing import Any
 
 import httpx
@@ -15,7 +16,7 @@ class RetryableHTTPClient:
         self,
         timeout: float = 30.0,
         max_retries: int = 3,
-        retry_statuses: tuple = (500, 502, 503, 504),
+        retry_statuses: tuple[int, ...] = (500, 502, 503, 504),
     ) -> None:
         """Initialize HTTP client.
 
@@ -34,8 +35,11 @@ class RetryableHTTPClient:
         self._client = httpx.AsyncClient(timeout=self.timeout)
         return self
 
-    async def __aexit__(  # type: ignore[no-untyped-def]
-        self, exc_type, exc_val, exc_tb
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit async context manager."""
         if self._client:

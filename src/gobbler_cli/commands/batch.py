@@ -8,7 +8,7 @@ import shlex
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from urllib.parse import parse_qs, urlparse
 
 import typer
@@ -541,7 +541,7 @@ async def _batch_youtube_playlist(  # noqa: C901, PLR0912, PLR0915
                     # would block the event loop, making asyncio.wait_for ineffective
                     loop = asyncio.get_event_loop()
 
-                    def _sync_convert():
+                    def _sync_convert() -> tuple[str, dict[str, Any]]:
                         import asyncio as _asyncio
 
                         return _asyncio.run(
@@ -1038,7 +1038,7 @@ def webpages(
     output_dir: Annotated[
         Path,
         typer.Option("--output-dir", "-o", help="Output directory for converted files"),
-    ] = ...,
+    ] = cast("Path", ...),  # noqa: B008
     concurrency: Annotated[
         int,
         typer.Option(

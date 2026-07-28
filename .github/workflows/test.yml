@@ -53,7 +53,6 @@ jobs:
 
       - name: Type checking with mypy
         run: uv run mypy src/gobbler_core src/gobbler_cli src/gobbler_relay src/gobbler_queue --ignore-missing-imports
-        continue-on-error: true
 
   integration:
     name: Integration Tests

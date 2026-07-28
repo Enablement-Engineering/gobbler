@@ -13,7 +13,8 @@ import signal
 import subprocess
 import time
 from datetime import timedelta
-from typing import TYPE_CHECKING, Optional
+from types import FrameType
+from typing import TYPE_CHECKING, Any, Optional
 
 from .models import Job
 
@@ -74,7 +75,7 @@ class Worker:
 
         self.poll_interval = poll_interval
         self.running = False
-        self.current_process: subprocess.Popen | None = None
+        self.current_process: subprocess.Popen[str] | None = None
         self._current_job_id: str | None = None
         self._stop_after_current = False
 
@@ -298,7 +299,7 @@ class Worker:
         else:
             stdout_lines.append(line)
 
-    def _complete_job(self, job_id: str, result: dict) -> None:
+    def _complete_job(self, job_id: str, result: dict[str, Any]) -> None:
         """Mark a job as completed with result.
 
         Args:
@@ -327,7 +328,11 @@ class Worker:
         signal.signal(signal.SIGTERM, self._handle_sigterm)
         signal.signal(signal.SIGINT, self._handle_sigint)
 
-    def _handle_sigterm(self, signum: int, frame) -> None:  # noqa: ARG002
+    def _handle_sigterm(
+        self,
+        _signum: int,
+        _frame: FrameType | None,
+    ) -> None:
         """Handle SIGTERM - finish current job, then exit.
 
         Args:
@@ -341,7 +346,11 @@ class Worker:
         if not self.current_process:
             self.running = False
 
-    def _handle_sigint(self, signum: int, frame) -> None:  # noqa: ARG002
+    def _handle_sigint(
+        self,
+        _signum: int,
+        _frame: FrameType | None,
+    ) -> None:
         """Handle SIGINT (Ctrl+C) - immediate stop.
 
         Terminates any running subprocess and exits immediately.

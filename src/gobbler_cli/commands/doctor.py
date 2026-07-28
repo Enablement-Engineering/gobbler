@@ -7,7 +7,7 @@ import platform
 import shutil
 import subprocess
 import sys
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import typer
 
@@ -305,7 +305,7 @@ def collect_doctor_report() -> dict[str, Any]:
             "next_actions": list(dict.fromkeys(next_actions)),
         }
     )
-    return redact_value(report)
+    return cast("dict[str, Any]", redact_value(report))
 
 
 def _print_human(report: dict[str, Any]) -> None:

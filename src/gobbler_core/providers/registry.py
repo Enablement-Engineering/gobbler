@@ -17,10 +17,79 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from pathlib import Path
+from typing import Any, ClassVar, Protocol, TypeAlias, runtime_checkable
 
-if TYPE_CHECKING:
-    from gobbler_core.providers.base import ContentProvider
+
+@runtime_checkable
+class NamedProviderProtocol(Protocol):
+    """Structural registry behavior shared by every provider category."""
+
+    @property
+    def name(self) -> str:
+        """Return the provider name."""
+        ...
+
+
+@runtime_checkable
+class ContentProviderProtocol(NamedProviderProtocol, Protocol):
+    """Structural registry behavior for generic content providers."""
+
+    async def fetch(self, source: str, **options: Any) -> Any:
+        """Fetch content."""
+        ...
+
+    def supports(self, source: str) -> bool:
+        """Return whether the source is supported."""
+        ...
+
+
+@runtime_checkable
+class WebPageProviderProtocol(NamedProviderProtocol, Protocol):
+    """Structural registry behavior for webpage providers."""
+
+    async def fetch(self, url: str, timeout: int = 30, **options: Any) -> Any:
+        """Fetch a webpage."""
+        ...
+
+
+@runtime_checkable
+class DocumentProviderProtocol(NamedProviderProtocol, Protocol):
+    """Structural registry behavior for document providers."""
+
+    async def convert(self, file_path: Path, ocr: bool = True, **options: Any) -> Any:
+        """Convert a document."""
+        ...
+
+    def supports_format(self, file_extension: str) -> bool:
+        """Return whether the document format is supported."""
+        ...
+
+
+@runtime_checkable
+class TranscriptionProviderProtocol(NamedProviderProtocol, Protocol):
+    """Structural registry behavior for transcription providers."""
+
+    async def transcribe(
+        self,
+        audio_path: Path,
+        language: str = "auto",
+        **options: Any,
+    ) -> Any:
+        """Transcribe audio."""
+        ...
+
+    def supports_format(self, file_extension: str) -> bool:
+        """Return whether the audio format is supported."""
+        ...
+
+
+AnyProvider: TypeAlias = (
+    ContentProviderProtocol
+    | WebPageProviderProtocol
+    | DocumentProviderProtocol
+    | TranscriptionProviderProtocol
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +125,14 @@ class ProviderRegistry:
     """
 
     # Registry structure: {category: {name: provider_class}}
-    _providers: ClassVar[dict[str, dict[str, type[ContentProvider]]]] = {}
+    _providers: ClassVar[dict[str, dict[str, type[AnyProvider]]]] = {}
 
     @classmethod
     def register(
         cls,
         category: str,
         name: str,
-        provider_class: type[ContentProvider],
+        provider_class: type[AnyProvider],
     ) -> None:
         """Register a provider implementation.
 
@@ -106,7 +175,7 @@ class ProviderRegistry:
         return False
 
     @classmethod
-    def get(cls, category: str, name: str) -> type[ContentProvider]:
+    def get(cls, category: str, name: str) -> type[AnyProvider]:
         """Get provider class by category and name.
 
         Args:
@@ -130,7 +199,7 @@ class ProviderRegistry:
         category: str,
         name: str,
         **kwargs: Any,
-    ) -> ContentProvider:
+    ) -> AnyProvider:
         """Create provider instance from registry.
 
         Args:

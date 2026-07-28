@@ -9,7 +9,11 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from gobbler_core.converters.webpage import convert_webpage_to_markdown
+from gobbler_core.converters.webpage import (
+    _extract_markdown_content,
+    _poll_for_task_completion,
+    convert_webpage_to_markdown,
+)
 from gobbler_core.providers.webpage.crawl4ai import (
     Crawl4AIConversionError,
     Crawl4AIProvider,
@@ -290,6 +294,95 @@ async def test_fetch_malformed_provider_payload_is_not_retried_or_traceback_logg
     assert len(httpx_mock.get_requests()) == 1
     assert not any("retrying" in record.message for record in caplog.records)
     assert not any(record.exc_info for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_fetch_rejects_non_dictionary_direct_result_without_echoing_payload(
+    httpx_mock,
+) -> None:
+    """A malformed direct result produces sanitized diagnostics."""
+    malformed_value = "malformed-result-value"
+    httpx_mock.add_response(
+        method="POST",
+        url="http://crawl.local/crawl",
+        json={"success": True, "results": [malformed_value]},
+    )
+
+    provider = Crawl4AIProvider(service_url="http://crawl.local")
+    with pytest.raises(Crawl4AIConversionError, match="expected a dictionary") as exc_info:
+        await provider.fetch("https://example.com")
+
+    dumped = json.dumps({"message": str(exc_info.value), "diagnostics": exc_info.value.diagnostics})
+    assert exc_info.value.diagnostics["stage"] == "crawl_result"
+    assert malformed_value not in dumped
+
+
+@pytest.mark.asyncio
+async def test_poll_rejects_non_dictionary_result_with_sanitized_diagnostics() -> None:
+    """A malformed completed task result produces sanitized diagnostics."""
+    malformed_value = "malformed-result-value"
+    response = httpx.Response(
+        200,
+        request=httpx.Request("GET", "http://crawl.local/task/task-1"),
+        json={"status": "completed", "results": [malformed_value]},
+    )
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+    provider = Crawl4AIProvider(service_url="http://crawl.local")
+
+    with (
+        patch("gobbler_core.providers.webpage.crawl4ai.asyncio.sleep", new=AsyncMock()),
+        pytest.raises(Crawl4AIConversionError, match="expected a dictionary") as exc_info,
+    ):
+        await provider._poll_for_completion(client, "task-1", {}, 1)
+
+    dumped = json.dumps({"message": str(exc_info.value), "diagnostics": exc_info.value.diagnostics})
+    assert exc_info.value.diagnostics["stage"] == "task_result"
+    assert malformed_value not in dumped
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {"markdown": 7},
+        {"markdown": "   "},
+        {"markdown": {"fit_markdown": ["not", "text"], "raw_markdown": None}},
+    ],
+)
+def test_markdown_extractors_reject_non_string_or_blank_content(
+    result: dict[str, object],
+) -> None:
+    """Provider and legacy converter reject malformed markdown content."""
+    provider = Crawl4AIProvider(service_url="http://crawl.local")
+
+    with pytest.raises(RuntimeError, match="No markdown content"):
+        provider._extract_markdown(result)
+    with pytest.raises(RuntimeError, match="No markdown content"):
+        _extract_markdown_content(result)
+
+
+@pytest.mark.asyncio
+async def test_legacy_poll_rejects_non_dictionary_completed_result() -> None:
+    """The legacy converter does not return a malformed completed result entry."""
+    response = httpx.Response(
+        200,
+        request=httpx.Request("GET", "http://crawl.local/task/task-1"),
+        json={"status": "completed", "results": ["not-a-dictionary"]},
+    )
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    with (
+        patch("gobbler_core.converters.webpage.asyncio.sleep", new=AsyncMock()),
+        pytest.raises(RuntimeError, match="expected a dictionary"),
+    ):
+        await _poll_for_task_completion(
+            client,
+            "http://crawl.local",
+            "task-1",
+            {},
+            1,
+        )
 
 
 @pytest.mark.asyncio
