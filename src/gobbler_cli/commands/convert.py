@@ -16,9 +16,11 @@ import typer
 
 if TYPE_CHECKING:
     from gobbler_core.converters.youtube_frames import FrameCommitHooks, YouTubeFrameRequest
-    from gobbler_core.providers.document import DocumentProvider
-    from gobbler_core.providers.transcription import TranscriptionProvider
-    from gobbler_core.providers.webpage import WebPageProvider
+    from gobbler_core.providers.registry import (
+        DocumentProviderProtocol as DocumentProvider,
+        TranscriptionProviderProtocol as TranscriptionProvider,
+        WebPageProviderProtocol as WebPageProvider,
+    )
 
 from gobbler_cli.output import (
     OutputFormat,
@@ -1112,13 +1114,13 @@ async def _convert_audio(
         transcription_provider: TranscriptionProvider | None = None
         if provider_name:
             try:
-                from gobbler_core.providers.transcription.base import (
-                    TranscriptionProvider as RuntimeTranscriptionProvider,
+                from gobbler_core.providers.registry import (
+                    TranscriptionProviderProtocol,
                 )
 
                 transcription_provider = _require_registry_provider(
                     ProviderRegistry.create("transcription", provider_name, model=model),
-                    RuntimeTranscriptionProvider,
+                    TranscriptionProviderProtocol,
                     "transcription",
                     provider_name,
                 )
@@ -1245,13 +1247,13 @@ async def _convert_document(
         document_provider: DocumentProvider
         if provider_name:
             try:
-                from gobbler_core.providers.document.base import (
-                    DocumentProvider as RuntimeDocumentProvider,
+                from gobbler_core.providers.registry import (
+                    DocumentProviderProtocol,
                 )
 
                 document_provider = _require_registry_provider(
                     ProviderRegistry.create("document", provider_name),
-                    RuntimeDocumentProvider,
+                    DocumentProviderProtocol,
                     "document",
                     provider_name,
                 )
@@ -1453,13 +1455,13 @@ async def _convert_webpage(  # noqa: PLR0915
             webpage_provider: WebPageProvider
             if provider_name:
                 try:
-                    from gobbler_core.providers.webpage.base import (
-                        WebPageProvider as RuntimeWebPageProvider,
+                    from gobbler_core.providers.registry import (
+                        WebPageProviderProtocol,
                     )
 
                     webpage_provider = _require_registry_provider(
                         ProviderRegistry.create("webpage", provider_name),
-                        RuntimeWebPageProvider,
+                        WebPageProviderProtocol,
                         "webpage",
                         provider_name,
                     )

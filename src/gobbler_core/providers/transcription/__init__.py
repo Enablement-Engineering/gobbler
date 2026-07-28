@@ -30,6 +30,7 @@ Example:
 
 from typing import Any
 
+from gobbler_core.providers.registry import TranscriptionProviderProtocol
 from gobbler_core.providers.transcription.base import (
     TranscriptionProvider,
     TranscriptionResult,
@@ -48,7 +49,7 @@ __all__ = [
 ]
 
 
-def get_default_provider(**kwargs: Any) -> TranscriptionProvider:
+def get_default_provider(**kwargs: Any) -> TranscriptionProviderProtocol:
     """Get the default transcription provider based on configuration.
 
     Args:
@@ -65,7 +66,7 @@ def get_default_provider(**kwargs: Any) -> TranscriptionProvider:
     provider_name = kwargs.pop("provider", "whisper-local")
 
     provider = ProviderRegistry.create("transcription", provider_name, **kwargs)
-    if not isinstance(provider, TranscriptionProvider):
+    if not isinstance(provider, TranscriptionProviderProtocol):
         msg = (
             f"Registry provider 'transcription/{provider_name}' must be a "
             f"TranscriptionProvider, got {type(provider).__name__}"

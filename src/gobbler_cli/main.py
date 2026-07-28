@@ -56,7 +56,7 @@ def completion(
     """
     from typer.main import get_command
 
-    click_app = cast("Command", get_command(app))
+    click_app = cast(Command, get_command(app))
 
     # Use click-shell-completion for generating completion scripts
     try:

@@ -30,7 +30,7 @@ from gobbler_core.utils.http_client import RetryableHTTPClient
 from gobbler_core.utils.redaction import neutralize_github_mentions
 
 if TYPE_CHECKING:
-    from gobbler_core.providers.webpage import WebPageProvider
+    from gobbler_core.providers.registry import WebPageProviderProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ async def convert_webpage_to_markdown(
     api_token: str = "gobbler-local-token",  # noqa: S107
     metrics_callback: Callable[[str, int], None] | None = None,
     logger_instance: logging.Logger | None = None,
-    provider: WebPageProvider | None = None,
+    provider: WebPageProviderProtocol | None = None,
     use_proxy: bool = True,
 ) -> tuple[str, dict[str, Any]]:
     """Convert web page to markdown using a webpage provider.
