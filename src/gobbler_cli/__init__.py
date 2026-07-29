@@ -12,6 +12,6 @@ Usage:
     $ gobbler relay start
 """
 
-__version__ = "0.2.33"
+__version__ = "0.2.34"
 
 __all__ = ["__version__"]
