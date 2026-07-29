@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.34] - 2026-07-29
+
+### Changed
+
+- Made the repository's strict mypy check clean and enforcing across the core, CLI, relay, and queue packages.
+
 ## [0.2.33] - 2026-07-25
 
 ### Fixed
