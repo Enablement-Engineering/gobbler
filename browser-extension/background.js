@@ -564,7 +564,7 @@ function connectWebSocket() {
     // Send registration message
     ws.send(JSON.stringify({
       type: 'register',
-      extension_version: '0.2.34',
+      extension_version: '0.2.35',
     }));
 
     // Clear reconnect interval if it exists

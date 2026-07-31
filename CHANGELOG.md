@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.35] - 2026-07-31
+
+### Fixed
+- Aligned the repository's worker-related Make targets with the supported SQLite job CLI, removing stale Redis/RQ terminology and private PID-file process management.
+
 ## [0.2.34] - 2026-07-29
 
 ### Changed
@@ -278,7 +283,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.34...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.35...HEAD
+[0.2.35]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.34...v0.2.35
 [0.2.34]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.33...v0.2.34
 [0.2.33]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.32...v0.2.33
 [0.2.32]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.31...v0.2.32

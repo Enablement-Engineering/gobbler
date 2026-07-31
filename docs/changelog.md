@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.35] - 2026-07-31
+
+### Fixed
+
+- Aligned the repository's worker-related Make targets with the supported SQLite job CLI, removing stale Redis/RQ terminology and private PID-file process management.
+
 ## [0.2.34] - 2026-07-29
 
 ### Changed
