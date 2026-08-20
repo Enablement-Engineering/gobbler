@@ -10,7 +10,7 @@ help:
 	@echo "============================"
 	@echo ""
 	@echo "🚀 Quick Start:"
-	@echo "  make start          - Start everything (Docker services + RQ worker)"
+	@echo "  make start          - Start Docker services + SQLite job worker"
 	@echo "  make verify         - Verify installation and check system health"
 	@echo ""
 	@echo "🐳 Docker Services:"
@@ -21,8 +21,8 @@ help:
 	@echo "  make status         - Check status of all services"
 	@echo ""
 	@echo "🔧 Background Workers:"
-	@echo "  make worker         - Start RQ worker for background tasks"
-	@echo "  make worker-stop    - Stop running RQ workers"
+	@echo "  make worker         - Start the SQLite job worker"
+	@echo "  make worker-stop    - Stop the SQLite job worker"
 	@echo ""
 	@echo "📦 Installation:"
 	@echo "  make install        - Install Gobbler dependencies"
@@ -65,23 +65,18 @@ dev:
 # Service Management Targets
 # ============================================================================
 
-# Start all services: Docker containers + background RQ worker
+# Start all services: Docker containers + SQLite-backed job worker
 # This is your one-stop command to get Gobbler fully operational
 # Runs: Crawl4AI, Docling, and background worker
 start:
-	@echo "🚀 Starting Gobbler (Docker services + RQ worker)..."
+	@echo "🚀 Starting Gobbler (Docker services + SQLite job worker)..."
 	@echo ""
 	@make start-docker
 	@echo ""
-	@echo "🔧 Starting RQ worker in background..."
-	@nohup uv run python -m gobbler_queue.worker > gobbler_worker.log 2>&1 & echo $$! > .worker.pid
+	@echo "🔧 Starting SQLite job worker..."
+	@uv run gobbler jobs worker start
 	@sleep 2
-	@if ps -p $$(cat .worker.pid) > /dev/null 2>&1; then \
-		echo "✅ Worker started (PID: $$(cat .worker.pid))"; \
-		echo "   Log file: gobbler_worker.log"; \
-	else \
-		echo "❌ Worker failed to start. Check gobbler_worker.log"; \
-	fi
+	@uv run gobbler jobs worker status | grep -F "Worker is running"
 	@echo ""
 	@echo "🎉 Gobbler is ready! Use 'make worker-stop' to stop the worker."
 
@@ -122,28 +117,17 @@ status:
 # Worker Management Targets
 # ============================================================================
 
-# Start RQ worker in foreground
-# Processes background tasks from queues: default, transcription, download
-# Keep this running in a terminal while using Gobbler for long tasks
-# Press Ctrl+C to stop
+# Start the SQLite-backed job worker daemon through the public CLI.
 worker:
-	@echo "🔧 Starting RQ worker..."
-	@echo "   Processing queues: default, transcription, download"
-	@echo "   Press Ctrl+C to stop"
-	@echo ""
-	uv run python -m gobbler_queue.worker
+	@echo "🔧 Starting SQLite job worker..."
+	@uv run gobbler jobs worker start
+	@sleep 2
+	@uv run gobbler jobs worker status | grep -F "Worker is running"
 
-# Stop any running RQ workers
-# Attempts to kill both background workers (started by 'make start')
-# and any workers started manually
+# Stop the SQLite-backed job worker daemon through the public CLI.
 worker-stop:
-	@echo "🛑 Stopping RQ workers..."
-	@if [ -f .worker.pid ]; then \
-		kill $$(cat .worker.pid) 2>/dev/null && echo "✅ Worker stopped (PID: $$(cat .worker.pid))" || echo "⚠️  Worker already stopped"; \
-		rm -f .worker.pid; \
-	else \
-		pkill -f "gobbler_queue.worker" && echo "✅ Workers stopped" || echo "⚠️  No workers running"; \
-	fi
+	@echo "🛑 Stopping SQLite job worker..."
+	@uv run gobbler jobs worker stop
 
 # Run the test suite
 # Requires dev dependencies: make dev
