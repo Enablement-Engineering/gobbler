@@ -46,7 +46,7 @@ dependencies = [
     "aiofiles>=24.0.0",
     # CLI
     # Typer 0.27.0's wheel omits the public package API (including Typer).
-    "typer>=0.26.8,!=0.27.0",
+    "typer!=0.27.0,>=0.27.2",
     "rich>=15.0.0",
     # Configuration & monitoring
     "pyyaml>=6.0.1",
