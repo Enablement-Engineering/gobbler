@@ -7,8 +7,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-import gobbler_core.config as config_module
-from gobbler_core.config import Config, _ConfigLoader, get_config
+from gobbler_core.config import Config, _ConfigLoader, _dispose_loader, get_config
 
 
 def create_test_config(data: dict) -> Config:
@@ -33,7 +32,7 @@ class TestConfigLoading:
         """Test loader disposal stays behind the typed PyYAML compatibility boundary."""
         loader = MagicMock()
 
-        config_module._dispose_loader(loader)
+        _dispose_loader(loader)
 
         loader.dispose.assert_called_once_with()
 
