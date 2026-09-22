@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.36] - 2026-09-22
+
+### Fixed
+- Kept strict type checking compatible across warm and fresh dependency resolutions by calling PyYAML loader disposal through an explicitly typed callable boundary.
+
 ## [0.2.35] - 2026-07-31
 
 ### Fixed
@@ -283,7 +288,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Code quality tools including Ruff and mypy
   - Documentation and browser extension setup guides
 
-[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.35...HEAD
+[Unreleased]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.36...HEAD
+[0.2.36]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.35...v0.2.36
 [0.2.35]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.34...v0.2.35
 [0.2.34]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.33...v0.2.34
 [0.2.33]: https://github.com/Enablement-Engineering/gobbler/compare/v0.2.32...v0.2.33

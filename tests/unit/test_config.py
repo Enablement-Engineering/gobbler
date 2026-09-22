@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from gobbler_core.config import Config, _ConfigLoader, get_config
+from gobbler_core.config import Config, _ConfigLoader, _dispose_loader, get_config
 
 
 def create_test_config(data: dict) -> Config:
@@ -27,6 +27,14 @@ class TestConfigLoading:
         assert "services" in Config.DEFAULTS
         assert "redis" in Config.DEFAULTS
         assert Config.DEFAULTS["whisper"]["model"] == "small"
+
+    def test_loader_disposal_uses_typed_compatibility_helper(self) -> None:
+        """Test loader disposal stays behind the typed PyYAML compatibility boundary."""
+        loader = MagicMock()
+
+        _dispose_loader(loader)
+
+        loader.dispose.assert_called_once_with()
 
     @patch("gobbler_core.config.Path")
     def test_config_loads_defaults_when_no_file(self, mock_path_class):

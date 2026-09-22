@@ -6,6 +6,12 @@ icon: material/history
 
 All notable changes to this project are tracked in the root [CHANGELOG.md](https://github.com/Enablement-Engineering/gobbler/blob/main/CHANGELOG.md).
 
+## [0.2.36] - 2026-09-22
+
+### Fixed
+
+- Kept strict type checking compatible across warm and fresh dependency resolutions by calling PyYAML loader disposal through an explicitly typed callable boundary.
+
 ## [0.2.35] - 2026-07-31
 
 ### Fixed
