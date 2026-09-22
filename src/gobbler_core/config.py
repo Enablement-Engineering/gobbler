@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import ChainMap
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, ClassVar, TypeGuard
 
@@ -13,6 +13,12 @@ import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode
 
 logger = logging.getLogger(__name__)
+
+
+def _dispose_loader(loader: yaml.SafeLoader) -> None:
+    """Dispose a PyYAML loader through a stable typed callable boundary."""
+    dispose: Callable[[], None] = loader.dispose
+    dispose()
 
 
 def _is_string_keyed_dict(value: Any) -> TypeGuard[dict[str, Any]]:
@@ -567,7 +573,7 @@ class Config:
                     try:
                         user_config = loader.get_single_data()
                     finally:
-                        loader.dispose()  # type: ignore[no-untyped-call]
+                        _dispose_loader(loader)
                     if user_config:
                         config = self._deep_merge(config, user_config)
                         logger.info("Loaded configuration from %s", self.config_path)
