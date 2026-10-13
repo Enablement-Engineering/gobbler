@@ -83,7 +83,7 @@ dev = [
 docs = [
     "mkdocs-material>=9.7.7",
     "mkdocs-minify-plugin>=0.8.0",
-    "mkdocstrings[python]>=1.0.6",
+    "mkdocstrings[python]>=1.0.7",
 ]
 
 [project.scripts]
